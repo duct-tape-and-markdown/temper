@@ -150,20 +150,20 @@ test("skillDefaultContract carries the skill kind's decidable clauses, name-firs
     skillDefaultContract.map((c) => c.predicate.key),
     [
       "required",
-      "min_len",
-      "allowed_chars",
-      "max_len",
+      "min-len",
+      "allowed-chars",
+      "max-len",
       "shape",
       "deny",
       "name-matches-dir",
       "required",
-      "min_len",
-      "max_len",
+      "min-len",
+      "max-len",
       "shape",
       "listing",
-      "max_len",
+      "max-len",
       "extent",
-      "forbidden_keys",
+      "forbidden-keys",
       "glob-valid",
       "mention-reachable",
     ],
@@ -219,7 +219,7 @@ test("an exclude-only relocation of skill fences the fixture tree its any-depth 
 test("ruleDefaultContract forbids Cursor keys, validates path globs, budgets body size, and gates mentions", () => {
   assert.deepEqual(
     ruleDefaultContract.map((c) => c.predicate.key),
-    ["forbidden_keys", "glob-valid", "extent", "when", "mention-reachable", "trigger-agrees"],
+    ["forbidden-keys", "glob-valid", "extent", "when", "mention-reachable", "trigger-agrees"],
   );
   assert.deepEqual(ruleDefaultContract[0].predicate.keys, ["description", "globs", "alwaysApply"]);
   // The `glob-valid` clause ranges over the one documented rules key, `paths`.
@@ -337,7 +337,7 @@ test("mcpDefaultContract is empty by construction — the one documented key is 
   // And no `closedKeys()`: the remainder is opaque residue, named rather than indicted, so a
   // key upstream adds leaves a valid committed manifest valid.
   assert.equal(
-    mcpDefaultContract.some((c: Clause) => c.predicate.key === "forbidden_keys"),
+    mcpDefaultContract.some((c: Clause) => c.predicate.key === "forbidden-keys"),
     false,
   );
   // The residue channel is opened by the surface's own type — spelled flat and key-sorted
@@ -639,21 +639,21 @@ test("pluginManifestDefaultContract gates the --strict profile", () => {
   // `closedKeys()` reads them as the allow-list.
   assert.deepEqual(
     [...new Set(pluginManifestDefaultContract.map((entry) => entry.predicate.key))],
-    ["required", "min_len", "allowed_chars", "forbidden_keys", "type", "optional", "closed-keys"],
+    ["required", "min-len", "allowed-chars", "forbidden-keys", "type", "optional", "closed-keys"],
   );
   // Every clause is an error: `--strict` is the portable bar, so nothing here is a note.
   assert.ok(pluginManifestDefaultContract.every((entry) => entry.severity === "required"));
 
   const [presence, empty, charset, experimental, keywordsType] = pluginManifestDefaultContract;
   assert.deepEqual(presence.predicate, { key: "required", field: "name" });
-  assert.deepEqual(empty.predicate, { key: "min_len", field: "name", args: { min: 1 } });
+  assert.deepEqual(empty.predicate, { key: "min-len", field: "name", args: { min: 1 } });
   // Kebab-case, no spaces — the charset is the whole rule the docs state.
   assert.deepEqual(charset.predicate, {
-    key: "allowed_chars",
+    key: "allowed-chars",
     field: "name",
     charset: { ranges: ["a-z", "0-9"], chars: "-" },
   });
-  assert.deepEqual(experimental.predicate, { key: "forbidden_keys", keys: ["themes", "monitors"] });
+  assert.deepEqual(experimental.predicate, { key: "forbidden-keys", keys: ["themes", "monitors"] });
   // The declared kinds ride their own field, not the shared `args` bag — the lattice
   // names the engine decodes, in the one spelling that crosses the lock. A single-kind
   // check is the one-element set, no second spelling for it.
@@ -757,7 +757,7 @@ test("pluginManifestDefaultContract's closed key set is the union of both docume
   // level and warns about the placement, so the deny-list clause carries that migration
   // and `closedKeys()` stays silent. Dropping them from the allow-list would have it call
   // a documented key unrecognized — a second finding, and a false one.
-  const denied = pluginManifestDefaultContract.find((entry) => entry.predicate.key === "forbidden_keys");
+  const denied = pluginManifestDefaultContract.find((entry) => entry.predicate.key === "forbidden-keys");
   for (const key of denied?.predicate.keys ?? []) {
     assert.ok(declared.includes(key), `\`${key}\` is denied at the top level but still a recognized key`);
   }
@@ -795,8 +795,8 @@ test("marketplaceDefaultContract gates the reserved-names deny list and the per-
     marketplaceDefaultContract.map((entry) => entry.predicate.key),
     [
       "required", // name presence
-      "min_len", // name min length
-      "allowed_chars", // name charset
+      "min-len", // name min length
+      "allowed-chars", // name charset
       "deny", // name reserved list
       "required", // owner presence
       "required", // owner.name presence
@@ -819,9 +819,9 @@ test("marketplaceDefaultContract gates the reserved-names deny list and the per-
   const [presence, empty, charset, reserved, owner, ownerName, plugins, entryName, entrySource, ...whenClauses] =
     marketplaceDefaultContract;
   assert.deepEqual(presence.predicate, { key: "required", field: "name" });
-  assert.deepEqual(empty.predicate, { key: "min_len", field: "name", args: { min: 1 } });
+  assert.deepEqual(empty.predicate, { key: "min-len", field: "name", args: { min: 1 } });
   assert.deepEqual(charset.predicate, {
-    key: "allowed_chars",
+    key: "allowed-chars",
     field: "name",
     charset: { ranges: ["a-z", "0-9"], chars: "-" },
   });
@@ -1338,7 +1338,7 @@ test("each instruction-bearing builtin kind's guidance states what reaches conte
 test("agentDefaultContract requires name and description, bounds the name at 256 characters, refuses a colon or a leading dash, and pins per-scope uniqueness", () => {
   assert.deepEqual(
     agentDefaultContract.map((c) => c.predicate.key),
-    ["required", "max_len", "allowed_chars", "allowed_chars", "unique-name", "required"],
+    ["required", "max-len", "allowed-chars", "allowed-chars", "unique-name", "required"],
   );
   assert.deepEqual(
     agentDefaultContract.map((c) => c.predicate.field),

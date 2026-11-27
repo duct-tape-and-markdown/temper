@@ -454,7 +454,7 @@ mod tests {
     fn a_failing_contract_carries_the_verdict_and_notify_instruction() {
         let diagnostics = vec![
             Diagnostic::error(
-                "allowed_chars",
+                "allowed-chars",
                 "Coordinate",
                 "name has characters outside [a-z0-9-]",
             ),
@@ -470,7 +470,7 @@ mod tests {
         // in the verdict; the advisory warn is not counted as blocking.
         assert!(context.contains("approval before continuing"));
         assert!(context.contains("1 blocking finding"));
-        assert!(context.contains("allowed_chars"));
+        assert!(context.contains("allowed-chars"));
         assert!(context.contains("Coordinate"));
     }
 

@@ -104,7 +104,7 @@ the gate.
 
 ## Read a diagnostic
 
-Each finding names its clause (the \`code\`, e.g. \`skill.forbidden_keys\`), the artifact
+Each finding names its clause (the \`code\`, e.g. \`skill.forbidden-keys\`), the artifact
 it is about, and what failed. A \`required\` finding blocks; an \`advisory\` one is a
 recommendation. The clause id is the contract clause that fired — read it against the
 contract for that kind to see exactly what was checked.

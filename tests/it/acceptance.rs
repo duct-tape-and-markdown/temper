@@ -197,7 +197,7 @@ fn builtin_skill_rowless_gates_on_the_embedded_default() {
 
 /// The lock's declared skill clause rows ARE the kind's whole contract — a spread that
 /// keeps `required(description)` and appends an `enum(tier)` (the range/enumOf tier),
-/// omitting `deny(name)` and `forbidden_keys`. The appended clause fires on the member;
+/// omitting `deny(name)` and `forbidden-keys`. The appended clause fires on the member;
 /// the omitted defaults no longer gate, even over inputs (`name = anthropic`, a `globs`
 /// key) they would have caught — array surgery removes, no severity-flip layer survives.
 #[test]
@@ -240,8 +240,8 @@ fn builtin_skill_declared_rows_are_the_whole_contract() {
         run.output
     );
     assert!(
-        !run.output.contains("forbidden_keys"),
-        "the omitted `forbidden_keys` default must not gate — the `globs` key passes, got:\n{}",
+        !run.output.contains("forbidden-keys"),
+        "the omitted `forbidden-keys` default must not gate — the `globs` key passes, got:\n{}",
         run.output
     );
 }

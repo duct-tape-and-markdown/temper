@@ -3,7 +3,7 @@
 /**
  * One ATX **section** of a markdown body: a heading paired with the body span
  * beneath it, up to the next heading of the same or a shallower level. The
- * feature a `section_contains` clause decides over — its [`heading`](Section::heading) is
+ * feature a `section-contains` clause decides over — its [`heading`](Section::heading) is
  * matched by the clause's declared prefix, its [`body`](Section::body) searched
  * for the declared marker. Surface-decidable like every other feature: a heading
  * inside a fenced code block opens no section (the same exclusion
@@ -17,6 +17,6 @@ export type Section = {
 heading: string, 
 /**
  * The body span beneath the heading — the intervening lines rejoined with
- * `\n`, the text a `section_contains` marker check searches.
+ * `\n`, the text a `section-contains` marker check searches.
  */
 body: string, };

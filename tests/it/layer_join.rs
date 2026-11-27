@@ -54,7 +54,7 @@ fn lock_of(org: &Path) -> PathBuf {
     org.join(".temper").join("lock.toml")
 }
 
-/// A `max_len` clause on `skill`'s `description`, bounded far under any real
+/// A `max-len` clause on `skill`'s `description`, bounded far under any real
 /// description's length, at `severity` — the one policy every case here states, so what
 /// varies between them is the join and never the check.
 fn description_bound(severity: &str) -> ClauseRow {
@@ -67,7 +67,7 @@ fn description_bound(severity: &str) -> ClauseRow {
             max: Some(10),
             entry: None,
         }),
-        ..common::clause("max_len", severity)
+        ..common::clause("max-len", severity)
     }
 }
 
@@ -104,7 +104,7 @@ fn a_joined_lock_gates_the_host_corpus_and_an_unjoined_one_does_not() {
     // Naming the org's lock joins its clause over this corpus's own skills.
     let (findings, ok) = check_joining(&harness, &[&lock_of(&org)]);
     assert!(!ok, "a joined required clause gates the run: {findings:?}");
-    let joined = findings_naming(&findings, "skill.max_len.description@");
+    let joined = findings_naming(&findings, "skill.max-len.description@");
     assert_eq!(
         joined.len(),
         1,
@@ -161,7 +161,7 @@ fn a_joined_clause_that_would_soften_the_hosts_gate_is_inert_and_still_visible()
         !ok,
         "a joined layer never talks the host's gate down: {findings:?}"
     );
-    let host_finding = common::findings_for(&findings, "skill.max_len.description");
+    let host_finding = common::findings_for(&findings, "skill.max-len.description");
     assert_eq!(
         host_finding.len(),
         1,
@@ -174,7 +174,7 @@ fn a_joined_clause_that_would_soften_the_hosts_gate_is_inert_and_still_visible()
 
     // Inert on the verdict, but never silent: the layer's own clause reports at the
     // severity the layer declared, so what it asked for is visible rather than swallowed.
-    let joined = findings_naming(&findings, "skill.max_len.description@");
+    let joined = findings_naming(&findings, "skill.max-len.description@");
     assert_eq!(joined.len(), 1, "the joined clause reports: {findings:?}");
     assert!(
         joined[0].starts_with("::warning"),
@@ -194,7 +194,7 @@ fn two_layers_declaring_one_clause_each_keep_their_own_addresses() {
     // addressed under the layer that carried it, so neither collides with the other and
     // both judge — a clause's address stays the name its own finding prints.
     assert!(!ok, "the required layer gates: {findings:?}");
-    let joined = findings_naming(&findings, "skill.max_len.description@");
+    let joined = findings_naming(&findings, "skill.max-len.description@");
     assert_eq!(joined.len(), 2, "both layers' clauses fire: {findings:?}");
     assert_eq!(
         joined.iter().filter(|f| f.starts_with("::error")).count(),
@@ -216,7 +216,7 @@ fn one_lock_named_twice_joins_once() {
     // malformed layer.
     assert!(!ok, "the layer still gates: {findings:?}");
     assert_eq!(
-        findings_naming(&findings, "skill.max_len.description@").len(),
+        findings_naming(&findings, "skill.max-len.description@").len(),
         1,
         "the repeated lock joins once: {findings:?}"
     );
@@ -391,7 +391,7 @@ fn description_guard(body: Vec<ClauseRow>) -> ClauseRow {
     }
 }
 
-/// A `max_len` body clause over `skill`'s `description`, bounded far under any real
+/// A `max-len` body clause over `skill`'s `description`, bounded far under any real
 /// description's length — the guarded twin of [`description_bound`].
 fn description_bound_body() -> ClauseRow {
     ClauseRow {
@@ -401,12 +401,12 @@ fn description_bound_body() -> ClauseRow {
             max: Some(10),
             entry: None,
         }),
-        ..common::clause("max_len", "required")
+        ..common::clause("max-len", "required")
     }
 }
 
 /// The address a joined guard's body clause is judged under, up to the layer qualifier.
-const JOINED_BODY_ADDRESS: &str = "skill.when.description=string.max_len.description";
+const JOINED_BODY_ADDRESS: &str = "skill.when.description=string.max-len.description";
 
 #[test]
 fn a_joined_layers_own_guard_body_twin_refuses_the_run() {

@@ -2895,11 +2895,11 @@ mod tests {
             Err(ClauseRowError::Predicate { predicate }) if predicate == "not_a_predicate"
         ));
 
-        // A known predicate missing its required argument (`section_contains` with no
+        // A known predicate missing its required argument (`section-contains` with no
         // `section` column) cannot be built either — the same loud rejection.
         let missing_arg = vec![ClauseRow {
             kind: Some("spec".to_string()),
-            ..test_support::clause_row("section_contains", "advisory")
+            ..test_support::clause_row("section-contains", "advisory")
         }];
         assert!(matches!(
             default_contract_from_rows(&missing_arg, &[], "spec"),

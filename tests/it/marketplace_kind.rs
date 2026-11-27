@@ -150,7 +150,7 @@ fn a_reserved_name_is_a_finding_even_though_it_is_well_formed_kebab_case() {
     // The charset clause has nothing to say about it — proof the deny list is load-bearing
     // rather than incidentally shadowed by the kebab-case rule.
     assert!(
-        common::findings_for(&findings, "marketplace.allowed_chars.name").is_empty(),
+        common::findings_for(&findings, "marketplace.allowed-chars.name").is_empty(),
         "{findings:?}"
     );
 }
@@ -213,7 +213,7 @@ fn a_name_outside_the_kebab_case_charset_is_a_finding() {
     let (findings, ok) = check_harness(&harness);
     assert!(!ok, "a non-kebab-case name fails the gate");
     assert!(
-        !common::findings_for(&findings, "marketplace.allowed_chars.name").is_empty(),
+        !common::findings_for(&findings, "marketplace.allowed-chars.name").is_empty(),
         "{findings:?}"
     );
 }

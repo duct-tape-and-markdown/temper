@@ -1047,7 +1047,7 @@ fn an_emitted_nested_skill_draws_no_name_finding_from_the_skill_contract() {
     let (root, _) = nested_skill_emitted("nested-skill-leaf-check");
     let run = common::check_in(&root, &[], None);
     assert!(
-        !run.output.contains("name-matches-dir") && !run.output.contains("allowed_chars"),
+        !run.output.contains("name-matches-dir") && !run.output.contains("allowed-chars"),
         "{}",
         run.output
     );

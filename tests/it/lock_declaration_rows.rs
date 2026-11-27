@@ -848,8 +848,8 @@ fn a_root_clause_row_round_trips_with_its_kind_column_absent() {
 }
 
 /// A kind's own floor clause row round-trips its **node-scope predicate argument**
-/// (`LOCK-CLAUSE-PREDICATE-ARGS`) — `min_len`/`max_len`/`extent`'s bound,
-/// `allowed_chars`'s charset, `forbidden_keys`'s keys, `deny`'s values — not just
+/// (`LOCK-CLAUSE-PREDICATE-ARGS`) — `min-len`/`max-len`/`extent`'s bound,
+/// `allowed-chars`'s charset, `forbidden-keys`'s keys, `deny`'s values — not just
 /// identity+severity, so a floor `Contract` is reconstructable from the rows alone.
 #[test]
 fn a_floor_clause_row_round_trips_its_node_scope_predicate_argument() {
@@ -864,14 +864,14 @@ fn a_floor_clause_row_round_trips_its_node_scope_predicate_argument() {
             max: Some(64),
             entry: None,
         }),
-        ..common::clause("max_len", "required")
+        ..common::clause("max-len", "required")
     });
     declarations.clauses.push(ClauseRow {
         unit: None,
         label: None,
         kind: Some("skill".to_string()),
         keys: Some(vec!["globs".to_string(), "alwaysApply".to_string()]),
-        ..common::clause("forbidden_keys", "required")
+        ..common::clause("forbidden-keys", "required")
     });
     declarations.clauses.push(ClauseRow {
         unit: None,
@@ -884,7 +884,7 @@ fn a_floor_clause_row_round_trips_its_node_scope_predicate_argument() {
             negated: Some(true),
             position: Some("leading".to_string()),
         }),
-        ..common::clause("allowed_chars", "required")
+        ..common::clause("allowed-chars", "required")
     });
 
     let payload = golden_payload(declarations);
@@ -894,7 +894,7 @@ fn a_floor_clause_row_round_trips_its_node_scope_predicate_argument() {
     let max_len_row = read_back
         .clauses
         .iter()
-        .find(|c| c.predicate == "max_len" && c.field.as_deref() == Some("name"))
+        .find(|c| c.predicate == "max-len" && c.field.as_deref() == Some("name"))
         .expect("the max_len clause row round-trips");
     let bound = max_len_row.bound.expect("the bound is recorded");
     assert_eq!((bound.min, bound.max), (None, Some(64)));
@@ -902,7 +902,7 @@ fn a_floor_clause_row_round_trips_its_node_scope_predicate_argument() {
     let forbidden_keys_row = read_back
         .clauses
         .iter()
-        .find(|c| c.predicate == "forbidden_keys")
+        .find(|c| c.predicate == "forbidden-keys")
         .expect("the forbidden_keys clause row round-trips");
     assert_eq!(
         forbidden_keys_row.keys.as_deref(),
@@ -912,7 +912,7 @@ fn a_floor_clause_row_round_trips_its_node_scope_predicate_argument() {
     let allowed_chars_row = read_back
         .clauses
         .iter()
-        .find(|c| c.predicate == "allowed_chars")
+        .find(|c| c.predicate == "allowed-chars")
         .expect("the allowed_chars clause row round-trips");
     let charset = allowed_chars_row
         .charset
@@ -922,7 +922,7 @@ fn a_floor_clause_row_round_trips_its_node_scope_predicate_argument() {
     assert_eq!(charset.chars.as_deref(), Some("-"));
 }
 
-/// The `range` (f64 bounds) and `section_contains` (heading+marker) clause rows
+/// The `range` (f64 bounds) and `section-contains` (heading+marker) clause rows
 /// round-trip their arguments through `to_table`/`from_table` byte-stably — the
 /// column homes `PREDICATE-CONSTRUCTORS` adds beside the existing node-scope args
 /// (`a_floor_clause_row_round_trips_its_node_scope_predicate_argument`).
@@ -945,7 +945,7 @@ fn a_range_and_section_clause_row_round_trip_the_lock() {
             heading: "Decision".to_string(),
             marker: "Rejected".to_string(),
         }),
-        ..common::clause("section_contains", "required")
+        ..common::clause("section-contains", "required")
     });
 
     let payload = golden_payload(declarations);
@@ -974,7 +974,7 @@ fn a_range_and_section_clause_row_round_trip_the_lock() {
     let section_row = read_back
         .clauses
         .iter()
-        .find(|c| c.predicate == "section_contains")
+        .find(|c| c.predicate == "section-contains")
         .expect("the section_contains clause row round-trips");
     let section = section_row
         .section
@@ -984,7 +984,7 @@ fn a_range_and_section_clause_row_round_trip_the_lock() {
     assert_eq!(section.marker, "Rejected");
 }
 
-/// The `require_sections` (heading-list) clause row round-trips its arguments through
+/// The `require-sections` (heading-list) clause row round-trips its arguments through
 /// `to_table`/`from_table` byte-stably — the column homes the `PREDICATE-CONSTRUCTORS`
 /// entry adds alongside the existing node-scope args.
 #[test]
@@ -995,7 +995,7 @@ fn a_require_sections_clause_row_round_trips_the_lock() {
         label: None,
         kind: Some("skill".to_string()),
         sections: Some(vec!["Usage".to_string(), "Decision".to_string()]),
-        ..common::clause("require_sections", "required")
+        ..common::clause("require-sections", "required")
     });
 
     let payload = golden_payload(declarations);
@@ -1015,7 +1015,7 @@ fn a_require_sections_clause_row_round_trips_the_lock() {
     let require_sections_row = read_back
         .clauses
         .iter()
-        .find(|c| c.predicate == "require_sections")
+        .find(|c| c.predicate == "require-sections")
         .expect("the require_sections clause row round-trips");
     assert_eq!(
         require_sections_row.sections.as_deref(),
@@ -1023,7 +1023,7 @@ fn a_require_sections_clause_row_round_trips_the_lock() {
     );
 
     let predicate =
-        contract::predicate_from_row(require_sections_row).expect("require_sections lifts");
+        contract::predicate_from_row(require_sections_row).expect("require-sections lifts");
     assert_eq!(
         predicate,
         Predicate::RequireSections {
@@ -1035,7 +1035,7 @@ fn a_require_sections_clause_row_round_trips_the_lock() {
 /// The five SDK-authorable predicates lift from their lock rows into the typed
 /// `Predicate` the engine evaluates (`PREDICATE-CONSTRUCTORS`): the row an SDK
 /// constructor emits decodes through `predicate_from_row`, and the lifted
-/// `section_contains` fires on a violating member — author → row → `Predicate` →
+/// `section-contains` fires on a violating member — author → row → `Predicate` →
 /// finding.
 #[test]
 fn the_five_sdk_authorable_predicate_rows_lift_and_evaluate() {
@@ -1087,7 +1087,7 @@ fn the_five_sdk_authorable_predicate_rows_lift_and_evaluate() {
         unit: None,
         label: None,
         field: Some("disable-model-invocation".to_string()),
-        ..common::clause("must_define", "required")
+        ..common::clause("must-define", "required")
     };
     assert_eq!(
         contract::predicate_from_row(&must_define),
@@ -1103,9 +1103,9 @@ fn the_five_sdk_authorable_predicate_rows_lift_and_evaluate() {
             heading: "Decision".to_string(),
             marker: "Rejected".to_string(),
         }),
-        ..common::clause("section_contains", "required")
+        ..common::clause("section-contains", "required")
     };
-    let predicate = contract::predicate_from_row(&section).expect("section_contains lifts");
+    let predicate = contract::predicate_from_row(&section).expect("section-contains lifts");
     assert_eq!(
         predicate,
         Predicate::SectionContains {
@@ -1120,7 +1120,7 @@ fn the_five_sdk_authorable_predicate_rows_lift_and_evaluate() {
         name: "spec".to_string(),
         guidance: None,
         clauses: vec![Clause {
-            label: "spec.section_contains".to_string(),
+            label: "spec.section-contains".to_string(),
             severity: Severity::Required,
             predicate,
             guidance: None,
@@ -1136,16 +1136,16 @@ fn the_five_sdk_authorable_predicate_rows_lift_and_evaluate() {
     let features: Features = Extraction::new(vec![Primitive::Sections]).extract(&unit);
     let diagnostics = engine::validate(&contract, std::slice::from_ref(&features));
     assert_eq!(diagnostics.len(), 1, "the bare Decision section fires once");
-    assert_eq!(diagnostics[0].rule, "spec.section_contains");
+    assert_eq!(diagnostics[0].rule, "spec.section-contains");
 
     let require_sections = ClauseRow {
         unit: None,
         label: None,
         sections: Some(vec!["Usage".to_string(), "Decision".to_string()]),
-        ..common::clause("require_sections", "required")
+        ..common::clause("require-sections", "required")
     };
     let predicate =
-        contract::predicate_from_row(&require_sections).expect("require_sections lifts");
+        contract::predicate_from_row(&require_sections).expect("require-sections lifts");
     assert_eq!(
         predicate,
         Predicate::RequireSections {
@@ -2386,7 +2386,7 @@ fn check_walks_the_locks_declared_governs_locus_not_the_kinds_embedded_default()
         "the member at the lock's declared locus must be found and fire, got:\n{output}"
     );
     assert!(
-        output.contains("forbidden_keys"),
+        output.contains("forbidden-keys"),
         "the finding names the clause the relocated member tripped, got:\n{output}"
     );
 }
@@ -2541,7 +2541,7 @@ fn a_harness_with_no_lock_is_gated_by_the_built_in_lock() {
         "a forbidden-key skill must still fire with no committed lock at all, got:\n{output}"
     );
     assert!(
-        output.contains("forbidden_keys"),
+        output.contains("forbidden-keys"),
         "the finding names the clause the harness member tripped even with no lock, got:\n{output}"
     );
 }
@@ -3170,7 +3170,7 @@ fn every_emitted_clause_row_carries_a_deterministic_human_legible_label() {
                         max: Some(80),
                         entry: None,
                     }),
-                    ..common::clause("max_len", "required")
+                    ..common::clause("max-len", "required")
                 },
                 ClauseRow {
                     unit: None,
@@ -3181,7 +3181,7 @@ fn every_emitted_clause_row_carries_a_deterministic_human_legible_label() {
                         max: Some(40),
                         entry: None,
                     }),
-                    ..common::clause("max_len", "required")
+                    ..common::clause("max-len", "required")
                 },
                 // A fieldless predicate addresses on its owner and key alone.
                 ClauseRow {
@@ -3217,11 +3217,11 @@ fn every_emitted_clause_row_carries_a_deterministic_human_legible_label() {
         labels,
         [
             "spec.required.owner",
-            "spec.max_len.title",
-            "spec.max_len.owner",
+            "spec.max-len.title",
+            "spec.max-len.owner",
             "spec.extent",
         ],
-        "each row addresses as `<kind>.<predicate>[.<field>]` — the two `max_len` \
+        "each row addresses as `<kind>.<predicate>[.<field>]` — the two `max-len` \
          clauses over different fields are distinct addresses, not one colliding key"
     );
 
@@ -3456,8 +3456,8 @@ fn two_body_rows_under_one_guard_sharing_one_label_fail_admissibility_loud() {
     );
 }
 
-/// A fixture SDK program declaring two `section_contains` clauses and two
-/// `require_sections` clauses on one kind. Neither predicate names a field, and a
+/// A fixture SDK program declaring two `section-contains` clauses and two
+/// `require-sections` clauses on one kind. Neither predicate names a field, and a
 /// clause's compiled label is stamped from the row's `field` column, so lowering the
 /// predicate's own (absent) field folded every clause of one of these predicates on
 /// one kind into a single label — a malformed lock the author could not get past
@@ -3526,19 +3526,19 @@ fn two_section_clauses_of_one_predicate_carry_distinct_labels_and_gate_independe
     // The heading and the marker both reach the address, so two clauses over one
     // heading stay two rows.
     assert_eq!(
-        labels_of("section_contains"),
+        labels_of("section-contains"),
         vec![
-            "skill.section_contains.Invariant.Standard".to_string(),
-            "skill.section_contains.Invariant.Test".to_string(),
+            "skill.section-contains.Invariant.Standard".to_string(),
+            "skill.section-contains.Invariant.Test".to_string(),
         ],
     );
     // The whole heading list reaches the address, so a list and its own prefix stay
     // two rows.
     assert_eq!(
-        labels_of("require_sections"),
+        labels_of("require-sections"),
         vec![
-            "skill.require_sections.Usage".to_string(),
-            "skill.require_sections.Usage+Decision".to_string(),
+            "skill.require-sections.Usage".to_string(),
+            "skill.require-sections.Usage+Decision".to_string(),
         ],
     );
 
@@ -3553,7 +3553,7 @@ fn two_section_clauses_of_one_predicate_carry_distinct_labels_and_gate_independe
             .collect()
     };
     assert_eq!(
-        lifted("section_contains"),
+        lifted("section-contains"),
         vec![
             Predicate::SectionContains {
                 heading: "Invariant".to_string(),
@@ -3566,7 +3566,7 @@ fn two_section_clauses_of_one_predicate_carry_distinct_labels_and_gate_independe
         ],
     );
     assert_eq!(
-        lifted("require_sections"),
+        lifted("require-sections"),
         vec![
             Predicate::RequireSections {
                 sections: vec!["Usage".to_string()],
@@ -3586,13 +3586,13 @@ fn two_section_clauses_of_one_predicate_carry_distinct_labels_and_gate_independe
         "the unsatisfied sibling of each pair must fail the run, got:\n{output}"
     );
     assert!(
-        output.contains("skill.section_contains.Invariant.Standard")
-            && output.contains("skill.require_sections.Usage+Decision"),
+        output.contains("skill.section-contains.Invariant.Standard")
+            && output.contains("skill.require-sections.Usage+Decision"),
         "each failing clause reports under its own address, got:\n{output}"
     );
     assert!(
-        !output.contains("skill.section_contains.Invariant.Test"),
-        "the satisfied `section_contains` sibling stays silent, got:\n{output}"
+        !output.contains("skill.section-contains.Invariant.Test"),
+        "the satisfied `section-contains` sibling stays silent, got:\n{output}"
     );
 }
 

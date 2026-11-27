@@ -54,7 +54,7 @@ fn write_clauses(root: &Path, clauses: Vec<ClauseRow>) {
     );
 }
 
-/// A skill carrying the Cursor `globs` key — the skill floor's `forbidden_keys`
+/// A skill carrying the Cursor `globs` key — the skill floor's `forbidden-keys`
 /// clause forbids it at `required` severity, a
 /// real, otherwise floor-clean violation to flip the verdict on.
 fn skill_with_forbidden_key(name: &str) -> String {
@@ -79,7 +79,7 @@ fn a_lock_declared_clause_row_is_the_kinds_whole_contract_a_temper_toml_only_one
         &skill_with_forbidden_key("legacy-rule"),
     );
 
-    // The floor's `forbidden_keys` is `required`: the `globs` key fails the run.
+    // The floor's `forbidden-keys` is `required`: the `globs` key fails the run.
     let floor = common::check_in(&root, &[], None);
     assert!(
         !floor.ok,
@@ -95,7 +95,7 @@ fn a_lock_declared_clause_row_is_the_kinds_whole_contract_a_temper_toml_only_one
         "[kind.skill]\n\
          [[kind.skill.clause]]\n\
          severity = \"advisory\"\n\
-         predicate = \"forbidden_keys\"\n\
+         predicate = \"forbidden-keys\"\n\
          keys = [\"globs\", \"alwaysApply\"]\n",
     );
     let toml_only = common::check_in(&root, &[], None);
@@ -106,7 +106,7 @@ fn a_lock_declared_clause_row_is_the_kinds_whole_contract_a_temper_toml_only_one
     );
 
     // The lock's declared skill clause rows ARE the kind's whole contract — no
-    // severity-flip layer over the embedded default. A lone advisory `forbidden_keys`
+    // severity-flip layer over the embedded default. A lone advisory `forbidden-keys`
     // row (carrying its full `keys` argument, since a row lifts as a complete clause)
     // replaces the default, so the same `globs` key trips only an advisory and the run
     // passes.
@@ -117,7 +117,7 @@ fn a_lock_declared_clause_row_is_the_kinds_whole_contract_a_temper_toml_only_one
             label: None,
             kind: Some("skill".to_string()),
             keys: Some(vec!["globs".to_string(), "alwaysApply".to_string()]),
-            ..common::clause("forbidden_keys", "advisory")
+            ..common::clause("forbidden-keys", "advisory")
         }],
     );
     let lock_contract = common::check_in(&root, &[], None);
@@ -1264,7 +1264,7 @@ fn a_requirement_with_no_satisfiers_judges_its_member_grain_clauses_over_nothing
 #[test]
 fn a_kinds_own_member_grain_clause_reports_exactly_once() {
     let root = common::tmpdir("kind-member-grain-once");
-    // The skill floor's `forbidden_keys` is a member-grain clause of the `skill`
+    // The skill floor's `forbidden-keys` is a member-grain clause of the `skill`
     // contract, and that contract is also bound to the kind's own selection
     // (`gate::kind_selections`). `engine::validate` already reads it there, so the
     // member-grain pass over selections skips the by-kind half — a second read would
@@ -1298,7 +1298,7 @@ fn a_kinds_own_member_grain_clause_reports_exactly_once() {
         run.output
     );
     assert_eq!(
-        common::findings_for(&run.findings(), "skill.forbidden_keys").len(),
+        common::findings_for(&run.findings(), "skill.forbidden-keys").len(),
         1,
         "a kind's member-grain clause reports once, never twice, got:\n{}",
         run.output

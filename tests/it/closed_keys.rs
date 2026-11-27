@@ -180,7 +180,7 @@ fn a_path_declares_its_top_level_key_never_the_nested_one_it_addresses() {
 
 #[test]
 fn a_closed_keys_clause_on_a_kind_declaring_no_keys_is_inadmissible() {
-    // Vacuous in the mirror image of an empty `forbidden_keys`: over no declared key the
+    // Vacuous in the mirror image of an empty `forbidden-keys`: over no declared key the
     // clause indicts every key of every member, which the author cannot have meant. The
     // contract fails admissibility rather than gating on it.
     let vacuous = contract(vec![

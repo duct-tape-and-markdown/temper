@@ -1738,13 +1738,13 @@ export const pluginManifestDefaultContract: readonly Clause[] = [
   clause(optional("themes"), {
     severity: "required",
     guidance:
-      "`themes` is recognized here only so the `forbidden_keys` clause can name the move: theme files belong under `experimental.themes`.",
+      "`themes` is recognized here only so the `forbidden-keys` clause can name the move: theme files belong under `experimental.themes`.",
     cite: "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)",
   }),
   clause(optional("monitors"), {
     severity: "required",
     guidance:
-      "`monitors` is recognized here only so the `forbidden_keys` clause can name the move: monitors belong under `experimental.monitors`.",
+      "`monitors` is recognized here only so the `forbidden-keys` clause can name the move: monitors belong under `experimental.monitors`.",
     cite: "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)",
   }),
   // The published schema's own property, absent from the reference's field tables. The

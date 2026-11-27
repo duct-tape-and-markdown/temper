@@ -3105,7 +3105,7 @@ fn stamp_clause_labels(declarations: &mut Declarations) {
 fn stamp_clause_label(row: &mut ClauseRow, owner: Option<&str>) {
     let field = match row.predicate.as_str() {
         "when" => crate::contract::when_label_field(row),
-        "allowed_chars" => crate::contract::allowed_chars_label_field(row),
+        "allowed-chars" => crate::contract::allowed_chars_label_field(row),
         _ => row.field.clone(),
     };
     let label = crate::contract::clause_label(owner, &row.predicate, field.as_deref());
@@ -6262,12 +6262,12 @@ pub struct LayoutRegionRow {
 /// and, per predicate, its own argument: the node-set/edge-scope predicates
 /// carry
 /// their bounds/target, and the node-scope predicates that need more than
-/// `field`/`severity` (`min_len`/`max_len`/`extent`'s bound, `extent`'s unit,
-/// `allowed_chars`'s charset, `forbidden_keys`'s keys, `deny`'s values, `type`'s declared
+/// `field`/`severity` (`min-len`/`max-len`/`extent`'s bound, `extent`'s unit,
+/// `allowed-chars`'s charset, `forbidden-keys`'s keys, `deny`'s values, `type`'s declared
 /// kind) carry theirs too — so a kind's
 /// own floor clause round-trips losslessly, not identity+severity alone.
 /// `unique`'s field rides the shared `field`
-/// column (the same slot `required`/`min_len`/… target); the rest carry their own
+/// column (the same slot `required`/`min-len`/… target); the rest carry their own
 /// optional columns since a plain field/severity pair cannot express them.
 ///
 /// Not `Eq`: the `range` column carries `f64` bounds ([`RangeBoundRow`]), so the
@@ -6294,12 +6294,12 @@ pub struct ClauseRow {
     /// level it is the **root member's** clause, ranging over the whole governed forest.
     #[serde(default)]
     pub kind: Option<String>,
-    /// The predicate's clause key (`required`, `max_len`, …).
+    /// The predicate's clause key (`required`, `max-len`, …).
     pub predicate: String,
     /// The clause's **compiled label** segment ([`crate::contract::clause_label`]) — the
     /// field the predicate constrains where it names one, and otherwise the identity the
-    /// seam synthesizes from the arguments the row already carries (`section_contains`
-    /// and `require_sections` name no field, so `clauseField` in
+    /// seam synthesizes from the arguments the row already carries (`section-contains`
+    /// and `require-sections` name no field, so `clauseField` in
     /// `sdk/src/declarations.ts` lowers a `<heading>.<marker>` / joined-sections segment
     /// here instead). `None` where the predicate needs no segment to label uniquely. A
     /// synthesized segment labels only: those two predicates are reconstructed from
@@ -6372,7 +6372,7 @@ pub struct ClauseRow {
     /// string column, and no read-side skew tolerance answers it.
     #[serde(default)]
     pub shape: Option<String>,
-    /// The `min_len`/`max_len`/`extent` clause's scalar bound, when the predicate
+    /// The `min-len`/`max-len`/`extent` clause's scalar bound, when the predicate
     /// is one of those three.
     #[serde(default)]
     pub bound: Option<BoundRow>,
@@ -6382,12 +6382,12 @@ pub struct ClauseRow {
     /// makes for its closed-vocabulary arguments.
     #[serde(default)]
     pub unit: Option<String>,
-    /// The `allowed_chars` clause's declared character class, when the predicate is
-    /// `allowed_chars`.
+    /// The `allowed-chars` clause's declared character class, when the predicate is
+    /// `allowed-chars`.
     #[serde(default)]
     pub charset: Option<CharsetRow>,
-    /// The `forbidden_keys` clause's forbidden key list, when the predicate is
-    /// `forbidden_keys`.
+    /// The `forbidden-keys` clause's forbidden key list, when the predicate is
+    /// `forbidden-keys`.
     #[serde(default)]
     pub keys: Option<Vec<String>>,
     /// The `deny` clause's forbidden value list, when the predicate is `deny`.
@@ -6396,12 +6396,12 @@ pub struct ClauseRow {
     /// The `range` clause's inclusive numeric bound, when the predicate is `range`.
     #[serde(default)]
     pub range: Option<RangeBoundRow>,
-    /// The `section_contains` clause's heading prefix and required marker, when the
-    /// predicate is `section_contains`.
+    /// The `section-contains` clause's heading prefix and required marker, when the
+    /// predicate is `section-contains`.
     #[serde(default)]
     pub section: Option<SectionContainsRow>,
-    /// The `require_sections` clause's required heading list, when the predicate is
-    /// `require_sections`.
+    /// The `require-sections` clause's required heading list, when the predicate is
+    /// `require-sections`.
     #[serde(default)]
     pub sections: Option<Vec<String>>,
     /// The `when` clause's guard predicate key (`enum` or `type`), when the predicate
@@ -6426,7 +6426,7 @@ pub struct RangeBoundRow {
     pub max: f64,
 }
 
-/// A `section_contains` clause row's arguments — the heading-text prefix selecting the
+/// A `section-contains` clause row's arguments — the heading-text prefix selecting the
 /// governed sections and the marker every governed section's body must carry.
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq, ts_rs::TS)]
 pub struct SectionContainsRow {
@@ -6436,16 +6436,16 @@ pub struct SectionContainsRow {
     pub marker: String,
 }
 
-/// A clause row's scalar bound — `min_len`'s `min`, `max_len`/`extent`/`listing`'s
+/// A clause row's scalar bound — `min-len`'s `min`, `max-len`/`extent`/`listing`'s
 /// `max`, `listing`'s per-entry cap, each optional so the row carries only what the predicate declared.
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, ts_rs::TS)]
 #[ts(optional_fields)]
 pub struct BoundRow {
-    /// The inclusive lower bound, when the predicate declares one (`min_len`).
+    /// The inclusive lower bound, when the predicate declares one (`min-len`).
     #[serde(default)]
     pub min: Option<usize>,
     /// The inclusive upper bound, when the predicate declares one
-    /// (`max_len`/`extent`/`listing`).
+    /// (`max-len`/`extent`/`listing`).
     #[serde(default)]
     pub max: Option<usize>,
     /// The per-entry character cap, when the predicate declares one (`listing`).
@@ -6453,7 +6453,7 @@ pub struct BoundRow {
     pub entry: Option<usize>,
 }
 
-/// An `allowed_chars` clause row's declared character class — the wire form of
+/// An `allowed-chars` clause row's declared character class — the wire form of
 /// [`crate::contract::Charset`]: inclusive `"<lo>-<hi>"` range specs plus a literal
 /// string of individually listed characters, an optional negation, and an optional
 /// governed position.

@@ -14,12 +14,12 @@ import type { SectionContainsRow } from "./SectionContainsRow.js";
  * and, per predicate, its own argument: the node-set/edge-scope predicates
  * carry
  * their bounds/target, and the node-scope predicates that need more than
- * `field`/`severity` (`min_len`/`max_len`/`extent`'s bound, `extent`'s unit,
- * `allowed_chars`'s charset, `forbidden_keys`'s keys, `deny`'s values, `type`'s declared
+ * `field`/`severity` (`min-len`/`max-len`/`extent`'s bound, `extent`'s unit,
+ * `allowed-chars`'s charset, `forbidden-keys`'s keys, `deny`'s values, `type`'s declared
  * kind) carry theirs too — so a kind's
  * own floor clause round-trips losslessly, not identity+severity alone.
  * `unique`'s field rides the shared `field`
- * column (the same slot `required`/`min_len`/… target); the rest carry their own
+ * column (the same slot `required`/`min-len`/… target); the rest carry their own
  * optional columns since a plain field/severity pair cannot express them.
  *
  * Not `Eq`: the `range` column carries `f64` bounds ([`RangeBoundRow`]), so the
@@ -48,14 +48,14 @@ label?: string,
  */
 kind?: string, 
 /**
- * The predicate's clause key (`required`, `max_len`, …).
+ * The predicate's clause key (`required`, `max-len`, …).
  */
 predicate: string, 
 /**
  * The clause's **compiled label** segment ([`crate::contract::clause_label`]) — the
  * field the predicate constrains where it names one, and otherwise the identity the
- * seam synthesizes from the arguments the row already carries (`section_contains`
- * and `require_sections` name no field, so `clauseField` in
+ * seam synthesizes from the arguments the row already carries (`section-contains`
+ * and `require-sections` name no field, so `clauseField` in
  * `sdk/src/declarations.ts` lowers a `<heading>.<marker>` / joined-sections segment
  * here instead). `None` where the predicate needs no segment to label uniquely. A
  * synthesized segment labels only: those two predicates are reconstructed from
@@ -140,7 +140,7 @@ value_type?: Array<string>,
  */
 shape?: string, 
 /**
- * The `min_len`/`max_len`/`extent` clause's scalar bound, when the predicate
+ * The `min-len`/`max-len`/`extent` clause's scalar bound, when the predicate
  * is one of those three.
  */
 bound?: BoundRow, 
@@ -152,13 +152,13 @@ bound?: BoundRow,
  */
 unit?: string, 
 /**
- * The `allowed_chars` clause's declared character class, when the predicate is
- * `allowed_chars`.
+ * The `allowed-chars` clause's declared character class, when the predicate is
+ * `allowed-chars`.
  */
 charset?: CharsetRow, 
 /**
- * The `forbidden_keys` clause's forbidden key list, when the predicate is
- * `forbidden_keys`.
+ * The `forbidden-keys` clause's forbidden key list, when the predicate is
+ * `forbidden-keys`.
  */
 keys?: Array<string>, 
 /**
@@ -170,13 +170,13 @@ values?: Array<string>,
  */
 range?: RangeBoundRow, 
 /**
- * The `section_contains` clause's heading prefix and required marker, when the
- * predicate is `section_contains`.
+ * The `section-contains` clause's heading prefix and required marker, when the
+ * predicate is `section-contains`.
  */
 section?: SectionContainsRow, 
 /**
- * The `require_sections` clause's required heading list, when the predicate is
- * `require_sections`.
+ * The `require-sections` clause's required heading list, when the predicate is
+ * `require-sections`.
  */
 sections?: Array<string>, 
 /**

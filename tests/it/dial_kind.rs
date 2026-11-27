@@ -337,14 +337,14 @@ fn an_entry_naming_no_clause_at_all_is_a_finding() {
     // for being legible. Erring here is strictly *stricter* than the shared gate: this
     // machine fails its own check having softened nothing.
     let harness = harness_at_mode("dial-stale", "warn", UNDESCRIBED_SKILL);
-    write_dial(&harness, &dial_entry("skill.max_len.retired", "advisory"));
+    write_dial(&harness, &dial_entry("skill.max-len.retired", "advisory"));
 
     let (findings, ok) = common::check_harness(&harness);
 
     let refusal = common::findings_for(&findings, "dial.entry");
     assert_eq!(refusal.len(), 1, "the stale entry is named: {findings:?}");
     assert!(
-        refusal[0].contains("skill.max_len.retired"),
+        refusal[0].contains("skill.max-len.retired"),
         "the finding names the label that reached nothing: {findings:?}"
     );
     assert!(!ok, "a dial that dials nothing fails loud: {findings:?}");

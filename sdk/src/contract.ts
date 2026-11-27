@@ -22,7 +22,7 @@ export type Severity = "required" | "advisory";
  * identity+severity alone.
  */
 export interface Predicate {
-  /** The predicate's clause key (`required`, `max_len`, `extent`, …). */
+  /** The predicate's clause key (`required`, `max-len`, `extent`, …). */
   readonly key: string;
   /**
    * The field (or marker) the predicate constrains, when it names one.
@@ -35,7 +35,7 @@ export interface Predicate {
    * subset is the whole surface on purpose: a clause names *where* a value lives, never
    * a pattern that matches it.
    *
-   * `forbidden_keys` and `must_define` name a top-level **key**, not a path, and
+   * `forbidden-keys` and `must-define` name a top-level **key**, not a path, and
    * `closed-keys` names neither — it reads the key set its sibling clauses declare.
    */
   readonly field?: string;
@@ -67,17 +67,17 @@ export interface Predicate {
    * own `shape` column.
    */
   readonly shape?: Shape;
-  /** `allowed_chars`'s declared character class. */
+  /** `allowed-chars`'s declared character class. */
   readonly charset?: Charset;
-  /** `forbidden_keys`'s forbidden key list. */
+  /** `forbidden-keys`'s forbidden key list. */
   readonly keys?: readonly string[];
   /** `enum`/`deny`'s permitted or forbidden value list. */
   readonly values?: readonly string[];
   /** `range`'s inclusive numeric bound. */
   readonly range?: { readonly min: number; readonly max: number };
-  /** `section_contains`'s heading-text prefix and the marker each governed section must carry. */
+  /** `section-contains`'s heading-text prefix and the marker each governed section must carry. */
   readonly section?: { readonly heading: string; readonly marker: string };
-  /** `require_sections`'s required heading list. */
+  /** `require-sections`'s required heading list. */
   readonly sections?: readonly string[];
   /**
    * A by-incidence clause's **field set** — the fields whose edges the selection is
@@ -96,7 +96,7 @@ export interface Predicate {
 export type ExtentUnit = "lines" | "characters";
 
 /**
- * The character class `allowed_chars` admits — inclusive ranges plus individual
+ * The character class `allowed-chars` admits — inclusive ranges plus individual
  * characters, e.g. `[a-z0-9-]`. Each range is a `"<lo>-<hi>"` two-character
  * span. `negated` turns the class into the forbidden set (`[^:]`); `position:
  * "leading"` governs only the first character (an empty value holds), where the
@@ -129,12 +129,12 @@ export const type = (field: string, kinds: readonly ValueType[]): Predicate => (
   value_type: kinds,
 });
 /** The field's value is at least `n` characters. */
-export const minLen = (field: string, n: number): Predicate => ({ key: "min_len", field, args: { min: n } });
+export const minLen = (field: string, n: number): Predicate => ({ key: "min-len", field, args: { min: n } });
 /** The field's value is at most `n` characters. */
-export const maxLen = (field: string, n: number): Predicate => ({ key: "max_len", field, args: { max: n } });
-/** The field's characters are drawn from a declared class (`allowed_chars`). */
+export const maxLen = (field: string, n: number): Predicate => ({ key: "max-len", field, args: { max: n } });
+/** The field's characters are drawn from a declared class (`allowed-chars`). */
 export const allowedChars = (field: string, charset: Charset): Predicate => ({
-  key: "allowed_chars",
+  key: "allowed-chars",
   field,
   charset,
 });
@@ -162,7 +162,7 @@ export const extent = (unit: ExtentUnit, bound: number): Predicate => ({
   args: { max: bound },
 });
 /** The forbidden keys (e.g. the Cursor `globs`/`alwaysApply` keys) are absent. */
-export const forbiddenKeys = (keys: readonly string[]): Predicate => ({ key: "forbidden_keys", keys });
+export const forbiddenKeys = (keys: readonly string[]): Predicate => ({ key: "forbidden-keys", keys });
 /**
  * The kind's declared key set is exhaustive — a member carrying any other top-level key
  * is a finding. `forbiddenKeys`' complement: a deny-list names a finite set over an open
@@ -181,7 +181,7 @@ export const deny = (field: string, values: readonly string[]): Predicate => ({
   values,
 });
 /** The named headings are present. */
-export const requireSections = (sections: readonly string[]): Predicate => ({ key: "require_sections", sections });
+export const requireSections = (sections: readonly string[]): Predicate => ({ key: "require-sections", sections });
 /** The member's name matches its directory. */
 export const nameMatchesDir = (): Predicate => ({ key: "name-matches-dir" });
 /** Names are unique within the artifact kind (a scope-wide identity collision). */
@@ -208,10 +208,10 @@ export const enumOf = (field: string, values: readonly string[]): Predicate => (
   values,
 });
 /** The named body marker is defined (e.g. `disable-model-invocation`). */
-export const mustDefine = (marker: string): Predicate => ({ key: "must_define", field: marker });
+export const mustDefine = (marker: string): Predicate => ({ key: "must-define", field: marker });
 /** Every body section whose heading *starts with* `heading` carries `marker` in its body. */
 export const sectionContains = (heading: string, marker: string): Predicate => ({
-  key: "section_contains",
+  key: "section-contains",
   section: { heading, marker },
 });
 /** Every glob the field carries parses under globset (brace-expansion aware). */

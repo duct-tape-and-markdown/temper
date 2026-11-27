@@ -12,7 +12,7 @@
 //! *undocumented* top-level key, which `closed-keys` decides against the key set the
 //! contract's own rows declare, and a *documented* key at the wrong level — the top-level
 //! `themes`/`monitors` spelling the experimental migration retires, which stays the
-//! `forbidden_keys` clause's, since the key is recognized and only its placement is not.
+//! `forbidden-keys` clause's, since the key is recognized and only its placement is not.
 
 use std::fs;
 
@@ -159,7 +159,7 @@ fn a_name_outside_the_kebab_case_charset_is_a_finding() {
     let (findings, ok) = check_harness(&harness);
     assert!(!ok, "a non-kebab-case name fails the gate");
     assert!(
-        !common::findings_for(&findings, "plugin-manifest.allowed_chars.name").is_empty(),
+        !common::findings_for(&findings, "plugin-manifest.allowed-chars.name").is_empty(),
         "{findings:?}"
     );
 }
@@ -177,7 +177,7 @@ fn a_top_level_experimental_component_key_is_the_strict_bar_the_algebra_can_deci
 
     let (findings, ok) = check_harness(&harness);
     assert!(!ok, "a top-level experimental key fails the gate");
-    let forbidden = common::findings_for(&findings, "plugin-manifest.forbidden_keys");
+    let forbidden = common::findings_for(&findings, "plugin-manifest.forbidden-keys");
     assert!(!forbidden.is_empty(), "{findings:?}");
     assert!(
         forbidden.iter().all(|f| f.starts_with("::error")),

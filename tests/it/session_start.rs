@@ -35,7 +35,7 @@ description: Use when coordinating agents across axes; not for single-axis work.
 Drive the team through the playbook.\n";
 
 /// A skill that violates a `required` clause: the uppercase `name` is outside the
-/// `[a-z0-9-]` `allowed_chars` set — a failing contract.
+/// `[a-z0-9-]` `allowed-chars` set — a failing contract.
 const ERROR_SKILL: &str = "---\n\
 name: Coordinate\n\
 description: Use when coordinating agents across axes; not for single-axis work.\n\
@@ -105,7 +105,7 @@ fn a_failing_harness_emits_the_verdict_and_exits_zero() {
         "the verdict must carry the notify-and-approve instruction, got:\n{context}"
     );
     assert!(
-        context.contains("allowed_chars"),
+        context.contains("allowed-chars"),
         "the verdict must name the failing clause, got:\n{context}"
     );
     // Under the 10k cap.

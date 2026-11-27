@@ -4214,8 +4214,8 @@ mod tests {
     /// findings earn, unparseable outranking unreconstructable-edit outranking contract.
     #[test]
     fn both_guard_edges_encode_one_finding_line_under_their_own_preamble() {
-        let contract = Diagnostic::error("skill.max_len.description", "review", "1 over 200");
-        let line = "\n  skill.max_len.description: 1 over 200";
+        let contract = Diagnostic::error("skill.max-len.description", "review", "1 over 200");
+        let line = "\n  skill.max-len.description: 1 over 200";
         let findings = std::slice::from_ref(&contract);
         assert!(!findings.is_empty(), "the encoder is judged over a finding");
 

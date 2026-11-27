@@ -15,7 +15,7 @@
 //! - **severity** is the clause's *declared* weight — `required` ⇒ [`Error`],
 //!   `advisory` ⇒ [`Warn`] — never a tool-baked split.
 //! - **rule** is the clause key (the predicate's TOML discriminator, e.g.
-//!   `max_len`), so a finding names the clause that produced it.
+//!   `max-len`), so a finding names the clause that produced it.
 //! - **artifact** is the features' `id`.
 //!
 //! ## The two grains
@@ -215,7 +215,7 @@ pub enum Locus {
 /// today: (1) the predicate has a judge at all, since one that does not could only ever
 /// return [`Outcome::Indeterminate`] — a silent no-op; (2) a value/key/kind list is
 /// non-empty — a list-bearing predicate with an empty list is vacuous (an `enum` over no
-/// values admits nothing; `forbidden_keys` over no keys forbids nothing; a `type` over no
+/// values admits nothing; `forbidden-keys` over no keys forbids nothing; a `type` over no
 /// kinds admits no value the lattice can carry), which the author cannot have meant; and
 /// (3) the predicate reads a feature the bound locus carries ([`bodyless`]).
 ///
@@ -353,7 +353,7 @@ fn unaddressable(predicate: &Predicate) -> Option<String> {
 /// The `field` this predicate addresses by an [`crate::address::FieldPath`] — the
 /// per-member value predicates, the ones whose `field` is a path rather than a bare key.
 ///
-/// `forbidden_keys` and `must_define` name *keys*, not paths, and the set predicates'
+/// `forbidden-keys` and `must-define` name *keys*, not paths, and the set predicates'
 /// `field` is read by their own judges over a selection, so none of them lands here.
 ///
 /// The match names every arm rather than defaulting: a bound that is not enforced is not
@@ -425,9 +425,9 @@ enum Binding<'a> {
 /// [`bodyless`] fences on, so a binding carrying none of it refuses the clause instead of
 /// deciding over the zero.
 enum Feature {
-    /// The body's extracted headings (`require_sections`).
+    /// The body's extracted headings (`require-sections`).
     Headings,
-    /// The body's extracted sections (`section_contains`).
+    /// The body's extracted sections (`section-contains`).
     Sections,
     /// The directory the member's document sits in (`name-matches-dir`).
     SourceDir,
@@ -472,7 +472,7 @@ impl Feature {
 /// document- or render-derived feature answers the fencing question at compile time
 /// instead of shipping a green over a zero.
 ///
-/// The line is the feature read, not the predicate's family: `must_define` looks the part
+/// The line is the feature read, not the predicate's family: `must-define` looks the part
 /// but resolves as field presence, which any projection's fields answer, and `unique-name`
 /// reads the member's identity against its peers — both stay decidable and unfenced.
 fn feature_read(predicate: &Predicate) -> Option<Feature> {
@@ -525,8 +525,8 @@ fn feature_read(predicate: &Predicate) -> Option<Feature> {
 /// `None`.
 ///
 /// A predicate ranging over a feature its binding zeroes returns the same answer over
-/// every thing it is bound to: `section_contains` finds no section to indict,
-/// `require_sections` misses every named heading, `name-matches-dir` has no directory to
+/// every thing it is bound to: `section-contains` finds no section to indict,
+/// `require-sections` misses every named heading, `name-matches-dir` has no directory to
 /// compare, `format-places-edges` no format, `extent` no span. Deciding nothing — as a
 /// standing green, a blanket cascade, or [`Outcome::Indeterminate`] — they are
 /// inadmissible where they are bound, rather than degrading to a check that never ran.
@@ -624,7 +624,7 @@ fn vacuities(predicate: &Predicate, siblings: &[Clause]) -> Vec<String> {
     match predicate {
         // `closed-keys` declares the kind's own key set exhaustive; over no declared key
         // that is not a closed schema but a clause indicting every member's every key —
-        // the empty-`forbidden_keys` refusal's mirror image, and as surely unmeant.
+        // the empty-`forbidden-keys` refusal's mirror image, and as surely unmeant.
         Predicate::ClosedKeys if contract::declared_keys(siblings).is_empty() => {
             vec![
                 "`closed-keys` clause declares the key set exhaustive on a contract that \
@@ -643,7 +643,7 @@ fn vacuities(predicate: &Predicate, siblings: &[Clause]) -> Vec<String> {
         }
         Predicate::Deny { .. } => Vec::new(),
         Predicate::ForbiddenKeys { keys } if keys.is_empty() => {
-            vec!["`forbidden_keys` clause lists no keys".to_string()]
+            vec!["`forbidden-keys` clause lists no keys".to_string()]
         }
         Predicate::ForbiddenKeys { .. } => Vec::new(),
         // A `type` clause over no kinds admits no value at all — every field the
@@ -654,16 +654,16 @@ fn vacuities(predicate: &Predicate, siblings: &[Clause]) -> Vec<String> {
         }
         Predicate::Type { .. } => Vec::new(),
         Predicate::RequireSections { sections } if sections.is_empty() => {
-            vec!["`require_sections` clause lists no sections".to_string()]
+            vec!["`require-sections` clause lists no sections".to_string()]
         }
         Predicate::RequireSections { .. } => Vec::new(),
-        // An empty `section_contains` marker is a substring of every body, so the
+        // An empty `section-contains` marker is a substring of every body, so the
         // clause can never fire — vacuous, and inadmissible like an empty-list
         // clause. An empty *heading* prefix is not vacuous (it governs every
         // section, a meaningful "every section carries the marker"), so it stands.
         Predicate::SectionContains { heading, marker } if marker.is_empty() => {
             vec![format!(
-                "`section_contains` clause on heading `{heading}` names an empty marker"
+                "`section-contains` clause on heading `{heading}` names an empty marker"
             )]
         }
         Predicate::SectionContains { .. } => Vec::new(),
@@ -1845,7 +1845,7 @@ fn decide(
             }
         }
 
-        // `require_sections` decides over the extracted body headings: one
+        // `require-sections` decides over the extracted body headings: one
         // finding per named section with no matching heading.
         Predicate::RequireSections { sections } => {
             let missing: Vec<String> = sections
@@ -1860,13 +1860,13 @@ fn decide(
             }
         }
 
-        // `must_define` over a frontmatter marker (e.g. `disable-model-invocation`)
+        // `must-define` over a frontmatter marker (e.g. `disable-model-invocation`)
         // is decidable as field presence.
         Predicate::MustDefine { marker } => Outcome::check(features.has_field(marker), || {
             format!("marker `{marker}` is not defined")
         }),
 
-        // `section_contains` decides over the extracted body sections: every
+        // `section-contains` decides over the extracted body sections: every
         // section whose heading *starts with* the declared prefix must carry the
         // declared marker (a substring of its body). One finding per bare section,
         // so each offending section points at itself.
@@ -2248,7 +2248,7 @@ mod tests {
         }
     }
 
-    /// `features` with the given body headings — for the `require_sections`
+    /// `features` with the given body headings — for the `require-sections`
     /// tests, which decide over headings rather than fields.
     fn features_with_headings(id: &str, headings: &[&str]) -> Features {
         let mut f = features(id, &[], 1, None);
@@ -2278,7 +2278,7 @@ mod tests {
         }
     }
 
-    /// The `[a-z0-9-]` charset, the `allowed_chars` workhorse.
+    /// The `[a-z0-9-]` charset, the `allowed-chars` workhorse.
     fn slug_charset() -> Charset {
         Charset {
             ranges: vec![('a', 'z'), ('0', '9')],
@@ -2494,7 +2494,7 @@ mod tests {
         let over = features("demo", &[("name", scalar("toolong"))], 1, None);
         let diags = run(predicate(), over);
         assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].rule, "skill.max_len.name");
+        assert_eq!(diags[0].rule, "skill.max-len.name");
 
         let within = features("demo", &[("name", scalar("ok"))], 1, None);
         assert!(run(predicate(), within).is_empty());
@@ -2937,7 +2937,7 @@ mod tests {
     fn a_body_shaped_predicate_bound_to_an_embedded_kind_is_inadmissible() {
         // The lift leaves an embedded member's headings/sections/source-directory empty, so
         // each of these returns one fixed answer over every member of the kind:
-        // `section_contains` finds no section to indict, `require_sections` misses every
+        // `section-contains` finds no section to indict, `require-sections` misses every
         // named heading, `name-matches-dir` has no directory to compare. Bound where
         // nothing can decide them, they fail admissibility rather than read as checks that
         // ran. `extent` is not among them — a composed member's span is captured at emit —
@@ -2957,7 +2957,7 @@ mod tests {
             // Two of these three are among the four predicates whose emitted `field`
             // column the SDK synthesizes from the row's arguments instead of reading
             // the predicate's own target (`clauseField`, sdk/src/declarations.ts:188):
-            // `section_contains` stamps `<heading>.<marker>`, `require_sections` the
+            // `section-contains` stamps `<heading>.<marker>`, `require-sections` the
             // `+`-joined section list. `target()` reproduces neither, so the label
             // stays fieldless here rather than spell a third address — the shipped
             // ones are pinned against a live SDK emit in
@@ -2996,7 +2996,7 @@ mod tests {
     #[test]
     fn a_leaf_reading_predicate_bound_to_an_embedded_kind_still_judges() {
         // The fence's line is the feature read, not the predicate's family.
-        // `must_define` looks body-shaped but resolves as field presence, which an
+        // `must-define` looks body-shaped but resolves as field presence, which an
         // embedded member's leaves answer — so it stays admissible, as do the field and
         // placement predicates the embedded dispatcher exists to run.
         let embedded = Locus::Embedded("citation".to_string());
@@ -3551,7 +3551,7 @@ mod tests {
         );
         let diags = run(predicate(), legacy);
         assert_eq!(diags.len(), 2);
-        assert!(diags.iter().all(|d| d.rule == "skill.forbidden_keys"));
+        assert!(diags.iter().all(|d| d.rule == "skill.forbidden-keys"));
 
         let clean = features("clean", &[("name", scalar("clean"))], 1, None);
         assert!(run(predicate(), clean).is_empty());
@@ -3566,7 +3566,7 @@ mod tests {
         let shouty = features("Demo_1", &[("name", scalar("Demo_1"))], 1, None);
         let diags = run(predicate(), shouty);
         assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].rule, "skill.allowed_chars.name");
+        assert_eq!(diags[0].rule, "skill.allowed-chars.name");
         // The offending characters, deduped and sorted, ride in the message.
         assert!(diags[0].message.contains('D'));
         assert!(diags[0].message.contains('_'));
@@ -3737,7 +3737,7 @@ mod tests {
         let missing = features_with_headings("demo", &["Usage"]);
         let diags = run(predicate(), missing);
         assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].rule, "skill.require_sections");
+        assert_eq!(diags[0].rule, "skill.require-sections");
         assert_eq!(diags[0].artifact, "demo");
         assert!(diags[0].message.contains("Examples"));
 
@@ -3801,13 +3801,13 @@ mod tests {
             ),
             (
                 Predicate::ForbiddenKeys { keys: Vec::new() },
-                "forbidden_keys",
+                "forbidden-keys",
             ),
             (
                 Predicate::RequireSections {
                     sections: Vec::new(),
                 },
-                "require_sections",
+                "require-sections",
             ),
             // A `type` over no kinds is the same vacuity: no value the lattice can
             // carry satisfies it, so it admits nothing at any locus.
@@ -4530,8 +4530,8 @@ mod tests {
         // guard locates, and `scoped_element_features` carries that element's fields and
         // nothing else: a body clause reading the body, the source directory, the
         // rendered extent or the edge placements decides over the zero — a standing green
-        // (`section_contains`, `name-matches-dir`, `format-places-edges`), a cascade
-        // indicting every declared section at every matched element (`require_sections`),
+        // (`section-contains`, `name-matches-dir`, `format-places-edges`), a cascade
+        // indicting every declared section at every matched element (`require-sections`),
         // or the indeterminate arm `evaluate` swallows (`extent`). All five are the same
         // defect, so the fence is one classifier at admissibility: refused by name before
         // any member is judged, while every clause the element *can* decide stays
@@ -4597,8 +4597,8 @@ mod tests {
             fenced,
             vec![
                 "extent",
-                "require_sections",
-                "section_contains",
+                "require-sections",
+                "section-contains",
                 "name-matches-dir",
                 "format-places-edges",
             ],

@@ -245,7 +245,7 @@ fn an_agent_name_containing_a_colon_fails_check() {
     let rules: Vec<&str> = diagnostics.iter().map(|d| d.rule.as_str()).collect();
     assert_eq!(
         rules,
-        vec!["agent.allowed_chars.name=negated"],
+        vec!["agent.allowed-chars.name=negated"],
         "got: {diagnostics:#?}"
     );
 }
@@ -256,7 +256,7 @@ fn an_agent_name_with_a_leading_dash_fails_check() {
     let rules: Vec<&str> = diagnostics.iter().map(|d| d.rule.as_str()).collect();
     assert_eq!(
         rules,
-        vec!["agent.allowed_chars.name=leading+negated"],
+        vec!["agent.allowed-chars.name=leading+negated"],
         "got: {diagnostics:#?}"
     );
 }
@@ -265,7 +265,7 @@ fn an_agent_name_with_a_leading_dash_fails_check() {
 fn a_name_past_256_characters_trips_the_length_clause() {
     let diagnostics = name_diagnostics(&"a".repeat(257));
     assert!(
-        diagnostics.iter().any(|d| d.rule == "agent.max_len.name"),
+        diagnostics.iter().any(|d| d.rule == "agent.max-len.name"),
         "got: {diagnostics:#?}"
     );
     assert!(name_diagnostics(&"a".repeat(256)).is_empty());

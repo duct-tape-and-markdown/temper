@@ -115,7 +115,7 @@ export const dialDefaultContract: readonly Clause[] = [
   }),
   clause(type("clause[*].label", ["string"]), {
     severity: "required",
-    guidance: "A label is a string — the clause's printed `rule` id, quoted verbatim: `label = \"skill/description/max_len\"`.",
+    guidance: "A label is a string — the clause's printed `rule` id, quoted verbatim: `label = \"skill/description/max-len\"`.",
     cite: DIAL_CITE,
   }),
   clause(required("clause[*].severity"), {

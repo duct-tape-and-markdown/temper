@@ -35,7 +35,7 @@ description: Use when coordinating agents across axes; not for single-axis work.
 Drive the team through the playbook.\n";
 
 /// A skill that violates `required` clauses: the uppercase `name` is outside
-/// `[a-z0-9-]` (the `allowed_chars` clause) and no longer equals its directory
+/// `[a-z0-9-]` (the `allowed-chars` clause) and no longer equals its directory
 /// (the `name-matches-dir` clause). Both are required ⇒ a non-zero exit.
 const ERROR_SKILL: &str = "---\n\
 name: Coordinate\n\
@@ -73,7 +73,7 @@ paths:\n\
 \n\
 Prefer a clone over a lifetime fight.\n";
 
-/// A rule that violates the `forbidden_keys` clause: a Cursor `.mdc` key
+/// A rule that violates the `forbidden-keys` clause: a Cursor `.mdc` key
 /// (`globs`) Claude Code silently ignores — the exact mistake the rule contract
 /// exists to catch. That clause is `required` ⇒ a non-zero exit.
 const FORBIDDEN_KEY_RULE: &str = "---\n\
@@ -181,7 +181,7 @@ fn check_dispatches_the_rule_kind_to_the_rule_contract() {
         "a clean rule must exit zero — the rule contract has no `required` violation"
     );
 
-    // A forbidden Cursor key (`globs`/`alwaysApply`) trips the `forbidden_keys`
+    // A forbidden Cursor key (`globs`/`alwaysApply`) trips the `forbidden-keys`
     // clause, which is `required` ⇒ check is non-zero. This proves `check`
     // dispatches the rule kind to the rule contract, not the skill one.
     let forbidden = common::tmpdir("rule-forbidden-src");
@@ -207,7 +207,7 @@ fn check_harness_one_shot_lints_a_raw_harness_without_a_workspace() {
     );
     // `stdout`, not `output`: which stream the finding lands on is the assertion.
     assert!(
-        run.stdout.contains("forbidden_keys"),
+        run.stdout.contains("forbidden-keys"),
         "the finding must reach stdout, got:\n{}",
         run.stdout
     );
@@ -368,12 +368,12 @@ fn schema_kind_skill_emits_the_skill_floor_decidable_clauses() {
         stdout.contains("\"required\""),
         "the skill floor's `required` clause must project a required[] array"
     );
-    // `allowed_chars` on `name` → a generated `pattern` charclass.
+    // `allowed-chars` on `name` → a generated `pattern` charclass.
     assert!(
         stdout.contains("\"pattern\""),
         "the skill floor's allowed_chars clause must project a `pattern`"
     );
-    // `forbidden_keys` (globs / alwaysApply) → a `not`/`required` combinator per key.
+    // `forbidden-keys` (globs / alwaysApply) → a `not`/`required` combinator per key.
     assert!(
         stdout.contains("globs") && stdout.contains("alwaysApply"),
         "the skill floor's forbidden_keys must appear as forbidden-key combinators"

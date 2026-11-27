@@ -123,7 +123,7 @@ pub fn requirement_owner(name: &str) -> String {
 ///
 /// Composed into the `field` *argument*, never written to the `field` *column*:
 /// [`predicate_from_row`] rebuilds the guard from that column, so the column stays the
-/// bare field — the column-synthesis route `require_sections` and `section_contains`
+/// bare field — the column-synthesis route `require-sections` and `section-contains`
 /// take (`sdk/src/declarations.ts`, `clauseField`) is closed to `when`.
 ///
 /// The guard's values come from whichever column its predicate spells them in —
@@ -153,7 +153,7 @@ pub fn when_label_field(row: &ClauseRow) -> Option<String> {
     ))
 }
 
-/// The [`clause_label`] `field` **argument** for an `allowed_chars` row: the field,
+/// The [`clause_label`] `field` **argument** for an `allowed-chars` row: the field,
 /// qualified after an `=` by the charset's non-default form — `negated`, `leading`, or
 /// both `+`-joined — so `name`'s forbidden-colon and no-leading-dash clauses land two
 /// addresses rather than one malformed pair. A plain every-character whitelist keeps
@@ -228,7 +228,7 @@ pub enum Predicate {
     },
     /// `type`: the field's preserved source kind is one of the declared [`ValueType`]s
     /// over the closed scalar/container lattice (`string`/`integer`/`number`/
-    /// `boolean`/`list`/`map`/`null`). Unlike `min_len`/`enum`/`pattern`, which
+    /// `boolean`/`list`/`map`/`null`). Unlike `min-len`/`enum`/`pattern`, which
     /// refine *within* a scalar type, `type` only fixes the kind.
     ///
     /// The declaration is a **set**, not one kind: an external format that documents a
@@ -246,14 +246,14 @@ pub enum Predicate {
         /// diagnostic, or the emitted schema can carry.
         kinds: BTreeSet<ValueType>,
     },
-    /// `min_len`: the field's value is at least `min` characters long.
+    /// `min-len`: the field's value is at least `min` characters long.
     MinLen {
         /// The field measured.
         field: String,
         /// The inclusive lower bound, in characters.
         min: usize,
     },
-    /// `max_len`: the field's value is at most `max` characters long.
+    /// `max-len`: the field's value is at most `max` characters long.
     MaxLen {
         /// The field measured.
         field: String,
@@ -286,7 +286,7 @@ pub enum Predicate {
         /// The forbidden values.
         values: Vec<String>,
     },
-    /// `forbidden_keys`: none of `keys` appear (e.g. the Cursor `globs` /
+    /// `forbidden-keys`: none of `keys` appear (e.g. the Cursor `globs` /
     /// `alwaysApply` keys Claude Code ignores).
     ForbiddenKeys {
         /// The keys that must be absent.
@@ -301,7 +301,7 @@ pub enum Predicate {
     /// so a kind's key set is declared once and never authored a second time beside
     /// itself, where the two copies could disagree.
     ClosedKeys,
-    /// `allowed_chars`: every character of the field's value is permitted by the
+    /// `allowed-chars`: every character of the field's value is permitted by the
     /// declared [`Charset`] — the in-crate stand-in for the `[a-z0-9-]` case,
     /// short of the full `pattern` (regex) primitive.
     AllowedChars {
@@ -344,18 +344,18 @@ pub enum Predicate {
         /// each selected item on its own.
         whole: bool,
     },
-    /// `require_sections`: each named heading is present in the body.
+    /// `require-sections`: each named heading is present in the body.
     RequireSections {
         /// The headings that must appear.
         sections: Vec<String>,
     },
-    /// `must_define`: the named field/marker exists (e.g.
+    /// `must-define`: the named field/marker exists (e.g.
     /// `disable-model-invocation`).
     MustDefine {
         /// The marker that must be defined.
         marker: String,
     },
-    /// `section_contains`: every body section whose heading *starts with* the
+    /// `section-contains`: every body section whose heading *starts with* the
     /// declared `heading` carries the declared `marker` (a substring of the section
     /// body) — e.g. "every `## Decision` section carries a `Rejected` marker".
     /// Decidable over the extracted [`sections`](crate::extract::Features::sections).
@@ -727,24 +727,24 @@ pub fn predicate_from_row(row: &ClauseRow) -> Option<Predicate> {
             field: row.field.clone()?,
             values: row.values.clone()?,
         },
-        "must_define" => Predicate::MustDefine {
+        "must-define" => Predicate::MustDefine {
             marker: row.field.clone()?,
         },
-        "require_sections" => Predicate::RequireSections {
+        "require-sections" => Predicate::RequireSections {
             sections: row.sections.clone()?,
         },
-        "section_contains" => {
+        "section-contains" => {
             let section = row.section.as_ref()?;
             Predicate::SectionContains {
                 heading: section.heading.clone(),
                 marker: section.marker.clone(),
             }
         }
-        "min_len" => Predicate::MinLen {
+        "min-len" => Predicate::MinLen {
             field: row.field.clone()?,
             min: row.bound?.min?,
         },
-        "max_len" => Predicate::MaxLen {
+        "max-len" => Predicate::MaxLen {
             field: row.field.clone()?,
             max: row.bound?.max?,
         },
@@ -757,7 +757,7 @@ pub fn predicate_from_row(row: &ClauseRow) -> Option<Predicate> {
             max: row.bound?.max?,
             whole: false,
         },
-        "allowed_chars" => Predicate::AllowedChars {
+        "allowed-chars" => Predicate::AllowedChars {
             field: row.field.clone()?,
             charset: charset_from_row(row.charset.as_ref()?)?,
         },
@@ -769,7 +769,7 @@ pub fn predicate_from_row(row: &ClauseRow) -> Option<Predicate> {
             field: row.field.clone()?,
             shape: Shape::from_name(row.shape.as_deref()?)?,
         },
-        "forbidden_keys" => Predicate::ForbiddenKeys {
+        "forbidden-keys" => Predicate::ForbiddenKeys {
             keys: row.keys.clone()?,
         },
         // No argument column to decode: the allow-list is the kind's own sibling rows.
@@ -922,19 +922,19 @@ impl Predicate {
             Predicate::Required { .. } => "required",
             Predicate::Optional { .. } => "optional",
             Predicate::Type { .. } => "type",
-            Predicate::MinLen { .. } => "min_len",
-            Predicate::MaxLen { .. } => "max_len",
+            Predicate::MinLen { .. } => "min-len",
+            Predicate::MaxLen { .. } => "max-len",
             Predicate::Range { .. } => "range",
             Predicate::Enum { .. } => "enum",
             Predicate::Deny { .. } => "deny",
-            Predicate::ForbiddenKeys { .. } => "forbidden_keys",
+            Predicate::ForbiddenKeys { .. } => "forbidden-keys",
             Predicate::ClosedKeys => "closed-keys",
-            Predicate::AllowedChars { .. } => "allowed_chars",
+            Predicate::AllowedChars { .. } => "allowed-chars",
             Predicate::Shape { .. } => "shape",
             Predicate::Extent { .. } => "extent",
-            Predicate::RequireSections { .. } => "require_sections",
-            Predicate::MustDefine { .. } => "must_define",
-            Predicate::SectionContains { .. } => "section_contains",
+            Predicate::RequireSections { .. } => "require-sections",
+            Predicate::MustDefine { .. } => "must-define",
+            Predicate::SectionContains { .. } => "section-contains",
             Predicate::NameMatchesDir => "name-matches-dir",
             Predicate::UniqueName => "unique-name",
             Predicate::Unshadowed => "unshadowed",
@@ -1013,7 +1013,7 @@ impl Predicate {
 
     /// The field (or marker) this predicate constrains, or `None` for the
     /// artifact- and cross-artifact-level predicates that name no single field
-    /// (`forbidden_keys`, `extent`, `require_sections`, `name-matches-dir`,
+    /// (`forbidden-keys`, `extent`, `require-sections`, `name-matches-dir`,
     /// `unique-name`, `dependency-exists`).
     #[must_use]
     pub fn target(&self) -> Option<&str> {
@@ -1030,7 +1030,7 @@ impl Predicate {
             | Predicate::Shape { field, .. }
             | Predicate::GlobValid { field } => Some(field),
             Predicate::MustDefine { marker } => Some(marker),
-            // A `section_contains` constrains the content under one heading, so the
+            // A `section-contains` constrains the content under one heading, so the
             // heading is the field it names.
             Predicate::SectionContains { heading, .. } => Some(heading),
             Predicate::Unique { field } | Predicate::Membership { field, .. } => Some(field),
@@ -1087,7 +1087,7 @@ impl Predicate {
     /// emitted schema's docs channel. `Some` for the per-field frontmatter predicates whose property
     /// can carry hover docs; `None` for the body/structural and cross-artifact
     /// predicates that name no frontmatter property. Distinct from
-    /// [`Predicate::target`] in one place: a `must_define` marker is a *body*
+    /// [`Predicate::target`] in one place: a `must-define` marker is a *body*
     /// marker, not a frontmatter field, so it documents no property here even though
     /// `target` names it.
     #[must_use]

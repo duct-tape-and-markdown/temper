@@ -98,7 +98,7 @@
 # object and a kind's top-level keys are the fields its clauses range over: `marketplace`,
 # `plugin-manifest`, `mcp`, and the `settings`/`settings-local` pair. `plugin-manifest` alone
 # closes its key set — `closed-keys` indicts an undocumented top-level field and
-# `forbidden_keys` the `themes`/`monitors` spellings the experimental migration retires —
+# `forbidden-keys` the `themes`/`monitors` spellings the experimental migration retires —
 # because that format documents one.
 #
 # The settings pair holds the opposite posture: `type` rows gate the structural container
@@ -299,9 +299,9 @@ guidance = "Every subagent declares a `name` — its unique identifier. Claude C
 cite = "https://code.claude.com/docs/en/sub-agents (retrieved 2026-11-25)"
 
 [[declaration.clause]]
-label = "agent.max_len.name"
+label = "agent.max-len.name"
 kind = "agent"
-predicate = "max_len"
+predicate = "max-len"
 field = "name"
 severity = "required"
 guidance = "A name longer than 256 characters is skipped at load — Claude Code writes an error to the debug log and the subagent never exists. Any case and digits are fine (`reviewer-v2`, `Explore` to override the built-in). Hooks receive this value as `agent_type`."
@@ -309,9 +309,9 @@ cite = "https://code.claude.com/docs/en/sub-agents (retrieved 2026-11-25)"
 bound = { max = 256 }
 
 [[declaration.clause]]
-label = "agent.allowed_chars.name=negated"
+label = "agent.allowed-chars.name=negated"
 kind = "agent"
-predicate = "allowed_chars"
+predicate = "allowed-chars"
 field = "name"
 severity = "required"
 guidance = "A name containing `:` is skipped at load — the colon is reserved for plugin-scoped ids like `my-plugin:reviewer`, so the subagent never exists. Use a hyphen instead (`my-reviewer`)."
@@ -319,9 +319,9 @@ cite = "https://code.claude.com/docs/en/sub-agents (retrieved 2026-11-25)"
 charset = { chars = ":", negated = true }
 
 [[declaration.clause]]
-label = "agent.allowed_chars.name=leading+negated"
+label = "agent.allowed-chars.name=leading+negated"
 kind = "agent"
-predicate = "allowed_chars"
+predicate = "allowed-chars"
 field = "name"
 severity = "required"
 guidance = "A name starting with `-` is skipped at load, so the subagent never exists. Start with a letter or digit; a hyphen anywhere after the first character is fine (`reviewer-v2`)."
@@ -389,7 +389,7 @@ kind = "dial"
 predicate = "type"
 field = "clause[*].label"
 severity = "required"
-guidance = """A label is a string — the clause's printed `rule` id, quoted verbatim: `label = "skill/description/max_len"`."""
+guidance = """A label is a string — the clause's printed `rule` id, quoted verbatim: `label = "skill/description/max-len"`."""
 cite = "https://github.com/duct-tape-and-markdown/temper/blob/main/specs/model/contract.md#clause (retrieved 2026-11-26)"
 value_type = ["string"]
 
@@ -543,9 +543,9 @@ guidance = "A marketplace declares a `name` — the identity users type when ins
 cite = "https://code.claude.com/docs/en/plugin-marketplaces#required-fields (retrieved 2026-07-16)"
 
 [[declaration.clause]]
-label = "marketplace.min_len.name"
+label = "marketplace.min-len.name"
 kind = "marketplace"
-predicate = "min_len"
+predicate = "min-len"
 field = "name"
 severity = "required"
 guidance = "A present-but-empty name cannot key an install or qualify a plugin reference. Give it a real one."
@@ -553,9 +553,9 @@ cite = "https://code.claude.com/docs/en/plugin-marketplaces#required-fields (ret
 bound = { min = 1 }
 
 [[declaration.clause]]
-label = "marketplace.allowed_chars.name"
+label = "marketplace.allowed-chars.name"
 kind = "marketplace"
-predicate = "allowed_chars"
+predicate = "allowed-chars"
 field = "name"
 severity = "required"
 guidance = "Kebab-case, no spaces — lowercase letters, digits, and hyphens. The name is typed after an `@` to qualify every plugin installed from the marketplace, so a space or a capital makes it unquotable exactly where users type it."
@@ -797,9 +797,9 @@ guidance = "A manifest declares a `name` — the pack's identity and the namespa
 cite = "https://code.claude.com/docs/en/plugins-reference#name (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "plugin-manifest.min_len.name"
+label = "plugin-manifest.min-len.name"
 kind = "plugin-manifest"
-predicate = "min_len"
+predicate = "min-len"
 field = "name"
 severity = "required"
 guidance = "A present-but-empty name cannot namespace a component or key an install. Drop the field to let Claude Code derive the name from the directory, or give it a real one."
@@ -807,9 +807,9 @@ cite = "https://code.claude.com/docs/en/plugins-reference#name (retrieved 2026-1
 bound = { min = 1 }
 
 [[declaration.clause]]
-label = "plugin-manifest.allowed_chars.name"
+label = "plugin-manifest.allowed-chars.name"
 kind = "plugin-manifest"
-predicate = "allowed_chars"
+predicate = "allowed-chars"
 field = "name"
 severity = "required"
 guidance = "Kebab-case, no spaces — lowercase letters, digits, and hyphens. The name is a namespace prefix and an install key, so a space or a capital makes it unquotable in the places it is typed. Use `displayName` for the human-readable label: it may carry spaces and any casing, and is never used for lookup."
@@ -817,9 +817,9 @@ cite = "https://code.claude.com/docs/en/plugins-reference#name (retrieved 2026-1
 charset = { ranges = ["a-z", "0-9"], chars = "-" }
 
 [[declaration.clause]]
-label = "plugin-manifest.forbidden_keys"
+label = "plugin-manifest.forbidden-keys"
 kind = "plugin-manifest"
-predicate = "forbidden_keys"
+predicate = "forbidden-keys"
 severity = "required"
 guidance = "`themes` and `monitors` are experimental components and belong under the `experimental` key. Declaring them at the top level still loads today and `claude plugin validate` only warns — but `--strict` fails it, and a future release will require `experimental.*`, so a top-level spelling is a migration already scheduled against you."
 cite = "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)"
@@ -1210,7 +1210,7 @@ kind = "plugin-manifest"
 predicate = "optional"
 field = "themes"
 severity = "required"
-guidance = "`themes` is recognized here only so the `forbidden_keys` clause can name the move: theme files belong under `experimental.themes`."
+guidance = "`themes` is recognized here only so the `forbidden-keys` clause can name the move: theme files belong under `experimental.themes`."
 cite = "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)"
 
 [[declaration.clause]]
@@ -1219,7 +1219,7 @@ kind = "plugin-manifest"
 predicate = "optional"
 field = "monitors"
 severity = "required"
-guidance = "`monitors` is recognized here only so the `forbidden_keys` clause can name the move: monitors belong under `experimental.monitors`."
+guidance = "`monitors` is recognized here only so the `forbidden-keys` clause can name the move: monitors belong under `experimental.monitors`."
 cite = "https://code.claude.com/docs/en/plugins-reference#fields (retrieved 2026-11-26)"
 
 [[declaration.clause]]
@@ -1257,9 +1257,9 @@ guidance = "This member's `satisfies` names a requirement the harness does not d
 cite = "https://github.com/duct-tape-and-markdown/temper/blob/main/specs/model/contract.md#requirement--a-shipped-kind-not-a-primitive (retrieved 2026-11-26)"
 
 [[declaration.clause]]
-label = "rule.forbidden_keys"
+label = "rule.forbidden-keys"
 kind = "rule"
-predicate = "forbidden_keys"
+predicate = "forbidden-keys"
 severity = "required"
 guidance = "Cursor `.mdc` keys. Claude Code's documented rules schema is `paths`-only; a rule authored with Cursor frontmatter is configuration another tool's semantics silently fail to honor — the rule loads, the scoping you meant does not. (That Claude Code ignores unknown keys is observed behavior, not documented contract — the documented schema is the citation.)"
 cite = "https://code.claude.com/docs/en/memory#path-specific-rules (retrieved 2026-07-15)"
@@ -1394,9 +1394,9 @@ guidance = "Every skill declares a `name` — the slug the harness binds to. Cla
 cite = "https://agentskills.io/specification#frontmatter (retrieved 2026-07-15)"
 
 [[declaration.clause]]
-label = "skill.min_len.name"
+label = "skill.min-len.name"
 kind = "skill"
-predicate = "min_len"
+predicate = "min-len"
 field = "name"
 severity = "required"
 guidance = "A present-but-empty name fails the spec's 1-64 character bound."
@@ -1404,9 +1404,9 @@ cite = "https://agentskills.io/specification#name-field (retrieved 2026-07-15)"
 bound = { min = 1 }
 
 [[declaration.clause]]
-label = "skill.allowed_chars.name"
+label = "skill.allowed-chars.name"
 kind = "skill"
-predicate = "allowed_chars"
+predicate = "allowed-chars"
 field = "name"
 severity = "required"
 guidance = "Lowercase letters, digits, and hyphens only — `PDF-Processing` is the spec's own counter-example. The charset also keeps XML out of the name, which Anthropic's upload validation separately forbids."
@@ -1414,9 +1414,9 @@ cite = "https://agentskills.io/specification#name-field (retrieved 2026-07-15)"
 charset = { ranges = ["a-z", "0-9"], chars = "-" }
 
 [[declaration.clause]]
-label = "skill.max_len.name"
+label = "skill.max-len.name"
 kind = "skill"
-predicate = "max_len"
+predicate = "max-len"
 field = "name"
 severity = "required"
 guidance = "Keep the name short and slug-like; it becomes a directory and an id."
@@ -1461,9 +1461,9 @@ guidance = "The description is how the model chooses this skill from potentially
 cite = "https://agentskills.io/specification#frontmatter (retrieved 2026-07-15)"
 
 [[declaration.clause]]
-label = "skill.min_len.description"
+label = "skill.min-len.description"
 kind = "skill"
-predicate = "min_len"
+predicate = "min-len"
 field = "description"
 severity = "required"
 guidance = "Say both what the skill does and when to use it, with the keywords a user would naturally say. Write in third person — the text is injected into the system prompt, and inconsistent point-of-view causes discovery problems."
@@ -1471,9 +1471,9 @@ cite = "https://agentskills.io/specification#description-field (retrieved 2026-0
 bound = { min = 1 }
 
 [[declaration.clause]]
-label = "skill.max_len.description"
+label = "skill.max-len.description"
 kind = "skill"
-predicate = "max_len"
+predicate = "max-len"
 field = "description"
 severity = "required"
 guidance = "The spec's cap. Claude Code additionally truncates the skill listing at 1,536 combined characters (description + when_to_use) — truncation, not rejection, but text past the fold cannot help the model choose."
@@ -1503,9 +1503,9 @@ gate = "disable-model-invocation"
 bound = { max = 8000, entry = 1536 }
 
 [[declaration.clause]]
-label = "skill.max_len.compatibility"
+label = "skill.max-len.compatibility"
 kind = "skill"
-predicate = "max_len"
+predicate = "max-len"
 field = "compatibility"
 severity = "required"
 guidance = "Optional field; when present the spec caps it at 500 characters. Most skills do not need it."
@@ -1523,9 +1523,9 @@ bound = { max = 500 }
 unit = "lines"
 
 [[declaration.clause]]
-label = "skill.forbidden_keys"
+label = "skill.forbidden-keys"
 kind = "skill"
-predicate = "forbidden_keys"
+predicate = "forbidden-keys"
 severity = "required"
 guidance = "Cursor `.mdc` keys. Nothing in the Agent Skills spec or Claude Code's documented frontmatter accepts them — a skill authored with them is carrying dead configuration that another tool's semantics silently fail to apply."
 cite = "https://agentskills.io/specification#frontmatter (retrieved 2026-07-15)"

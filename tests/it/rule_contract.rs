@@ -22,7 +22,7 @@ use temper::extract::ValueType;
 use crate::common;
 
 /// The decidable `(severity, predicate)` vector the rule built-in must carry, in
-/// declaration order — the Cursor-key `forbidden_keys` (required), the `paths`
+/// declaration order — the Cursor-key `forbidden-keys` (required), the `paths`
 /// `glob-valid` (required), the lean-rule `extent` (advisory), the on-demand size
 /// advisory (a `when` over `paths` guarding a character `extent`), the
 /// `mention-reachable` gate check and its converse `trigger-agrees` (both advisory). Guidance and
@@ -114,7 +114,7 @@ fn without_body_prose(predicate: &Predicate) -> Predicate {
 
 /// The embedded rule built-in carries exactly the decidable clause vector at its
 /// declared severities, and its display name is its bare kind label, `rule` — the
-/// projection's argument payload (the `forbidden_keys` list, the `extent` bound)
+/// projection's argument payload (the `forbidden-keys` list, the `extent` bound)
 /// survives unchanged.
 #[test]
 fn rule_builtin_carries_the_decidable_clause_vector() {
@@ -167,7 +167,7 @@ fn rule_builtin_encodes_only_decidable_clauses() {
         kinds,
         BTreeSet::from([
             "extent",
-            "forbidden_keys",
+            "forbidden-keys",
             "glob-valid",
             "mention-reachable",
             "trigger-agrees",

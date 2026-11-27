@@ -1875,7 +1875,7 @@ pub enum Primitive {
     Headings,
     /// `sections` — the body's ATX sections (each heading + the body span beneath
     /// it), in document order (`Features::sections`) — the `## Decision`-block
-    /// feature a `section_contains` clause decides over.
+    /// feature a `section-contains` clause decides over.
     Sections,
     /// `line_count` — the body's line count (`Features::body_lines`).
     LineCount,

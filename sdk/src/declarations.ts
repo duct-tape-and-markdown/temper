@@ -83,8 +83,8 @@ export type {
  * predicate carries them, the `count`/`target`/`degree` argument columns a
  * requirement's own set-/edge-scope demand needs, and the
  * `bound`/`charset`/`keys`/`values` argument columns a kind's own node-scope
- * floor clause needs (`min_len`/`max_len`/`extent`'s bound, `extent`'s unit,
- * `allowed_chars`'s charset, `forbidden_keys`'s keys, `deny`'s values) — so
+ * floor clause needs (`min-len`/`max-len`/`extent`'s bound, `extent`'s unit,
+ * `allowed-chars`'s charset, `forbidden-keys`'s keys, `deny`'s values) — so
  * the lock encodes the floor losslessly, not identity+severity alone. `kind`
  * is supplied only for a kind's own `expect` clause; a requirement's nested
  * clause carries none.
@@ -179,13 +179,13 @@ function clauseRow(clause: Clause, kind?: string): ClauseRow {
     // `charset`/`keys`/`values` are read-only, so copy each into a fresh
     // array/object — the same bytes, a shape the row will accept.
     charset:
-      predicate.key === "allowed_chars" && predicate.charset !== undefined
+      predicate.key === "allowed-chars" && predicate.charset !== undefined
         ? {
             ...predicate.charset,
             ranges: predicate.charset.ranges ? [...predicate.charset.ranges] : undefined,
           }
         : undefined,
-    keys: predicate.key === "forbidden_keys" && predicate.keys ? [...predicate.keys] : undefined,
+    keys: predicate.key === "forbidden-keys" && predicate.keys ? [...predicate.keys] : undefined,
     values:
       (predicate.key === "deny" || predicate.key === "enum") && predicate.values
         ? [...predicate.values]
@@ -195,11 +195,11 @@ function clauseRow(clause: Clause, kind?: string): ClauseRow {
         ? { min: predicate.range.min, max: predicate.range.max }
         : undefined,
     section:
-      predicate.key === "section_contains" && predicate.section !== undefined
+      predicate.key === "section-contains" && predicate.section !== undefined
         ? { heading: predicate.section.heading, marker: predicate.section.marker }
         : undefined,
     sections:
-      predicate.key === "require_sections" && predicate.sections
+      predicate.key === "require-sections" && predicate.sections
         ? [...predicate.sections]
         : undefined,
   };
@@ -210,7 +210,7 @@ function clauseRow(clause: Clause, kind?: string): ClauseRow {
  * predicates that name a *section*, a field *set*, or a *requirement* rather than a
  * field — an identity synthesized from the arguments the row already carries.
  *
- * `section_contains`, `require_sections`, `degree` and `reached-from` set no `field`,
+ * `section-contains`, `require-sections`, `degree` and `reached-from` set no `field`,
  * and the column is what emit stamps a clause's label from (`stamp_clause_label`,
  * `src/drift.rs`), so reading `Predicate.field` folds every clause of one of those
  * predicates on one kind into one label — two rows wearing one label, which
@@ -220,11 +220,11 @@ function clauseRow(clause: Clause, kind?: string): ClauseRow {
  * round-trips through the synthesized text.
  */
 export function clauseField(predicate: Predicate): string | undefined {
-  if (predicate.key === "section_contains") {
+  if (predicate.key === "section-contains") {
     const { section } = predicate;
     return section === undefined ? undefined : `${section.heading}.${section.marker}`;
   }
-  if (predicate.key === "require_sections") {
+  if (predicate.key === "require-sections") {
     // Joined with `+` rather than the label's own `.`, so the segment reads as the
     // set it is and two different heading lists cannot fold to one label.
     return predicate.sections?.join("+");
@@ -246,7 +246,7 @@ export function clauseField(predicate: Predicate): string | undefined {
   if (predicate.key === "reached-from") {
     // A `reached-from` clause names no field either: its identity is the pair it walks.
     // The roots requirement leads, and a declared via set follows after a `.` — the
-    // two-argument `section_contains` precedent — sorted and `+`-joined by `degree`'s
+    // two-argument `section-contains` precedent — sorted and `+`-joined by `degree`'s
     // rule directly above. So two closures rooted at one requirement over different
     // arcs land two addresses instead of folding into one, and two spellings of one via
     // set land one. An unfiltered closure adds no second segment: the roots are its
@@ -261,15 +261,15 @@ export function clauseField(predicate: Predicate): string | undefined {
   return predicate.field;
 }
 
-/** `min_len`/`max_len`/`extent`/`listing`'s scalar bound off their shared `min`/`max`
+/** `min-len`/`max-len`/`extent`/`listing`'s scalar bound off their shared `min`/`max`
  * args keys, plus `listing`'s per-entry `entry` cap — `undefined` for every other
  * predicate, and for these four when no endpoint is present. */
 function nodeScopeBoundArgs(
   predicate: Predicate,
 ): { readonly min?: number; readonly max?: number; readonly entry?: number } | undefined {
   if (
-    predicate.key !== "min_len" &&
-    predicate.key !== "max_len" &&
+    predicate.key !== "min-len" &&
+    predicate.key !== "max-len" &&
     predicate.key !== "extent" &&
     predicate.key !== "listing"
   ) {

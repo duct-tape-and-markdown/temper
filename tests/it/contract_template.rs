@@ -34,7 +34,7 @@ fn predicate_vector(contract: &Contract) -> Vec<(Severity, Predicate)> {
         .collect()
 }
 
-/// The `[a-z0-9-]` slug charset the `name` `allowed_chars` clause declares.
+/// The `[a-z0-9-]` slug charset the `name` `allowed-chars` clause declares.
 fn slug_charset() -> Charset {
     Charset {
         ranges: vec![('a', 'z'), ('0', '9')],
@@ -210,14 +210,14 @@ fn skill_builtin_encodes_only_decidable_clauses() {
         kinds,
         BTreeSet::from([
             "required",
-            "min_len",
-            "max_len",
+            "min-len",
+            "max-len",
             "deny",
-            "allowed_chars",
+            "allowed-chars",
             "shape",
             "extent",
             "name-matches-dir",
-            "forbidden_keys",
+            "forbidden-keys",
             "glob-valid",
             "mention-reachable",
             "listing",

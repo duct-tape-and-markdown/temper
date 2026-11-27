@@ -1,9 +1,9 @@
-//! Fixture-driven proof of the `section_contains` structural predicate and its
+//! Fixture-driven proof of the `section-contains` structural predicate and its
 //! `## Decision`-block extraction primitive.
 //!
 //! The predicate is decided end-to-end over the *new* section-body extraction: a
 //! spec-shaped [`Unit`] runs through the composed `sections` primitive
-//! ([`temper::kind`]) into [`Features::sections`], then the `section_contains`
+//! ([`temper::kind`]) into [`Features::sections`], then the `section-contains`
 //! clause is evaluated over it ([`temper::engine`]). This proves the predicate is a
 //! true positive — it fires on a `## Decision` section missing its `Rejected` marker
 //! and stays silent when every matching section carries it.
@@ -18,13 +18,13 @@ use temper::kind::{Extraction, Primitive};
 
 use crate::common;
 
-/// The composed `sections` extractor — the one primitive the `section_contains`
+/// The composed `sections` extractor — the one primitive the `section-contains`
 /// predicate reads.
 fn sections_extraction() -> Extraction {
     Extraction::new(vec![Primitive::Sections])
 }
 
-/// The `section_contains { heading = "Decision", marker = "Rejected" }` contract —
+/// The `section-contains { heading = "Decision", marker = "Rejected" }` contract —
 /// the decisions-name-alternatives clause: every `## Decision` section must name a
 /// rejected alternative.
 fn decision_contract() -> Contract {
@@ -32,7 +32,7 @@ fn decision_contract() -> Contract {
         name: "spec".to_string(),
         guidance: None,
         clauses: vec![Clause {
-            label: "spec.section_contains".to_string(),
+            label: "spec.section-contains".to_string(),
             severity: Severity::Required,
             predicate: Predicate::SectionContains {
                 heading: "Decision".to_string(),
@@ -99,7 +99,7 @@ Chosen: author-declared severity — but this section names no alternative.\n";
 
     let diags = check(bare);
     assert_eq!(diags.len(), 1, "exactly one bare Decision section fires");
-    assert_eq!(diags[0].rule, "spec.section_contains");
+    assert_eq!(diags[0].rule, "spec.section-contains");
     assert_eq!(diags[0].artifact, "10-contracts");
     assert_eq!(diags[0].severity, DiagnosticSeverity::Error);
     // The finding names the offending section, not the one that carried the marker.

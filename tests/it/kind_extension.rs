@@ -13,7 +13,7 @@ fn write_rule(root: &Path, relative: &str) {
     let path = root.join(relative);
     fs::create_dir_all(path.parent().unwrap()).unwrap();
     // `globs` is a Cursor key the `rule` default contract forbids, so a `rule` member
-    // carrying it is named by `rule.forbidden_keys` and a subkind member is not.
+    // carrying it is named by `rule.forbidden-keys` and a subkind member is not.
     fs::write(path, "---\nglobs: \"*.rs\"\n---\n# Doc\n\nBody.\n").unwrap();
 }
 
@@ -68,7 +68,7 @@ fn a_document_in_a_subkinds_locus_is_one_member_of_the_subkind() {
     write_rule(&root, ".claude/rules/style.md");
     let run = check_with(&root, vec![decision(".claude/rules/decisions", "*.md")]);
     assert!(
-        run.output.contains("rule.forbidden_keys") && run.output.contains("style"),
+        run.output.contains("rule.forbidden-keys") && run.output.contains("style"),
         "the base still owns its own documents, got:\n{}",
         run.output
     );
@@ -156,7 +156,7 @@ fn a_clause_bound_to_the_base_kind_judges_a_subkinds_member() {
         vec![decision_requires_status()],
     );
     assert_eq!(
-        findings_at(&run, "rule.forbidden_keys", "0001-adopt"),
+        findings_at(&run, "rule.forbidden-keys", "0001-adopt"),
         1,
         "the base's clause fires once at the subkind member's address, got:\n{}",
         run.output
@@ -168,7 +168,7 @@ fn a_clause_bound_to_the_base_kind_judges_a_subkinds_member() {
         run.output
     );
     assert_eq!(
-        findings_at(&run, "rule.forbidden_keys", "style"),
+        findings_at(&run, "rule.forbidden-keys", "style"),
         1,
         "the base's own member is judged as before, got:\n{}",
         run.output

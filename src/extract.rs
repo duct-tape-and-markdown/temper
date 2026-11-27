@@ -102,9 +102,9 @@ impl ValueType {
 
 /// One extracted feature value: a scalar field (carrying its parsed source
 /// [`ValueType`] alongside its comparison text), a list field (e.g. a YAML sequence
-/// like `allowed-tools`), or a map field. Scalar predicates (`min_len`, `enum`,
-/// `deny`, `allowed_chars`) read the scalar text; presence predicates
-/// (`required`, `forbidden_keys`) need only the key; the `type` primitive reads
+/// like `allowed-tools`), or a map field. Scalar predicates (`min-len`, `enum`,
+/// `deny`, `allowed-chars`) read the scalar text; presence predicates
+/// (`required`, `forbidden-keys`) need only the key; the `type` primitive reads
 /// [`FeatureValue::kind`].
 #[derive(Debug, Clone, PartialEq, Eq, schemars::JsonSchema, ts_rs::TS)]
 pub enum FeatureValue {
@@ -136,7 +136,7 @@ impl FeatureValue {
     }
 
     /// The scalar text of this value, or `None` if it is a container (list or
-    /// map). Lets a scalar-oriented clause (`min_len`, `enum`, …) read the value
+    /// map). Lets a scalar-oriented clause (`min-len`, `enum`, …) read the value
     /// generically — unchanged by the kind now riding alongside the text.
     #[must_use]
     pub fn as_scalar(&self) -> Option<&str> {
@@ -161,7 +161,7 @@ impl FeatureValue {
 
 /// One ATX **section** of a markdown body: a heading paired with the body span
 /// beneath it, up to the next heading of the same or a shallower level. The
-/// feature a `section_contains` clause decides over — its [`heading`](Section::heading) is
+/// feature a `section-contains` clause decides over — its [`heading`](Section::heading) is
 /// matched by the clause's declared prefix, its [`body`](Section::body) searched
 /// for the declared marker. Surface-decidable like every other feature: a heading
 /// inside a fenced code block opens no section (the same exclusion
@@ -172,7 +172,7 @@ pub struct Section {
     /// [`body_headings`] strips them.
     pub heading: String,
     /// The body span beneath the heading — the intervening lines rejoined with
-    /// `\n`, the text a `section_contains` marker check searches.
+    /// `\n`, the text a `section-contains` marker check searches.
     pub body: String,
 }
 
@@ -296,7 +296,7 @@ pub struct Features {
     pub id: String,
     /// Frontmatter fields by name — the typed fields *and* the `extra` keys, so
     /// a clause resolves `name`/`description`/`version` or any unknown key
-    /// (e.g. for `forbidden_keys`) through one generic lookup.
+    /// (e.g. for `forbidden-keys`) through one generic lookup.
     ///
     /// Each value is retained **as parsed**, never flattened: a clause addresses a field
     /// by a path that may step into an object or grain over an array's elements
@@ -330,11 +330,11 @@ pub struct Features {
     /// [`rendered_lines`](Features::rendered_lines).
     pub rendered_chars: Option<usize>,
     /// The ATX headings (`#`..`######`) in the body, in document order, with the
-    /// `#` run and any closing `#` run trimmed (for `require_sections`). A `#`
+    /// `#` run and any closing `#` run trimmed (for `require-sections`). A `#`
     /// inside a fenced code block is not a heading.
     pub headings: Vec<String>,
     /// The body's ATX [`Section`]s (heading + the body span beneath it), in
-    /// document order — the feature a `section_contains` clause decides over.
+    /// document order — the feature a `section-contains` clause decides over.
     /// A
     /// superset of [`headings`](Features::headings): where `headings` carries only
     /// each heading's text, a section pairs it with its body span so a marker check
@@ -400,7 +400,7 @@ impl Features {
     }
 
     /// Whether a frontmatter field/key by this name is present (for `required`
-    /// and `forbidden_keys`).
+    /// and `forbidden-keys`).
     #[must_use]
     pub fn has_field(&self, name: &str) -> bool {
         self.fields.contains_key(name)
@@ -534,7 +534,7 @@ fn collect_heads(lines: &[&str]) -> Vec<(usize, usize, String)> {
 /// nested under it, to arbitrary depth. The span and fence semantics are
 /// [`body_sections`]'s exactly — the tree is that flat section list re-partitioned by
 /// level, off the one [`collect_heads`] scan — so a member collection reads a
-/// collection heading's children the same way `section_contains` reads a section's
+/// collection heading's children the same way `section-contains` reads a section's
 /// body. A body with no heading yields no nodes (its whole text is preamble, the
 /// reader's to place).
 ///
@@ -626,7 +626,7 @@ pub(crate) fn body_headings(body: &str) -> Vec<String> {
 /// Extract the ATX **sections** of a byte-faithful markdown body: each heading
 /// paired with the body span beneath it, up to the next heading of the same or a
 /// shallower level (a deeper subsection stays part of its parent's span). The
-/// feature a `section_contains` clause reads. A heading (and any `#` line) inside a
+/// feature a `section-contains` clause reads. A heading (and any `#` line) inside a
 /// fenced code block opens no section — the same exclusion [`body_headings`] makes,
 /// tracked the identical way — so a fenced marker never splits the prose. Heading
 /// text is stripped exactly as [`body_headings`] strips it; the body is the

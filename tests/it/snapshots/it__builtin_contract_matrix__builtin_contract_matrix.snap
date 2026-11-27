@@ -2,7 +2,7 @@
 source: tests/it/builtin_contract_matrix.rs
 expression: output
 ---
-kind | allowed_chars | closed-keys | count | degree | deny | enum | extent | forbidden_keys | glob-valid | listing | max_len | mention-reachable | min_len | name-matches-dir | optional | required | resolves | shape | trigger-agrees | type | unique-name | unshadowed | when
+kind | allowed-chars | closed-keys | count | degree | deny | enum | extent | forbidden-keys | glob-valid | listing | max-len | mention-reachable | min-len | name-matches-dir | optional | required | resolves | shape | trigger-agrees | type | unique-name | unshadowed | when
 --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | ---
 agent | error |  |  |  |  |  |  |  |  |  | error |  |  |  |  | error |  |  |  |  | error |  | 
 command |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 

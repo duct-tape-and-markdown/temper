@@ -15,7 +15,7 @@ id: string,
 /**
  * Frontmatter fields by name — the typed fields *and* the `extra` keys, so
  * a clause resolves `name`/`description`/`version` or any unknown key
- * (e.g. for `forbidden_keys`) through one generic lookup.
+ * (e.g. for `forbidden-keys`) through one generic lookup.
  *
  * Each value is retained **as parsed**, never flattened: a clause addresses a field
  * by a path that may step into an object or grain over an array's elements
@@ -56,13 +56,13 @@ rendered_lines: number | null,
 rendered_chars: number | null, 
 /**
  * The ATX headings (`#`..`######`) in the body, in document order, with the
- * `#` run and any closing `#` run trimmed (for `require_sections`). A `#`
+ * `#` run and any closing `#` run trimmed (for `require-sections`). A `#`
  * inside a fenced code block is not a heading.
  */
 headings: Array<string>, 
 /**
  * The body's ATX [`Section`]s (heading + the body span beneath it), in
- * document order — the feature a `section_contains` clause decides over.
+ * document order — the feature a `section-contains` clause decides over.
  * A
  * superset of [`headings`](Features::headings): where `headings` carries only
  * each heading's text, a section pairs it with its body span so a marker check

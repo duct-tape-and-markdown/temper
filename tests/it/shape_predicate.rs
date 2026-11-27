@@ -69,7 +69,7 @@ fn a_hyphen_that_leads_trails_or_doubles_is_a_finding() {
 fn a_clean_slug_holds_the_hyphen_shape() {
     let contract = shaped("name", Shape::HyphenPlacement);
     // The spec's own valid examples, plus the hyphenless case and the empty value that
-    // `min_len` — never this shape — is the clause for.
+    // `min-len` — never this shape — is the clause for.
     for name in [
         "pdf-processing",
         "data-analysis",

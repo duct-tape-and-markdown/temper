@@ -30,7 +30,7 @@ description: Use when coordinating agents across axes; not for single-axis work.
 Drive the team through the playbook.\n";
 
 /// A skill that violates a `required` clause: the uppercase `name` is outside the
-/// `[a-z0-9-]` `allowed_chars` set — the existing skill finding the no-regression arm
+/// `[a-z0-9-]` `allowed-chars` set — the existing skill finding the no-regression arm
 /// asserts still fires beside the memory advisory.
 const ERROR_SKILL: &str = "---\n\
 name: Coordinate\n\
@@ -238,7 +238,7 @@ fn an_over_length_claude_md_fires_exactly_one_memory_extent_advisory() {
 
     // No regression: the clean skill still trips no finding under its own kind.
     assert!(
-        common::findings_for(&findings, "skill.allowed_chars.name").is_empty(),
+        common::findings_for(&findings, "skill.allowed-chars.name").is_empty(),
         "the clean skill must not trip allowed_chars, got: {findings:#?}"
     );
 }
@@ -271,7 +271,7 @@ fn the_memory_dispatch_leaves_skill_findings_unchanged() {
     let findings = check_harness(&harness).0;
 
     // The skill finding still fires, exactly as before the gate generalized.
-    let allowed_chars = common::findings_for(&findings, "skill.allowed_chars.name");
+    let allowed_chars = common::findings_for(&findings, "skill.allowed-chars.name");
     assert_eq!(
         allowed_chars.len(),
         1,

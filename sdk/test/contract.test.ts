@@ -329,7 +329,7 @@ test("engineMatches composes a field-less stamp predicate lowering to a kind-les
 
 test("mustDefine composes a body marker landing in the field column", () => {
   assert.deepEqual(mustDefine("disable-model-invocation"), {
-    key: "must_define",
+    key: "must-define",
     field: "disable-model-invocation",
   });
   assert.equal(skillClauseRow(mustDefine("disable-model-invocation")).field, "disable-model-invocation");
@@ -337,7 +337,7 @@ test("mustDefine composes a body marker landing in the field column", () => {
 
 test("sectionContains composes a heading/marker predicate landing its section column", () => {
   assert.deepEqual(sectionContains("Decision", "Rejected"), {
-    key: "section_contains",
+    key: "section-contains",
     section: { heading: "Decision", marker: "Rejected" },
   });
   assert.deepEqual(skillClauseRow(sectionContains("Decision", "Rejected")).section, {
@@ -502,7 +502,7 @@ test("a requirement with no verifier lowers to an absent verifier column", () =>
 
 test("requireSections composes a heading-list predicate landing its sections column", () => {
   assert.deepEqual(requireSections(["Usage", "Decision"]), {
-    key: "require_sections",
+    key: "require-sections",
     sections: ["Usage", "Decision"],
   });
   const row = skillClauseRow(requireSections(["Installation", "Example"]));
@@ -515,7 +515,7 @@ test("requireSections composes a heading-list predicate landing its sections col
 // predicates on one kind wearing the same label, which admissibility refuses as a
 // malformed lock: the author could declare only one of each per kind.
 test("two section_contains clauses on one kind land two distinct field columns", () => {
-  const rows = skillClauseRowsFor("section_contains", [
+  const rows = skillClauseRowsFor("section-contains", [
     sectionContains("Invariant", "Test"),
     sectionContains("Invariant", "Standard"),
     sectionContains("Decision", "Rejected"),
@@ -531,7 +531,7 @@ test("two section_contains clauses on one kind land two distinct field columns",
 });
 
 test("two require_sections clauses on one kind land two distinct field columns", () => {
-  const rows = skillClauseRowsFor("require_sections", [
+  const rows = skillClauseRowsFor("require-sections", [
     requireSections(["Usage", "Decision"]),
     requireSections(["Installation", "Example"]),
   ]);

@@ -54,7 +54,7 @@ pub struct Diagnostic {
     /// stamped on its lock row, dot-joined `<owner>.<predicate>[.<field>]` — the kind
     /// whose contract carries it (or `requirement.<name>` for a requirement's own
     /// demand), the predicate key, and the field it names when it names one:
-    /// `skill.max_len.description`, `requirement.approved-model.count`. It is the whole
+    /// `skill.max-len.description`, `requirement.approved-model.count`. It is the whole
     /// identity — there is no second, friendlier name beside it — so an author who reads
     /// a finding can spell the clause back to the dial without a lookup, and the
     /// clause's own guidance is what teaches the *why*.

@@ -151,8 +151,8 @@ fn covered_rule(predicate: &Predicate) -> Option<String> {
                 many => format!("{field}: type in {{{}}}", many.join("|")),
             }
         }
-        // The rest state rules the published schema does not: `allowed_chars` holds the
-        // kebab-case bar the schema leaves to a `description`, `forbidden_keys` holds the
+        // The rest state rules the published schema does not: `allowed-chars` holds the
+        // kebab-case bar the schema leaves to a `description`, `forbidden-keys` holds the
         // `--strict` experimental-component migration the schema still permits outright,
         // `closed-keys` holds the `--strict` unrecognized-field bar the schema declares no
         // `additionalProperties` for, `shape` holds a named form the schema states none of,

@@ -36,7 +36,7 @@ use temper::reporter;
 fn diagnostic_set() -> Vec<Diagnostic> {
     vec![
         Diagnostic::error(
-            "allowed_chars",
+            "allowed-chars",
             "Coordinate",
             "name has characters outside [a-z0-9-]",
         ),
@@ -59,7 +59,7 @@ fn github_emits_one_workflow_command_line_per_finding_with_the_rule_as_title() {
     // The error maps to `::error` and the warn to `::warning`, each carrying its
     // rule as the annotation `title=` and its message in the body.
     assert!(
-        lines[0].starts_with("::error title=allowed_chars::"),
+        lines[0].starts_with("::error title=allowed-chars::"),
         "an error finding is an ::error line titled with its rule, got: {}",
         lines[0]
     );
@@ -121,7 +121,7 @@ fn sarif_is_valid_json_with_the_temper_driver_and_one_result_per_diagnostic() {
 
     // The error diagnostic: ruleId from the rule, level mapped error->error,
     // message text and the artifact location all carried from the diagnostic.
-    assert_eq!(results[0]["ruleId"], "allowed_chars");
+    assert_eq!(results[0]["ruleId"], "allowed-chars");
     assert_eq!(results[0]["level"], "error");
     assert_eq!(
         results[0]["message"]["text"],
@@ -371,7 +371,7 @@ fn a_clause_finding_prints_its_label_and_explain_narrates_the_same_one() {
         .find(|line| line.contains("characters outside"))
         .expect("the uppercase name trips the skill floor's charset clause");
     assert!(
-        charset.starts_with("::error title=skill.allowed_chars.name::"),
+        charset.starts_with("::error title=skill.allowed-chars.name::"),
         "the finding's diagnostic code is the clause's address, not the bare \
          predicate key, got: {charset}"
     );
@@ -383,7 +383,7 @@ fn a_clause_finding_prints_its_label_and_explain_narrates_the_same_one() {
         .unwrap();
     let narration = String::from_utf8_lossy(&explained.stdout).into_owned();
     assert!(
-        narration.contains("skill.allowed_chars.name"),
+        narration.contains("skill.allowed-chars.name"),
         "`explain` narrates the governing contract's clauses by the same address the \
          finding printed, got:\n{narration}"
     );

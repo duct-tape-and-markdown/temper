@@ -20,7 +20,7 @@ use crate::extract::ValueType;
 /// The result is an `object` schema whose `properties` carry the per-field
 /// refinements (`type`/`minLength`/`maxLength`/`enum`/`not`/`minimum`/`maximum`/
 /// `pattern`), whose `required` array lists the present-required fields, and whose
-/// `allOf` forbids each `forbidden_keys` key. A contract with no *mappable* clause
+/// `allOf` forbids each `forbidden-keys` key. A contract with no *mappable* clause
 /// yields the empty-but-valid `{ "$schema", "type": "object" }` — a schema that
 /// asserts nothing, exactly as a vacuous contract gates nothing.
 #[must_use]
@@ -100,8 +100,8 @@ pub fn emit(contract: &Contract) -> Value {
             // set is known whichever order the clauses were authored in.
             Predicate::ClosedKeys => closed = true,
             // The remaining predicates name no frontmatter JSON-Schema keyword —
-            // `optional` is documentation, `extent`/`require_sections`/
-            // `must_define`/`section_contains` are body/structural, the
+            // `optional` is documentation, `extent`/`require-sections`/
+            // `must-define`/`section-contains` are body/structural, the
             // cross-artifact predicates range over the whole corpus, and
             // `count`/`unique`/`membership`/`degree`/`reached-from`/`kind`/
             // `format-places-edges`
@@ -168,7 +168,7 @@ pub fn emit(contract: &Contract) -> Value {
     // Schema property's `description`, joining whatever the field's earlier clauses
     // taught. This is the on-law guarantee made concrete —
     // taste can only become documentation, never a squiggle. Guidance on a
-    // field-less predicate (`forbidden_keys`, `extent`, the cross-artifact ones)
+    // field-less predicate (`forbidden-keys`, `extent`, the cross-artifact ones)
     // names no frontmatter property, so it rides no channel here, exactly as those
     // predicates' validation does not. Absent guidance ⇒ no `description`.
     for clause in &contract.clauses {
@@ -227,7 +227,7 @@ pub fn emit(contract: &Contract) -> Value {
 /// object this schema describes — true for a bare name, false for a path that steps into
 /// an object or grains over an array's elements.
 ///
-/// A predicate that documents no frontmatter property (`forbidden_keys`, the body and
+/// A predicate that documents no frontmatter property (`forbidden-keys`, the body and
 /// cross-artifact ones) addresses none either way, so it passes through to the per-
 /// predicate mapping below, which is where its silence is already decided.
 fn addresses_a_property(predicate: &Predicate) -> bool {
@@ -311,7 +311,7 @@ fn shape_subschema(shape: Shape) -> Value {
 
 /// Add `subschema` to a property's `allOf`, the composition keyword.
 ///
-/// A shape's keywords compose rather than overwrite: `allowed_chars` already writes the
+/// A shape's keywords compose rather than overwrite: `allowed-chars` already writes the
 /// property's own `pattern` and `deny` its `not`, and a skill's `name` carries both plus a
 /// shape. Writing a second `pattern` straight onto the property would leave only the last
 /// clause's standing — silently dropping the other from the schema, with nothing to catch
@@ -343,7 +343,7 @@ fn push_description(property: &mut Map<String, Value>, prose: &str) {
 }
 
 /// The generated character-class pattern for a [`Charset`] — a faithful projection of
-/// the decidable `allowed_chars` clause, not an authored regex: `^[<class>]*$` over every
+/// the decidable `allowed-chars` clause, not an authored regex: `^[<class>]*$` over every
 /// character, `^(?:[<class>]|$)` over the leading one, the class opening `[^` when
 /// negated. Ranges render `lo-hi`, then the individual chars follow, each
 /// metacharacter escaped so the class stays a literal set.
@@ -674,8 +674,8 @@ mod tests {
     fn guidance_rides_the_property_description_alongside_validation() {
         // A field clause's `guidance` becomes the property's `description`, sitting
         // *beside* the validation keyword the same field carries — never mixed into
-        // it. `name` carries a `max_len` (validation) and guidance (docs);
-        // `description` carries only a `min_len` and no guidance, so it gets no
+        // it. `name` carries a `max-len` (validation) and guidance (docs);
+        // `description` carries only a `min-len` and no guidance, so it gets no
         // `description` keyword.
         let contract = Contract {
             name: "docs".to_string(),
@@ -799,7 +799,7 @@ mod tests {
 
     #[test]
     fn guidance_on_a_field_less_predicate_rides_no_channel() {
-        // A field-less predicate (`forbidden_keys`) names no frontmatter property,
+        // A field-less predicate (`forbidden-keys`) names no frontmatter property,
         // so guidance authored on it has nowhere to ride — exactly as its
         // validation projects to a root `allOf`, not a property. The schema is the
         // same one the un-guided clause would emit.

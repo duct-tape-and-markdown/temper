@@ -155,6 +155,25 @@ mod tests {
     }
 
     #[test]
+    fn a_compiled_clause_id_spells_its_predicate_in_kebab_case() {
+        let labels: Vec<&str> = declarations()
+            .clauses
+            .iter()
+            .map(|clause| clause.label.as_deref().expect("emit stamps every label"))
+            .collect();
+        for wanted in ["skill.max-len.name", "skill.name-matches-dir"] {
+            assert!(labels.contains(&wanted), "the lock carries `{wanted}`");
+        }
+        for clause in &declarations().clauses {
+            assert!(
+                !clause.predicate.contains('_'),
+                "predicate `{}` is kebab-case",
+                clause.predicate
+            );
+        }
+    }
+
+    #[test]
     fn re_parsing_the_embedded_bytes_is_deterministic() {
         // The embed is static data; parsing it twice must agree byte-for-byte with
         // itself (`Declarations` derives `PartialEq`).

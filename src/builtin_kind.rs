@@ -240,7 +240,7 @@ pub fn rule_features(unit: &Unit) -> Features {
 /// ([`crate::drift::nested_members_from_rows`]), read through
 /// [`member_address::address_of`] so a nested **file** child whose id is already its whole
 /// address still finds its rows. The **permissive extraction**: an unknown
-/// key on a known artifact is already extracted, so a clause (a `forbidden_keys`) can
+/// key on a known artifact is already extracted, so a clause (a `forbidden-keys`) can
 /// range over it. The closed algebra cannot enumerate unknown keys, so this bulk
 /// preservation is the adapter's, while each documented field is the composed
 /// extraction's. `or_insert` leaves each field the composed extractor already yielded
@@ -888,7 +888,7 @@ Body line two.\n",
             Some(FeatureValue::scalar(ValueType::String, "demo"))
         );
         // Permissive extraction: the unknown keys ride into the same feature map, so a
-        // `forbidden_keys` clause can range over a project convention on a known artifact.
+        // `forbidden-keys` clause can range over a project convention on a known artifact.
         assert_eq!(
             features.field("allowed-tools"),
             Some(FeatureValue::List(vec![
