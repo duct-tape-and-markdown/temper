@@ -39,7 +39,7 @@ there.
 
 ## The shipped kinds
 
-Twenty kinds ship: eleven file members, four registration members, the
+Twenty-one kinds ship: twelve file members, four registration members, the
 embedded `handler` and `tool`, the nested-file `supporting-doc`, and
 temper's own `dial` and `requirement`. The file members:
 
@@ -111,23 +111,24 @@ temper's own `dial` and `requirement`. The file members:
   match on its paths loads nothing (probed against Claude Code 2.1.332,
   2026-11-26; the docs are silent).
 - **memory** — a `CLAUDE.md`-family file, loaded whole at launch, with no
-  frontmatter: the entire file is prose. `CLAUDE.local.md` is one too,
-  loaded beside the `CLAUDE.md` of its directory and treated the same way
-  (code.claude.com/docs/en/memory, retrieved 2026-11-27), a local-locus
-  template since it is personal and kept out of version control. `AGENTS.md`
-  and `.claude/AGENTS.md` are memory members by position too, and their
-  registration is the runtime's condition (code.claude.com/docs/en/memory,
-  retrieved 2026-11-26): at launch one loads only where no `CLAUDE.md` sits
-  in the working directory or above, and a subdirectory's loads on demand
-  only where that subdirectory has none of the `CLAUDE.md` files of its own.
-  One a `CLAUDE.md` shadows and does not import is never loaded, and
-  reachability says so. Which instruction files load is a setting the
-  runtime reads only from outside the harness (user, `--settings` and
-  managed settings, never project or local), so the gates are judged at its
-  documented default and a finding on a gated `AGENTS.md` names that
-  assumption. A nested one is named by the same grammar as a nested skill,
-  its subdirectory's segments joined with `:` (`memory:apps:web:CLAUDE`), so
-  emit places it where it was found.
+  frontmatter: the entire file is prose. `CLAUDE.local.md`, loaded beside
+  the `CLAUDE.md` of its directory and treated the same way
+  (code.claude.com/docs/en/memory, retrieved 2026-11-27), is its own kind,
+  **memory-local**, at the local commitment class as `settings-local` is to
+  `settings`: personal, uncommitted, read in place and gated, never emitted.
+  `AGENTS.md` and `.claude/AGENTS.md` are memory members by position too,
+  and their registration is the runtime's condition
+  (code.claude.com/docs/en/memory, retrieved 2026-11-26): at launch one
+  loads only where no `CLAUDE.md` sits in the working directory or above,
+  and a subdirectory's loads on demand only where that subdirectory has none
+  of the `CLAUDE.md` files of its own. One a `CLAUDE.md` shadows and does
+  not import is never loaded, and reachability says so. Which instruction
+  files load is a setting the runtime reads only from outside the harness
+  (user, `--settings` and managed settings, never project or local), so the
+  gates are judged at its documented default and a finding on a gated
+  `AGENTS.md` names that assumption. A nested one is named by the same
+  grammar as a nested skill, its subdirectory's segments joined with `:`
+  (`memory:apps:web:CLAUDE`), so emit places it where it was found.
 - **plugin-manifest** — the pack's identity at
   `.claude-plugin/plugin.json`, a JSON document; identity from its `name`
   field, the one required field (kebab-case). Its contract mirrors the

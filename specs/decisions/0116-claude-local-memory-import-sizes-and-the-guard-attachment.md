@@ -24,3 +24,16 @@ The loop raised two plan questions. Both were class-covered, and the build's rec
 ## Consequences
 
 Two questions are retired. The `guard` verb grows an area mode, fed from the lock.
+
+## Amendment (2026-11-27)
+
+The first text made `CLAUDE.local.md` a local-locus template inside memory's
+locus. A commitment class is a whole file locus's fact (`representation.md`,
+"locus"), so a committed locus cannot hold a local template. Derive hit that
+and tried to record it. `CLAUDE.local.md` is instead its own kind,
+**memory-local**, at the local commitment class, which is to `memory` what
+`settings-local` is to `settings`: read in place and gated, never emitted.
+Twenty-one kinds ship.
+
+Rejected: **a commitment class per template.** That splits one locus fact
+into many, and no other kind needs it.
