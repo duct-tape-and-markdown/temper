@@ -1301,6 +1301,7 @@ fn manifest_units(
     kind: &CustomKind,
     address: &CollectionAddress,
     cache: &ManifestCache,
+    diagnostics: &mut Vec<crate::check::Diagnostic>,
 ) -> miette::Result<(Vec<Unit>, Vec<ComposedEmbeddedMember>)> {
     let (Some(governs),) = (&kind.governs,) else {
         return Ok((Vec::new(), Vec::new()));
@@ -1319,6 +1320,13 @@ fn manifest_units(
     for file in files {
         if let Some((manifest, _)) = cache.get(&file) {
             let source_path = manifest.provenance.source_path.clone();
+            diagnostics.extend(
+                manifest
+                    .rejected_collections
+                    .iter()
+                    .filter(|rejected| rejected.key == collection)
+                    .map(|rejected| rejected_collection_finding(&source_path, rejected)),
+            );
             for member in &manifest.members {
                 if member.collection != collection {
                     continue;
@@ -1344,6 +1352,33 @@ fn manifest_units(
     }
     Ok((units, composed))
 }
+
+/// The finding a declared collection draws when its value is not the object the runtime
+/// requires: its registrations never load, and the value stays in the file's residue.
+fn rejected_collection_finding(
+    source_path: &Path,
+    rejected: &json_manifest::RejectedCollection,
+) -> crate::check::Diagnostic {
+    crate::check::Diagnostic::error(
+        "manifest.rejected-collection",
+        source_path.display().to_string(),
+        format!(
+            "`{}` is {} {}, not an object, so Claude Code rejects it and none of its entries registers",
+            rejected.key,
+            if rejected.json_type.starts_with(['a', 'i', 'o']) { "an" } else { "a" },
+            rejected.json_type
+        ),
+    )
+    .with_guidance(Some(REJECTED_COLLECTION_GUIDANCE.to_string()))
+}
+
+/// The teaching [`rejected_collection_finding`] carries: what the runtime does with it.
+const REJECTED_COLLECTION_GUIDANCE: &str = "A registration collection is an object keyed by \
+     entry name. Claude Code rejects an `.mcp.json` whose `mcpServers` is anything else \
+     (probed against Claude Code 2.1.332, 2026-11-27), and skips a settings value its schema \
+     rejects while the rest of the file applies (code.claude.com/docs/en/settings, \
+     \"Fix a broken settings file\", retrieved 2026-11-27). Rewrite the value as an object, \
+     or remove the key.";
 
 /// Map a frontmatter load fault to a diagnostic, or return the error to propagate.
 /// Called from both discovery branches in [`resolve_kind_units`] to avoid duplication.
@@ -1428,7 +1463,8 @@ fn resolve_kind_units(
     let mut read: Vec<(Unit, drift::LayoutDocumentRows)> =
         match (&kind.content, &kind.collection_address, &kind.governs) {
             (kind::Content::Fields, Some(address), _) => {
-                let (units, composed) = manifest_units(disc, kind, address, cache)?;
+                let (units, composed) =
+                    manifest_units(disc, kind, address, cache, &mut load_fault_diagnostics)?;
                 composed_embedded = composed;
                 units
                     .into_iter()

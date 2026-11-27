@@ -58,9 +58,26 @@ pub struct Manifest {
     /// collection address consumed, projected kind-preserving and kept as an opaque
     /// field, named as such. Sorted by key (`serde_json::Map` is a `BTreeMap`).
     pub opaque_fields: BTreeMap<String, FeatureValue>,
+    /// Each declared collection key whose value is not a JSON object, which the runtime
+    /// rejects. Its value stays in [`opaque_fields`](Self::opaque_fields) too: a read that
+    /// judged nothing of it must not let a regenerate drop it.
+    pub rejected_collections: Vec<RejectedCollection>,
     /// Where the manifest came from, exactly as a frontmatter member's [`Provenance`]
     /// carries.
     pub provenance: Provenance,
+}
+
+/// A declared collection key whose value carries a JSON type other than an object — the
+/// shape Claude Code rejects: an `.mcp.json` whose `mcpServers` is not an object fails to
+/// load (probed against Claude Code 2.1.332, 2026-11-27), and a settings value the schema
+/// rejects is skipped while the rest of the file applies (code.claude.com/docs/en/settings,
+/// "Fix a broken settings file", retrieved 2026-11-27).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RejectedCollection {
+    /// The top-level collection key (`mcpServers`, `hooks`).
+    pub key: String,
+    /// The JSON type the value carries (`array`, `string`, …).
+    pub json_type: &'static str,
 }
 
 /// One fields-only registration member read off a manifest's collection: the collection
@@ -477,9 +494,27 @@ impl Manifest {
         // are tracked so the residue that stays opaque excludes them.
         let mut members = Vec::new();
         let mut consumed = BTreeSet::new();
+        let mut rejected_collections: Vec<RejectedCollection> = Vec::new();
         for address in addresses {
             let collection = address.key_path.collection_key();
-            consumed.insert(collection);
+            match manifest.get(collection) {
+                Some(JsonValue::Object(_)) => {
+                    consumed.insert(collection);
+                }
+                Some(value) => {
+                    // Several addresses share `hooks`' file but not its key; one record per key.
+                    if !rejected_collections.iter().any(|r| r.key == collection) {
+                        rejected_collections.push(RejectedCollection {
+                            key: collection.to_string(),
+                            json_type: crate::schema::json_type(
+                                extract::json_to_feature(value).kind(),
+                            ),
+                        });
+                    }
+                    continue;
+                }
+                None => continue,
+            }
             for member in manifest_members(&manifest, collection, &address.entry_shape) {
                 // The one refusal the joined name rests on, taken here because
                 // `to_unit` is infallible and every consumer of a member's identity is
@@ -508,6 +543,7 @@ impl Manifest {
         Ok(Self {
             members,
             opaque_fields,
+            rejected_collections,
             provenance: Provenance {
                 source_path: source_file.to_path_buf(),
             },

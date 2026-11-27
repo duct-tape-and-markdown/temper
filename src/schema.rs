@@ -258,7 +258,7 @@ fn json_types(kinds: &BTreeSet<ValueType>) -> Value {
 /// their spelling; the two containers are renamed to JSON Schema's own vocabulary
 /// (`list`→`array`, `map`→`object`), a faithful projection of the same closed
 /// lattice.
-fn json_type(kind: ValueType) -> &'static str {
+pub(crate) fn json_type(kind: ValueType) -> &'static str {
     match kind {
         ValueType::String => "string",
         ValueType::Integer => "integer",

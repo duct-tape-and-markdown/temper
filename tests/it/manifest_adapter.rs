@@ -174,3 +174,70 @@ fn a_represented_manifest_regenerates_whole_declared_order_then_residue() {
         write_manifest(&segments, &residue)
     );
 }
+
+/// The `hooks.<Event>` collection address `settings.json` carries its hooks at.
+fn hooks_address() -> CollectionAddress {
+    CollectionAddress {
+        key_path: CollectionKeyPath::HooksEvent,
+        entry_shape: temper::kind::EntryShape::GroupArray {
+            member_key: "hooks".to_string(),
+            lifted_fields: vec!["matcher".to_string()],
+        },
+    }
+}
+
+#[test]
+fn a_non_object_collection_is_recorded_with_its_type_and_kept_in_the_residue() {
+    let dir = common::tmpdir("manifest-adapter-rejected");
+    let mcp = dir.join(".mcp.json");
+    fs::write(&mcp, "{ \"mcpServers\": [] }\n").unwrap();
+    let settings = dir.join("settings.json");
+    fs::write(&settings, "{ \"hooks\": \"x\", \"model\": \"opus\" }\n").unwrap();
+
+    for (file, address, key, json_type) in [
+        (&mcp, mcp_address(), "mcpServers", "array"),
+        (&settings, hooks_address(), "hooks", "string"),
+    ] {
+        let manifest = Manifest::read(file, &[&address]).unwrap();
+        assert!(manifest.members.is_empty());
+        let rejected: Vec<(&str, &str)> = manifest
+            .rejected_collections
+            .iter()
+            .map(|r| (r.key.as_str(), r.json_type))
+            .collect();
+        assert_eq!(rejected, vec![(key, json_type)]);
+        assert!(
+            manifest.opaque_fields.contains_key(key),
+            "a value the read never judged stays residue: {:?}",
+            manifest.opaque_fields
+        );
+    }
+
+    // An object collection, empty or not, is no rejection.
+    fs::write(&mcp, "{ \"mcpServers\": {} }\n").unwrap();
+    let manifest = Manifest::read(&mcp, &[&mcp_address()]).unwrap();
+    assert!(manifest.rejected_collections.is_empty());
+    assert!(!manifest.opaque_fields.contains_key("mcpServers"));
+}
+
+#[test]
+fn a_regenerated_manifest_keeps_a_collection_value_it_never_judged() {
+    let dir = common::tmpdir("manifest-adapter-rejected-regenerate");
+    let file = dir.join(".mcp.json");
+    let raw = "{ \"mcpServers\": [], \"$schema\": \"https://json.schemastore.org/mcp.json\" }\n";
+    fs::write(&file, raw).unwrap();
+
+    // The regenerate's residue is the read's opaque keys, valued as the disk carries them.
+    let manifest = Manifest::read(&file, &[&mcp_address()]).unwrap();
+    let disk: serde_json::Value = serde_json::from_str(raw).unwrap();
+    let residue: BTreeMap<String, serde_json::Value> = manifest
+        .opaque_fields
+        .keys()
+        .map(|key| (key.clone(), disk[key].clone()))
+        .collect();
+    let segments: Vec<CollectionSegment> = Vec::new();
+    let written = write_manifest(&segments, &residue);
+
+    let rewritten: serde_json::Value = serde_json::from_str(&written).unwrap();
+    assert_eq!(rewritten["mcpServers"], serde_json::json!([]), "{written}");
+}

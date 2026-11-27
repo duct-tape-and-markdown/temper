@@ -281,3 +281,19 @@ fn the_servers_under_mcp_servers_stay_mcp_server_members_rather_than_container_f
         "the connection is still a member of its own kind: {findings:?}"
     );
 }
+
+#[test]
+fn a_non_object_mcp_servers_collection_draws_a_finding_naming_the_key_and_its_type() {
+    let harness = common::tmpdir("mcp-rejected-collection");
+    common::write_mcp_json(&harness, "{ \"mcpServers\": [] }\n");
+
+    let (findings, ok) = common::check_harness(&harness);
+    let rejected = common::findings_for(&findings, "manifest.rejected-collection");
+    assert_eq!(rejected.len(), 1, "{findings:?}");
+    assert!(
+        rejected[0].contains("mcpServers") && rejected[0].contains("array"),
+        "the finding names the key and the type it carries: {}",
+        rejected[0]
+    );
+    assert!(!ok, "a collection the runtime rejects fails the gate");
+}

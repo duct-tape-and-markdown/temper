@@ -3447,7 +3447,9 @@ fn manifest_segment_reaps(
         let undeclared: Vec<String> = current
             .opaque_fields
             .keys()
-            .filter(|key| !build.residue.contains_key(*key))
+            // A rejected collection value sits in the residue; a segment this build renders
+            // at that key replaces it, so it is no drop.
+            .filter(|key| !build.residue.contains_key(*key) && !build.segments.contains_key(*key))
             .cloned()
             .collect();
         if build.container.is_none() && !undeclared.is_empty() {
