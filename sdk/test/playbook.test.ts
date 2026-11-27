@@ -6,7 +6,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { harness, span, text } from "../src/index.js";
+import { clause, harness, maxLen, span, text } from "../src/index.js";
 import { emit } from "../src/emit.js";
 import { agent } from "../src/claude-code.js";
 import { playbook } from "../src/patterns.js";
@@ -177,4 +177,66 @@ test("a playbook's rule and skill each fill the requirements named for them", ()
   for (const topic of book.topics) assert.deepEqual(topic.satisfies, []);
   const bare = playbook(base);
   assert.deepEqual([bare.rule.satisfies, bare.skill.satisfies], [[], []]);
+});
+
+test("an attached clause lands in the lock over the area's rule, skill and topics", () => {
+  const short = clause(maxLen("description", 200), { severity: "advisory", guidance: "Keep it short." });
+  const book = playbook({ ...base, satisfies: { rule: ["standards"] }, attachments: { clauses: [short] } });
+  const result = emit(harness({ members: [...book.members], require: { standards: { prose: "The standing facts." } } }));
+  const area = result.declarations.requirements.find((r) => r.name === "playbook:rust-code");
+  assert.ok(area, "the playbook publishes its area requirement");
+  assert.equal(area.clauses.length, 1);
+  assert.equal(area.clauses[0].guidance, "Keep it short.");
+  const satisfiers = result.declarations.satisfies
+    .filter((row) => row.requirement === "playbook:rust-code")
+    .map((row) => row.member)
+    .sort();
+  assert.deepEqual(satisfiers, [
+    "rule:rust-code",
+    "skill:rust-code",
+    "skill:rust-code/supporting-doc/adding-a-module",
+    "skill:rust-code/supporting-doc/writing-a-test",
+  ]);
+  assert.ok(result.declarations.satisfies.some((row) => row.member === "rule:rust-code" && row.requirement === "standards"));
+});
+
+test("a playbook with no attached clause publishes no area requirement", () => {
+  const result = emitted(base);
+  assert.equal(result.declarations.requirements.find((r) => r.name === "playbook:rust-code"), undefined);
+});
+
+test("an ask fence derives settings permissions.ask over the owner paths, anchored at the project", () => {
+  const book = playbook({ ...base, attachments: { fence: ["src/lib.rs", "migrations/**"] } });
+  const result = emit(harness({ members: [...book.members] }));
+  assert.deepEqual(result.permissions, { allow: [], ask: ["Edit(/migrations/**)", "Edit(/src/lib.rs)"] });
+  assert.deepEqual(
+    book.rule.needs.map((need) => need.list),
+    ["ask", "ask"],
+  );
+});
+
+test("a fence refuses a path that is not relative to the harness root", () => {
+  for (const path of ["", "/src/**", "//etc/**", "~/x", "../up/**"]) {
+    assert.throws(() => playbook({ ...base, attachments: { fence: [path] } }), /fence path .* is no glob relative/);
+  }
+});
+
+test("a task script's allow rule is the Bash rule of the command as invoked", () => {
+  const book = playbook({ ...base, attachments: { tasks: ["./scripts/deploy.sh staging", "cargo xtask lint"] } });
+  const result = emit(harness({ members: [...book.members] }));
+  assert.deepEqual(result.permissions, {
+    allow: ["Bash(./scripts/deploy.sh staging)", "Bash(cargo xtask lint)"],
+    ask: [],
+  });
+  assert.deepEqual(
+    book.skill.needs.map((need) => need.permission),
+    ["Bash(./scripts/deploy.sh staging)", "Bash(cargo xtask lint)"],
+  );
+});
+
+test("a task refuses a wildcard, a compound command and a blank one", () => {
+  assert.throws(() => playbook({ ...base, attachments: { tasks: ["./deploy.sh *"] } }), /never a wildcard/);
+  assert.throws(() => playbook({ ...base, attachments: { tasks: ["./a.sh && ./b.sh"] } }), /chains commands/);
+  assert.throws(() => playbook({ ...base, attachments: { tasks: ["./a.sh | tee log"] } }), /chains commands/);
+  assert.throws(() => playbook({ ...base, attachments: { tasks: [" "] } }), /blank/);
 });

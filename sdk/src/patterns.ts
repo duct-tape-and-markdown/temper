@@ -36,6 +36,7 @@ export type {
   NestedTrigger,
   PathsTrigger,
   Playbook,
+  PlaybookAttachments,
   PlaybookExecution,
   PlaybookInit,
   PlaybookInvocation,

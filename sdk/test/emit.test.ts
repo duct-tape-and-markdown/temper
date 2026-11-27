@@ -17,6 +17,7 @@ import { test } from "node:test";
 import {
   allowedChars,
   bash,
+  capability,
   blocks,
   clause,
   count,
@@ -766,7 +767,21 @@ test("needs derive the permission union, deduped and sorted, never authored twic
  ],
  });
   const result = emit(twoNeeds);
-  assert.deepEqual(result.permissions, ["Bash(git diff)", "Bash(git status)"]);
+  assert.deepEqual(result.permissions, { allow: ["Bash(git diff)", "Bash(git status)"], ask: [] });
+});
+
+test("an ask need derives the settings permissions.ask list beside allow, deduped and sorted", () => {
+  const fenced = harness({
+    members: [
+      rule({
+        name: "a",
+        needs: [capability("Edit(/src/**)", { list: "ask" }), bash("git diff"), capability("Edit(/docs/**)", { list: "ask" })],
+        prose: text`# A`,
+      }),
+      rule({ name: "b", needs: [capability("Edit(/src/**)", { list: "ask" })], prose: text`# B` }),
+    ],
+  });
+  assert.deepEqual(emit(fenced).permissions, { allow: ["Bash(git diff)"], ask: ["Edit(/docs/**)", "Edit(/src/**)"] });
 });
 
 // ---------------------------------------------------------------------------

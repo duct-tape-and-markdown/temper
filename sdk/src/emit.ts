@@ -25,6 +25,7 @@ import { edgeTargetNames, templatesOf } from "./kind.js";
 import type { Mentionable, MentionScope, Text } from "./prose.js";
 import { checkMentions, defersToGate, isTextSpan, renderText, resolveEmbeddedLeaves } from "./prose.js";
 import { permissionUnion } from "./needs.js";
+import type { PermissionLists } from "./needs.js";
 import type { Declarations, RenderedExtent } from "./declarations.js";
 import {
   compareStrings,
@@ -1092,10 +1093,10 @@ export interface EmitResult {
    */
   readonly seam: string;
   /**
-   * The derived permission list — the union of every member's `needs`, deduped and
-   * sorted. Off the seam: no projection writes it.
+   * The derived settings `permissions` lists — `allow` and `ask`, each the union of every
+   * member's `needs` on that list, deduped and sorted. Off the seam: no projection writes it.
    */
-  readonly permissions: readonly string[];
+  readonly permissions: PermissionLists;
   /**
    * The fields-only registration members erased for the manifest write face — each
    * a name, its collection address, and its folded fields — a view of the rows

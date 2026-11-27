@@ -19,7 +19,7 @@ export type { Blocks, File, Include, Mention, Mentionable, MentionForm, MentionO
 export { blocks, file, include, mentionOf, renderText, span, text } from "./prose.js";
 
 // Needs — the derived permission union's source.
-export type { Capability } from "./needs.js";
+export type { Capability, PermissionList, PermissionLists } from "./needs.js";
 export { bash, capability, permissionUnion } from "./needs.js";
 
 // Contracts — clauses, predicates, requirements.

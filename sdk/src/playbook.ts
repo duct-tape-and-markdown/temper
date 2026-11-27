@@ -7,13 +7,17 @@
  * replaces.
  *
  * Its axes: the trigger the area loads on, who may invoke its skill, its topics, its
- * execution and the agents that preload it. Execution and preloading are typed so an
- * author sees what the shape could do, and refused until they are offered.
+ * enforcement attachments, its execution and the agents that preload it. Execution and
+ * preloading are typed so an author sees what the shape could do, and refused until they
+ * are offered.
  */
 
 import { rule, skill, supportingDoc } from "./builtins.js";
+import type { Clause, Requirement } from "./contract.js";
 import type { Member } from "./kind.js";
 import { memberAddress, nestedAddress } from "./member-address.js";
+import { bash, capability } from "./needs.js";
+import type { Capability } from "./needs.js";
 import { blocks, joined, linked, linkedText, mentionOf } from "./prose.js";
 import type { Mentionable, Prose, Text } from "./prose.js";
 
@@ -110,6 +114,34 @@ export interface PlaybookSatisfies {
   readonly skill?: readonly string[];
 }
 
+/**
+ * What must always be true of the area, held by the harness rather than by a prose MUST.
+ * Permission rule syntax is Claude Code's (code.claude.com/docs/en/permissions, retrieved
+ * 2026-11-26).
+ */
+export interface PlaybookAttachments {
+  /**
+   * Clauses judged over the area's members — its rule, its skill and its topics. They
+   * attach to a requirement the playbook publishes, named `playbook:<name>`, that every
+   * one of those members satisfies, so the lock records them over exactly that selection.
+   */
+  readonly clauses?: readonly Clause[];
+  /**
+   * The paths that need an owner present: each gitignore-style glob, relative to the
+   * harness root, derives the `ask` rule `Edit(/<glob>)` — `Edit` covers every built-in
+   * tool that edits files, and a leading `/` anchors the pattern at the project
+   * ("Read and Edit", "How path patterns match").
+   */
+  readonly fence?: readonly string[];
+  /**
+   * The area's task scripts, each the command exactly as its procedure invokes it —
+   * `./scripts/deploy.sh staging`. Each derives the allow rule `Bash(<command>)`, which
+   * matches that one command and nothing wider ("Wildcard patterns": a rule with no `*`
+   * matches one exact command).
+   */
+  readonly tasks?: readonly string[];
+}
+
 /** What {@link playbook} takes. */
 export interface PlaybookInit {
   /** The area's name — the rule's file stem and the skill's directory. */
@@ -135,6 +167,8 @@ export interface PlaybookInit {
   readonly satisfies?: PlaybookSatisfies;
   /** Replaces the default wording, either half. */
   readonly render?: Partial<PlaybookRenderer>;
+  /** What the harness holds true of the area; absent, nothing. */
+  readonly attachments?: PlaybookAttachments;
   /** Declared but not yet offered — setting it refuses. */
   readonly execution?: PlaybookExecution;
   /** The agents that preload the skill. Declared but not yet offered — setting it refuses. */
@@ -233,12 +267,60 @@ function placementOf(name: string, trigger: PlaybookTrigger | undefined): Placem
 }
 
 /**
- * Declare a playbook: its rule, its routing skill and its topics.
+ * The `ask` capabilities a fence derives, one `Edit(/<glob>)` rule per path.
+ *
+ * # Throws
+ * If a path is blank, anchored (`/`, `//`, `~`), or climbs out of the harness root (`..`).
+ */
+function fenceNeeds(name: string, fence: readonly string[]): Capability[] {
+  return fence.map((path) => {
+    const relative = path.trim() !== "" && !/^[/~]/.test(path) && !path.split("/").includes("..");
+    if (!relative) {
+      throw new Error(
+        `playbook \`${name}\`: fence path \`${path}\` is no glob relative to the harness root — ` +
+          "write it the way a `paths` trigger names files, with no leading `/`, `~` or `..` segment.",
+      );
+    }
+    return capability(`Edit(/${path})`, { list: "ask" });
+  });
+}
+
+/**
+ * The allow capabilities the task scripts derive, one exact `Bash(<command>)` rule each.
+ *
+ * # Throws
+ * If a command is blank, carries a `*` (which would widen the rule past the invocation), or
+ * chains commands with a shell separator (Claude Code matches each subcommand on its own,
+ * so a compound rule matches nothing — "Compound commands").
+ */
+function taskNeeds(name: string, tasks: readonly string[]): Capability[] {
+  return tasks.map((command) => {
+    if (command.trim() === "" || command !== command.trim()) {
+      throw new Error(`playbook \`${name}\`: task \`${command}\` is blank or padded — write the command as invoked.`);
+    }
+    if (command.includes("*")) {
+      throw new Error(
+        `playbook \`${name}\`: task \`${command}\` carries a \`*\` — a task's allow rule is the command ` +
+          "exactly as invoked, never a wildcard.",
+      );
+    }
+    if (/[;|&\n]/.test(command)) {
+      throw new Error(
+        `playbook \`${name}\`: task \`${command}\` chains commands — Claude Code matches each subcommand ` +
+          "on its own, so allowlist one script per task.",
+      );
+    }
+    return bash(command);
+  });
+}
+
+/**
+ * Declare a playbook: its rule, its routing skill and its topics, with its attachments.
  *
  * # Throws
  * If `execution` or `preloadedBy` is set (not yet offered), if `description` is blank, if
- * there is no topic, if two topics share a name, or if a nested directory is no plain
- * relative path.
+ * there is no topic, if two topics share a name, if a nested directory is no plain
+ * relative path, or if a fence path or task command is malformed.
  */
 export function playbook(init: PlaybookInit): Playbook {
   const { name } = init;
@@ -268,11 +350,33 @@ export function playbook(init: PlaybookInit): Playbook {
   const placement = placementOf(name, trigger);
   const id = `${placement.prefix}${name}`;
 
-  const claims = (names: readonly string[] | undefined) => (names === undefined ? {} : { satisfies: [...names] });
+  const attached = init.attachments ?? {};
+  const fence = fenceNeeds(name, attached.fence ?? []);
+  const tasks = taskNeeds(name, attached.tasks ?? []);
+  const clauses = attached.clauses ?? [];
+  // The area requirement exists only to carry the attached clauses over the area's members.
+  const area = clauses.length === 0 ? undefined : `playbook:${id}`;
+  const claims = (names: readonly string[] | undefined) => {
+    const all = [...(names ?? []), ...(area === undefined ? [] : [area])];
+    return all.length === 0 ? {} : { satisfies: all };
+  };
+  const needs = (list: Capability[]) => (list.length === 0 ? {} : { needs: list });
+  const requires = (): { requires?: Record<string, Requirement> } =>
+    area === undefined
+      ? {}
+      : {
+          requires: {
+            [area]: {
+              prose: `What must always be true of the \`${id}\` playbook's area — its rule, its skill and its topics.`,
+              clauses,
+            },
+          },
+        };
   const fields = {
     name: id,
     description: init.description,
     ...claims(init.satisfies?.skill),
+    ...needs(tasks),
     ...invocationFields(invocation),
     ...(gated ? { paths } : {}),
     ...(placement.skill === undefined ? {} : { location: placement.skill }),
@@ -288,10 +392,14 @@ export function playbook(init: PlaybookInit): Playbook {
     })),
   });
   const routing = skill({ ...fields, prose: body });
-  const topics = init.topics.map((topic) => supportingDoc({ name: topic.name, host: routing, prose: topic.prose }));
+  const topics = init.topics.map((topic) =>
+    supportingDoc({ name: topic.name, host: routing, ...claims(undefined), prose: topic.prose }),
+  );
   const standing = rule({
     name: id,
     ...claims(init.satisfies?.rule),
+    ...requires(),
+    ...needs(fence),
     ...(paths === undefined ? {} : { paths }),
     ...(placement.rule === undefined ? {} : { location: placement.rule }),
     prose: blocks(init.facts, pointer({ invocation, skill: mentionOf(routing) })),
