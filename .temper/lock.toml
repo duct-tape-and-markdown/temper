@@ -15,8 +15,14 @@ emit_hash = "4bd63c4c5566de7d55d23b1533ccf2bfc7a605a95167e14da6eaa4f99e66725d"
 [[rule]]
 name = "collaboration"
 source_path = ".claude/rules/collaboration.md"
-source_hash = "ecb10517328d9b7ba22a091463799b1565812f20caad0e4a36ceab7abf9ccd6c"
-emit_hash = "ecb10517328d9b7ba22a091463799b1565812f20caad0e4a36ceab7abf9ccd6c"
+source_hash = "b9619d0d9d96bc01c01e67740607c79af786c36e62baffdfed9d50baa33e48d7"
+emit_hash = "b9619d0d9d96bc01c01e67740607c79af786c36e62baffdfed9d50baa33e48d7"
+
+[[rule]]
+name = "engineering"
+source_path = ".claude/rules/engineering.md"
+source_hash = "823275d39bab777afb2d7a00ca4842f11f7593ad4554f1fae39ca852ec5739d7"
+emit_hash = "823275d39bab777afb2d7a00ca4842f11f7593ad4554f1fae39ca852ec5739d7"
 
 [[rule]]
 name = "public-prose"
@@ -33,8 +39,8 @@ emit_hash = "ce5c6e80c61ded5d3025f3e23d498c09b82e5d55878669e3135d693c3b626fdc"
 [[rule]]
 name = "rust"
 source_path = ".claude/rules/rust.md"
-source_hash = "55f1ec21a75a940c809c7c5ac3f2926b09cbfce81d154bfffd8414fbcff8587a"
-emit_hash = "55f1ec21a75a940c809c7c5ac3f2926b09cbfce81d154bfffd8414fbcff8587a"
+source_hash = "0b0d180b2ab20380b490041d367dbefa7698eb216c155eb42d0799ced6747a73"
+emit_hash = "0b0d180b2ab20380b490041d367dbefa7698eb216c155eb42d0799ced6747a73"
 
 [[rule]]
 name = "sdk"
@@ -69,8 +75,119 @@ emit_hash = "c88bb50fcd00c3fcfd96ec34a79daceb44fd1dc4bd0f08638493a46c24639915"
 [[skill]]
 name = "capture-friction"
 source_path = ".claude/skills/capture-friction/SKILL.md"
-source_hash = "7acc21ac45319601a5645fed222fdd3ac696d3aa2c974f5a786f50df56a0260b"
-emit_hash = "7acc21ac45319601a5645fed222fdd3ac696d3aa2c974f5a786f50df56a0260b"
+source_hash = "54e6642e8046385eab299029ac3baa7ff8d1eb419842ae352f11cb77283c2993"
+emit_hash = "54e6642e8046385eab299029ac3baa7ff8d1eb419842ae352f11cb77283c2993"
+
+[[skill]]
+name = "engineering"
+source_path = ".claude/skills/engineering/SKILL.md"
+source_hash = "00284f7a23a4f04a810936a66d2f6c7071c50bb68e20eae700b5aa8a1999efa4"
+emit_hash = "00284f7a23a4f04a810936a66d2f6c7071c50bb68e20eae700b5aa8a1999efa4"
+
+[[supporting-doc]]
+name = "cost-scale"
+host = "skill:engineering"
+source_path = ".claude/skills/engineering/cost-scale.md"
+source_hash = "67368bc4cd8a7b9172b898b1f034ff87f2785aeef638a253b0bd9110b9724d5a"
+emit_hash = "67368bc4cd8a7b9172b898b1f034ff87f2785aeef638a253b0bd9110b9724d5a"
+
+[[supporting-doc]]
+name = "derived-state"
+host = "skill:engineering"
+source_path = ".claude/skills/engineering/derived-state.md"
+source_hash = "a4493b02284537437a941d1051f20dbcf2130e4e5d43c3ed8f688f6b0190a17d"
+emit_hash = "a4493b02284537437a941d1051f20dbcf2130e4e5d43c3ed8f688f6b0190a17d"
+
+[[supporting-doc]]
+name = "export-earns-consumer"
+host = "skill:engineering"
+source_path = ".claude/skills/engineering/export-earns-consumer.md"
+source_hash = "ccfa8c250a1b8dfdca09d050813a18cd0b9715c8d12b8611b544341b1ef35d5b"
+emit_hash = "ccfa8c250a1b8dfdca09d050813a18cd0b9715c8d12b8611b544341b1ef35d5b"
+
+[[supporting-doc]]
+name = "fix-at-the-mechanism"
+host = "skill:engineering"
+source_path = ".claude/skills/engineering/fix-at-the-mechanism.md"
+source_hash = "bea92be7085f96124b7361ba103342431425ce553a3d07635534add308cb3dfa"
+emit_hash = "bea92be7085f96124b7361ba103342431425ce553a3d07635534add308cb3dfa"
+
+[[supporting-doc]]
+name = "fix-ships-its-test"
+host = "skill:engineering"
+source_path = ".claude/skills/engineering/fix-ships-its-test.md"
+source_hash = "2dfa2adc204ccee5f11c37c42ba2b0ff4973189309128b895d4a6282f2612d88"
+emit_hash = "2dfa2adc204ccee5f11c37c42ba2b0ff4973189309128b895d4a6282f2612d88"
+
+[[supporting-doc]]
+name = "flat-tree"
+host = "skill:engineering"
+source_path = ".claude/skills/engineering/flat-tree.md"
+source_hash = "c3ad9af09ed8d7dda0d5a466c65eac020fc218f23e0f1f44c6936383fa542505"
+emit_hash = "c3ad9af09ed8d7dda0d5a466c65eac020fc218f23e0f1f44c6936383fa542505"
+
+[[supporting-doc]]
+name = "gauntlet"
+host = "skill:engineering"
+source_path = ".claude/skills/engineering/gauntlet.md"
+source_hash = "88cb0b7b235c156349a04d6da2ea9c3a7f81ab9a33308a6ef7d0abab331afdee"
+emit_hash = "88cb0b7b235c156349a04d6da2ea9c3a7f81ab9a33308a6ef7d0abab331afdee"
+
+[[supporting-doc]]
+name = "libraries-first"
+host = "skill:engineering"
+source_path = ".claude/skills/engineering/libraries-first.md"
+source_hash = "c21ee2fdd3032460dd3a26813cb054b935cba7921ceb0b41df1b99a3a7f6f28e"
+emit_hash = "c21ee2fdd3032460dd3a26813cb054b935cba7921ceb0b41df1b99a3a7f6f28e"
+
+[[supporting-doc]]
+name = "narration"
+host = "skill:engineering"
+source_path = ".claude/skills/engineering/narration.md"
+source_hash = "0864b7c28c6cc5cc3af3cbf5c1f076e29ff8d2387c69904564c45f9872eaaf83"
+emit_hash = "0864b7c28c6cc5cc3af3cbf5c1f076e29ff8d2387c69904564c45f9872eaaf83"
+
+[[supporting-doc]]
+name = "non-vacuous"
+host = "skill:engineering"
+source_path = ".claude/skills/engineering/non-vacuous.md"
+source_hash = "797844546821f1aa600a102ac51c94f36901c7317b836edf5eabaf31dd6cbf14"
+emit_hash = "797844546821f1aa600a102ac51c94f36901c7317b836edf5eabaf31dd6cbf14"
+
+[[supporting-doc]]
+name = "one-job-one-home"
+host = "skill:engineering"
+source_path = ".claude/skills/engineering/one-job-one-home.md"
+source_hash = "6d3880431332e1087122acdbabd495cd04830c05591df93091eb7107c2999859"
+emit_hash = "6d3880431332e1087122acdbabd495cd04830c05591df93091eb7107c2999859"
+
+[[supporting-doc]]
+name = "provider-face"
+host = "skill:engineering"
+source_path = ".claude/skills/engineering/provider-face.md"
+source_hash = "241bbbef36f76ef4267779dcac28784f7dbcbf458b4098b2c13143dc6991a6ee"
+emit_hash = "241bbbef36f76ef4267779dcac28784f7dbcbf458b4098b2c13143dc6991a6ee"
+
+[[supporting-doc]]
+name = "reader-reports"
+host = "skill:engineering"
+source_path = ".claude/skills/engineering/reader-reports.md"
+source_hash = "4f8dfaf28eeb6e46837d07d1cdeb619d4d39b12e11973a515ed52e8489689079"
+emit_hash = "4f8dfaf28eeb6e46837d07d1cdeb619d4d39b12e11973a515ed52e8489689079"
+
+[[supporting-doc]]
+name = "seam-gate"
+host = "skill:engineering"
+source_path = ".claude/skills/engineering/seam-gate.md"
+source_hash = "337ae89942db69f4caafc299260e647ce2d48fd1ae6718e300b927b19b7c65e5"
+emit_hash = "337ae89942db69f4caafc299260e647ce2d48fd1ae6718e300b927b19b7c65e5"
+
+[[supporting-doc]]
+name = "shared-concept"
+host = "skill:engineering"
+source_path = ".claude/skills/engineering/shared-concept.md"
+source_hash = "b2b346e9ac7de97ab824dbbdf9a4ef98b1d9ea78248cb3ba8d3e534f027e72ce"
+emit_hash = "b2b346e9ac7de97ab824dbbdf9a4ef98b1d9ea78248cb3ba8d3e534f027e72ce"
 
 [[declaration.kind]]
 name = "handler"
@@ -127,6 +244,12 @@ format = "yaml-frontmatter"
 unit_shape = "directory"
 registration = ["user-invoked", "description-trigger(description)", "paths-listing(paths)"]
 templates = [{ kind = "supporting-doc", path = "*.md" }]
+
+[[declaration.kind]]
+name = "supporting-doc"
+unit_shape = "file"
+guidance = "a supporting doc never loads on its own: it reaches context only when its skill's body sends Claude to it, after the skill is invoked — so the body names the file and says when to open it, and a doc the body never mentions is never read. Keep each doc to one concern, so following one pointer loads only what that step needs."
+cite = "https://code.claude.com/docs/en/skills (retrieved 2026-11-25)"
 
 [[declaration.kind]]
 name = "tool"
@@ -244,6 +367,70 @@ provided = ["default", "Proactive", "Concise", "Explanatory", "Learning"]
 member = "skill:capture-friction"
 requirement = "friction-capture-procedure"
 
+[[declaration.mention]]
+member = "rule:engineering"
+target = "skill:engineering"
+
+[[declaration.mention]]
+member = "skill:engineering"
+target = "skill:engineering/supporting-doc/cost-scale"
+
+[[declaration.mention]]
+member = "skill:engineering"
+target = "skill:engineering/supporting-doc/derived-state"
+
+[[declaration.mention]]
+member = "skill:engineering"
+target = "skill:engineering/supporting-doc/export-earns-consumer"
+
+[[declaration.mention]]
+member = "skill:engineering"
+target = "skill:engineering/supporting-doc/fix-at-the-mechanism"
+
+[[declaration.mention]]
+member = "skill:engineering"
+target = "skill:engineering/supporting-doc/fix-ships-its-test"
+
+[[declaration.mention]]
+member = "skill:engineering"
+target = "skill:engineering/supporting-doc/flat-tree"
+
+[[declaration.mention]]
+member = "skill:engineering"
+target = "skill:engineering/supporting-doc/gauntlet"
+
+[[declaration.mention]]
+member = "skill:engineering"
+target = "skill:engineering/supporting-doc/libraries-first"
+
+[[declaration.mention]]
+member = "skill:engineering"
+target = "skill:engineering/supporting-doc/narration"
+
+[[declaration.mention]]
+member = "skill:engineering"
+target = "skill:engineering/supporting-doc/non-vacuous"
+
+[[declaration.mention]]
+member = "skill:engineering"
+target = "skill:engineering/supporting-doc/one-job-one-home"
+
+[[declaration.mention]]
+member = "skill:engineering"
+target = "skill:engineering/supporting-doc/provider-face"
+
+[[declaration.mention]]
+member = "skill:engineering"
+target = "skill:engineering/supporting-doc/reader-reports"
+
+[[declaration.mention]]
+member = "skill:engineering"
+target = "skill:engineering/supporting-doc/seam-gate"
+
+[[declaration.mention]]
+member = "skill:engineering"
+target = "skill:engineering/supporting-doc/shared-concept"
+
 [[declaration.runs]]
 member = "root"
 tool = "root/tool/tsc"
@@ -312,7 +499,7 @@ import_hash = "3513a2dd05c72537a95430096150cb3880a14abcfae52295ebdc64ce3306cc37"
 [[declaration.module]]
 member = "root"
 source_path = ".temper/harness.ts"
-import_hash = "9ee71fa1c829e83d130d02c922ba7c420893c067113ba1e15949b842620703e5"
+import_hash = "4b05aa5aeb7333974e2e5ea8371f540888c01515e795c59ccc6821d726dbbf92"
 
 [[declaration.module]]
 member = "root"
@@ -333,6 +520,11 @@ import_hash = "53759f9b644dbd50ed9c7c3dd3a6d7fa8ada36ef1dcae69bd1aa8fde8b91c67c"
 member = "root"
 source_path = ".temper/memory/CLAUDE.ts"
 import_hash = "038edfa3535d7fbb0a3994189a9c08544b194da8b6d1db10a78a0aa77cc95623"
+
+[[declaration.module]]
+member = "root"
+source_path = ".temper/playbooks/engineering.ts"
+import_hash = "92cd79dbcb70965457ad0cdb1426c15cb075689dc27e455afebe3daa5e83c69e"
 
 [[declaration.module]]
 member = "root"

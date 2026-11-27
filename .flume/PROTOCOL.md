@@ -43,7 +43,7 @@ The discipline file holds what every entry carries. This project adds:
    the judge proves them green. Its acceptance is a net deletion in the
    domain it folds.
 3. **Widening a shared enumeration names its other consumers** in `files`
-   (`specs/process/engineering.md`, "A shared concept is one type").
+   (the engineering playbook, "A shared concept is one type").
 4. **A seam change is two-sided.** A declaration-row change moves the SDK
    row builders (`sdk/src/declarations.ts`), the Rust reader
    (`src/read.rs`) and the embedded lock (`src/builtin_lock.toml`) in one

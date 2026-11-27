@@ -269,7 +269,7 @@ that evidence, not preference, is the bite condition.
 
 - `(multi-harness-projection)` — **One gate, other agents' harnesses.**
   Moved from the fork board 2026-09-29: it has no driver, and its read face
-  is already settled by `specs/process/architecture.md` ("The provider face
+  is already settled by the engineering playbook ("The provider face
   is data" — a second provider is a new data set, never a new engine). The
   read face's next step is a falsification spike: declare a `cursor-rule`
   custom kind in a testbed and `check` a real Cursor repo; zero `src/`
