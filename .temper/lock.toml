@@ -80,8 +80,8 @@ cite = "https://code.claude.com/docs/en/hooks (retrieved 2026-09-29)"
 
 [[declaration.kind]]
 name = "hook"
-governs_root = ".claude"
-governs_glob = ["settings.json"]
+locus_root = ".claude"
+locus_glob = ["settings.json"]
 unit_shape = "file"
 registration = ["event(event)"]
 templates = [{ kind = "handler" }]
@@ -91,8 +91,8 @@ guidance = "keep a handler's `type` among `command`/`http`/`mcp_tool`/`prompt`/`
 
 [[declaration.kind]]
 name = "memory"
-governs_root = "."
-governs_glob = ["**/CLAUDE.md", "**/AGENTS.md"]
+locus_root = "."
+locus_glob = ["**/CLAUDE.md", "**/AGENTS.md"]
 exclude = [".claude/agents", ".claude/commands", ".claude/output-styles", ".claude/rules", ".claude/skills"]
 absence_gate = [{ template = "**/AGENTS.md", absent = ["CLAUDE.md", ".claude/CLAUDE.md", "CLAUDE.local.md"] }]
 unit_shape = "file"
@@ -102,8 +102,8 @@ ceded = [{ to = "output-style", pattern = "**/.claude/output-styles/*.md" }, { t
 
 [[declaration.kind]]
 name = "rule"
-governs_root = ".claude/rules"
-governs_glob = ["**/*.md"]
+locus_root = ".claude/rules"
+locus_glob = ["**/*.md"]
 format = "yaml-frontmatter"
 unit_shape = "file"
 registration = ["paths-match(paths)"]
@@ -113,15 +113,15 @@ ceded = [{ to = "skill", pattern = "**/.claude/skills/*/**" }]
 
 [[declaration.kind]]
 name = "settings"
-governs_root = ".claude"
-governs_glob = ["settings.json"]
+locus_root = ".claude"
+locus_glob = ["settings.json"]
 format = "json-document"
 unit_shape = "file"
 
 [[declaration.kind]]
 name = "skill"
-governs_root = "."
-governs_glob = ["**/.claude/skills/*/SKILL.md"]
+locus_root = "."
+locus_glob = ["**/.claude/skills/*/SKILL.md"]
 exclude = ["tests/fixtures"]
 leniency = ["malformed-yaml"]
 format = "yaml-frontmatter"
