@@ -64,9 +64,14 @@ program, riding the lock or embedded in the engine — none can drift.
    embeds a **built-in lock**: the first-party module's own emit — the same
    declaration rows an adopted harness commits — never hand-transcribed; CI
    re-derives it from the module and byte-compares. The normative property
-   is **no-runtime checking**: every placement consumes committed artifacts
-   plus the lock, offline, with no language runtime — the implementation
-   language (Rust today) is non-normative. Its version string is the release
+   is **no-runtime checking**: every verdict comes from committed artifacts
+   plus the lock, offline, and never from running the program; the engine
+   itself needs no language runtime, so the bare binary gates alone (the
+   stranger gate below). A package-installed gate hook reaches the engine
+   through its package's launcher, the anchored `.bin` (`model/authoring.md`,
+   "The SDK"): the launcher resolves the platform binary and fails loud
+   when it is missing, and its start is a cost the gate accepts. The
+   implementation language (Rust today) is non-normative. Its version string is the release
    tag's, identical in every build of that tag and in every artifact it
    stamps; build provenance rides the long `--version` form alone.
 3. **The plugin** — a bundle produced by `temper bundle`, publishable with a
