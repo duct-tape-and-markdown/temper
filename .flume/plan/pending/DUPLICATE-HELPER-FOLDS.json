@@ -1,0 +1,16 @@
+{
+  "tag": "DUPLICATE-HELPER-FOLDS",
+  "gate": { "kind": "open" },
+  "files": {
+    "edit": [
+      { "path": "src/frontmatter.rs", "description": "split_frontmatter and frontmatter_matter share one opening-delimiter detector" },
+      { "path": "sdk/src/declarations.ts", "description": "bullet folds into the one list-item writer; locusLabel and locusGlobs read locusPattern instead of re-dropping the root `.`" },
+      { "path": "sdk/src/reference.ts", "description": "item and declarations.ts's bullet become one writer" },
+      { "path": "sdk/src/kind.ts", "description": "locusPattern stays the one root-`.` drop" }
+    ]
+  },
+  "summary": "Fold three re-verified second implementations: two frontmatter opening-delimiter detectors, two list-item writers, three root-`.` locus drops",
+  "per": { "path": ".claude/skills/engineering/one-job-one-home.md", "section": "One job, one home" },
+  "acceptance": "each job has one home and the pinned tests stay green; net-negative in the folded files",
+  "notes": "Family noted in d2f1d4f9, ca20f819, dfb209cc, 1a03eb15; files once, claims no property. Sites re-verified this tick: frontmatter.rs:392/:430 (they disagree: split_frontmatter takes `---` with trailing whitespace, frontmatter_matter exact `---\\n`/`---\\r\\n` only, so keep the member reader's pinned reading); declarations.ts:762 vs reference.ts:221; kind.ts:1145 vs declarations.ts:508, :735."
+}

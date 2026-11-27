@@ -1,0 +1,16 @@
+{
+  "tag": "EMIT-PINS-ONE-OPEN-PER-FILE",
+  "gate": { "kind": "open" },
+  "files": {
+    "edit": [
+      { "path": "tests/it/check_cost.rs", "description": "a paths-opened pin over a whole emit run, beside the check/guard/explain ones" }
+    ]
+  },
+  "summary": "Emit has lock-parse, manifest-read and glob-compile counters but no per-verb paths-opened pin taken at the bytes owner, as check, guard and explain do",
+  "per": { "path": ".claude/skills/engineering/cost-scale.md", "section": "Cost scale is hoisted, and pinned by count" },
+  "acceptance": "an emit run over represented_projection_harness's payload is pinned to open each file at most once, with a non-vacuity assertion that it opened both member targets and the lock",
+  "pins": [
+    "emit opens each file at most once per run"
+  ],
+  "notes": "Probed green this tick: drift::emit over the skill+rule payload opened rust.md, SKILL.md and lock.toml once each. Install's twin is INSTALL-RUN-HOLDS-ONE-OWNER-PER-INPUT, which shares this file."
+}
