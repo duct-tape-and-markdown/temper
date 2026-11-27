@@ -465,6 +465,93 @@ fn assert_rerun_converges(label: &str, retire: fn(&str) -> String) {
     assert!(gate_installed(&root).is_empty());
 }
 
+/// Re-running unrepresented install over `before` (a `SessionStart` array beside a
+/// sibling `PreToolUse` group) leaves exactly `after`'s array, then holds it unchanged.
+fn assert_unrepresented_rerun_folds(
+    label: &str,
+    before: serde_json::Value,
+    after: serde_json::Value,
+) {
+    let document = |session_start: serde_json::Value| {
+        format!(
+            "{}\n",
+            serde_json::to_string_pretty(&serde_json::json!({
+                "hooks": {
+                    "SessionStart": session_start,
+                    "PreToolUse": [
+                        { "matcher": "Write", "hooks": [ { "type": "command", "command": "other-tool lint" } ] }
+                    ]
+                }
+            }))
+            .unwrap()
+        )
+    };
+    let root = write_harness(label, false);
+    let settings_path = root.join(".claude").join("settings.json");
+    fs::write(&settings_path, document(before)).unwrap();
+    let discovery = install::discover(&root).unwrap();
+    let outcome = install::run(&root, &discovery, Represent::No, false).unwrap();
+    assert_eq!(
+        outcome_of(&outcome, temper::install::Placement::SessionStart),
+        ApplyOutcome::Applied
+    );
+    let folded = fs::read_to_string(&settings_path).unwrap();
+    assert_eq!(
+        folded,
+        document(after),
+        "one gate handler, siblings' bytes kept"
+    );
+    let again = install::run(&root, &discovery, Represent::No, false).unwrap();
+    assert_eq!(
+        outcome_of(&again, temper::install::Placement::SessionStart),
+        ApplyOutcome::Unchanged
+    );
+    assert_eq!(fs::read_to_string(&settings_path).unwrap(), folded);
+}
+
+#[test]
+fn re_running_install_over_the_anchored_and_unanchored_retired_session_start_renderings_leaves_one_gate_group_at_todays_rendering()
+ {
+    let current = temper::install::SESSION_START_COMMAND;
+    let near_miss = retired_rendering(current).replace("exit 127", "exit 1");
+    let sibling_group = serde_json::json!({ "matcher": "startup", "hooks": [ { "type": "command", "command": near_miss } ] });
+    let group_with_sibling = |command: &str| {
+        serde_json::json!({ "hooks": [
+            { "type": "command", "command": command },
+            { "type": "command", "command": "other-tool sync" }
+        ] })
+    };
+    assert_unrepresented_rerun_folds(
+        "gate-two-retired",
+        serde_json::json!([
+            group_with_sibling(&retired_rendering(current)),
+            { "hooks": [ { "type": "command", "command": unanchored_rendering(current) } ] },
+            sibling_group
+        ]),
+        serde_json::json!([group_with_sibling(current), sibling_group]),
+    );
+}
+
+#[test]
+fn re_running_install_over_a_retired_session_start_rendering_beside_todays_leaves_one_gate_group() {
+    let current = temper::install::SESSION_START_COMMAND;
+    assert_unrepresented_rerun_folds(
+        "gate-retired-beside-current",
+        serde_json::json!([
+            { "hooks": [
+                { "type": "command", "command": unanchored_rendering(current) },
+                { "type": "command", "command": "other-tool sync" }
+            ] },
+            { "hooks": [ { "type": "command", "command": current } ] },
+            { "hooks": [ { "type": "command", "command": retired_rendering(current) } ] }
+        ]),
+        serde_json::json!([
+            { "hooks": [ { "type": "command", "command": "other-tool sync" } ] },
+            { "hooks": [ { "type": "command", "command": current } ] }
+        ]),
+    );
+}
+
 #[test]
 fn a_represented_harness_reports_a_retired_gate_rendering_as_stale_with_the_emit_remedy() {
     assert_reported_stale("gate-retired-report", retired_rendering);

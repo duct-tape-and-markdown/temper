@@ -234,3 +234,31 @@ pub(crate) fn append_element(shape: &ArrayShape, value: &JsonValue, level: usize
         }
     }
 }
+
+/// The edits that drop the elements at `indices` (ascending, in range) from the array
+/// described by `shape`, each with one adjacent separator, so the kept elements keep
+/// their bytes. Removing every element empties the array's interior.
+pub(crate) fn remove_elements(shape: &ArrayShape, indices: &[usize]) -> Vec<Edit> {
+    let elements = &shape.elements;
+    let mut edits = Vec::new();
+    let mut i = 0;
+    while i < indices.len() {
+        let first = indices[i];
+        let mut last = first;
+        while indices.get(i + 1) == Some(&(last + 1)) {
+            last += 1;
+            i += 1;
+        }
+        let span = match (elements.get(last + 1), first.checked_sub(1)) {
+            (Some(next), _) => (elements[first].0, next.0),
+            (None, Some(previous)) => (elements[previous].1, elements[last].1),
+            (None, None) => (shape.span.0 + 1, shape.span.1 - 1),
+        };
+        edits.push(Edit {
+            span,
+            replacement: String::new(),
+        });
+        i += 1;
+    }
+    edits
+}

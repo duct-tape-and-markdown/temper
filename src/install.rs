@@ -3400,10 +3400,10 @@ fn merge_settings(path: &Path, text: &str) -> Result<SettingsProjection, Install
             path: path.to_path_buf(),
         })?;
 
-    let rerendered = rerender_retired_session_start(text);
-    if !rerendered.is_empty() {
+    let folded = fold_session_start_gates(text);
+    if !folded.is_empty() {
         return Ok(SettingsProjection {
-            desired: json_splice::apply_edits(text, rerendered),
+            desired: json_splice::apply_edits(text, folded),
             hook_present: false,
         });
     }
@@ -3456,11 +3456,13 @@ fn merge_settings(path: &Path, text: &str) -> Result<SettingsProjection, Install
     })
 }
 
-/// One edit per `SessionStart` handler whose command is a retired rendering
-/// ([`retired_gate_renderings`]), splicing today's rendering at the same binary over
-/// that command string alone — so the group keeps its address and every other handler,
-/// key and byte survives. `text` has already parsed.
-fn rerender_retired_session_start(text: &str) -> Vec<json_splice::Edit> {
+/// The edits that fold every `SessionStart` handler running temper's gate
+/// ([`gate_rendering`]) to exactly one at today's rendering: a current handler is kept
+/// as it stands, else the first retired one is re-rendered in place at its binary; every
+/// other gate handler is dropped, and a group left with no handler goes with it. Every
+/// non-gate handler, group, key and byte survives. Empty when the document already holds
+/// at most one gate handler and none retired. `text` has already parsed.
+fn fold_session_start_gates(text: &str) -> Vec<json_splice::Edit> {
     let member = |shape: &json_splice::ObjectShape, key: &str| {
         shape
             .members
@@ -3485,32 +3487,88 @@ fn rerender_retired_session_start(text: &str) -> Vec<json_splice::Edit> {
     else {
         return Vec::new();
     };
-    let mut edits = Vec::new();
-    for group in groups.elements.into_iter().filter_map(object_at) {
-        let Some(handlers) = member(&group, HOOK_HANDLER_KEY).and_then(array_at) else {
-            continue;
-        };
-        for handler in handlers.elements.into_iter().filter_map(object_at) {
-            let Some(span) = member(&handler, "command") else {
-                continue;
-            };
-            let Ok(command) = serde_json::from_str::<String>(&text[span.0..span.1]) else {
-                continue;
-            };
-            if let Some((binary, GateRendering::Retired)) =
-                gate_rendering(GateVerb::SessionStart, &command)
-            {
-                edits.push(json_splice::Edit {
-                    span,
-                    replacement: JsonValue::String(render_gate_command(
-                        GateVerb::SessionStart,
-                        &binary,
-                    ))
-                    .to_string(),
-                });
+
+    struct Gate {
+        group: usize,
+        handler: usize,
+        command_span: json_splice::Span,
+        binary: String,
+        rendering: GateRendering,
+    }
+    let mut handler_arrays = Vec::new();
+    let mut gates = Vec::new();
+    for (g, group_span) in groups.elements.iter().enumerate() {
+        let handlers = object_at(*group_span)
+            .and_then(|group| member(&group, HOOK_HANDLER_KEY))
+            .and_then(array_at);
+        if let Some(handlers) = &handlers {
+            for (h, handler) in handlers.elements.iter().enumerate() {
+                let Some(command_span) = object_at(*handler).and_then(|o| member(&o, "command"))
+                else {
+                    continue;
+                };
+                let Ok(command) =
+                    serde_json::from_str::<String>(&text[command_span.0..command_span.1])
+                else {
+                    continue;
+                };
+                if let Some((binary, rendering)) = gate_rendering(GateVerb::SessionStart, &command)
+                {
+                    gates.push(Gate {
+                        group: g,
+                        handler: h,
+                        command_span,
+                        binary,
+                        rendering,
+                    });
+                }
             }
         }
+        handler_arrays.push(handlers);
     }
+    let any_retired = gates
+        .iter()
+        .any(|gate| gate.rendering == GateRendering::Retired);
+    if gates.len() <= 1 && !any_retired {
+        return Vec::new();
+    }
+
+    let kept = gates
+        .iter()
+        .position(|gate| gate.rendering == GateRendering::Current)
+        .unwrap_or(0);
+    let mut edits = Vec::new();
+    if gates[kept].rendering == GateRendering::Retired {
+        edits.push(json_splice::Edit {
+            span: gates[kept].command_span,
+            replacement: JsonValue::String(render_gate_command(
+                GateVerb::SessionStart,
+                &gates[kept].binary,
+            ))
+            .to_string(),
+        });
+    }
+    let mut dropped_groups = Vec::new();
+    for (g, handlers) in handler_arrays.iter().enumerate() {
+        let Some(handlers) = handlers else {
+            continue;
+        };
+        let dropped: Vec<usize> = gates
+            .iter()
+            .enumerate()
+            .filter(|(i, gate)| *i != kept && gate.group == g)
+            .map(|(_, gate)| gate.handler)
+            .collect();
+        if dropped.is_empty() {
+            continue;
+        }
+        if dropped.len() == handlers.elements.len() {
+            dropped_groups.push(g);
+        } else {
+            edits.extend(json_splice::remove_elements(handlers, &dropped));
+        }
+    }
+    edits.extend(json_splice::remove_elements(&groups, &dropped_groups));
     edits
 }
 
