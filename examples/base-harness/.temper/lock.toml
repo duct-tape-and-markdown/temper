@@ -15,8 +15,8 @@ emit_hash = "c92a63922bf018ffaf12a3c4df781c7987323944863e7d4cddd061374b9bb693"
 [[memory]]
 name = "CLAUDE"
 source_path = "CLAUDE.md"
-source_hash = "d3823356e6ba6810a13bbb0ce8b29e130bce68cac981ae1be02c6297b426b3af"
-emit_hash = "d3823356e6ba6810a13bbb0ce8b29e130bce68cac981ae1be02c6297b426b3af"
+source_hash = "646f67c9a9ac979cb817119954ce05b43b6e0fa25ea4272c5551eb17ce56c444"
+emit_hash = "646f67c9a9ac979cb817119954ce05b43b6e0fa25ea4272c5551eb17ce56c444"
 
 [[rule]]
 name = "conduct"
@@ -25,10 +25,10 @@ source_hash = "27227247fb748e906c6de810b5bdcf48b824973c865ff817cb147d5f5f300c99"
 emit_hash = "27227247fb748e906c6de810b5bdcf48b824973c865ff817cb147d5f5f300c99"
 
 [[rule]]
-name = "docs-discipline"
-source_path = ".claude/rules/docs-discipline.md"
-source_hash = "b78c5b35a4b1589f00f3523fc9426777a62081ff906fd9393af9089aa8f60fa4"
-emit_hash = "b78c5b35a4b1589f00f3523fc9426777a62081ff906fd9393af9089aa8f60fa4"
+name = "corpus"
+source_path = ".claude/rules/corpus.md"
+source_hash = "f35e2fbe99dcaaca15c97fae587c13f090bc0348332ce53dc083861df2a8d00c"
+emit_hash = "f35e2fbe99dcaaca15c97fae587c13f090bc0348332ce53dc083861df2a8d00c"
 
 [[rule]]
 name = "temper-guidance-memory"
@@ -39,14 +39,14 @@ emit_hash = "adab677fd2778eeca5b2db64b0c0741e63006228ce7e3b2bc330874b005ca520"
 [[rule]]
 name = "temper-guidance-rule"
 source_path = ".claude/rules/temper-guidance-rule.md"
-source_hash = "a81c1aeb0f5e1542242afcd50758f5502d72f34c89a063cff89cc968da7a75e5"
-emit_hash = "a81c1aeb0f5e1542242afcd50758f5502d72f34c89a063cff89cc968da7a75e5"
+source_hash = "5f1cb9d6fcb38934fa7afdae4e171d790b2e3eb5ad50a5f0923c5146dc8bdcfb"
+emit_hash = "5f1cb9d6fcb38934fa7afdae4e171d790b2e3eb5ad50a5f0923c5146dc8bdcfb"
 
 [[rule]]
 name = "temper-guidance-skill"
 source_path = ".claude/rules/temper-guidance-skill.md"
-source_hash = "79e590ef713985f8794e6de18e2fcba7ed455032cb83baae9233c71b072f0cf5"
-emit_hash = "79e590ef713985f8794e6de18e2fcba7ed455032cb83baae9233c71b072f0cf5"
+source_hash = "21b4f94d19e355f63081d241f6d8a9c287a7402633e470d54887fb5876f99db6"
+emit_hash = "21b4f94d19e355f63081d241f6d8a9c287a7402633e470d54887fb5876f99db6"
 
 [[rule]]
 name = "temper-guidance-system"
@@ -67,6 +67,12 @@ source_hash = "e26e0ef5b42be14f59f06a10a12ab7b6510e2b301e7ebb5152135b9f79189ad7"
 emit_hash = "e26e0ef5b42be14f59f06a10a12ab7b6510e2b301e7ebb5152135b9f79189ad7"
 
 [[skill]]
+name = "corpus"
+source_path = ".claude/skills/corpus/SKILL.md"
+source_hash = "f1be0174447361efcb5f5473a48d9d063ae1761372c1787a55dacc3af843a0fc"
+emit_hash = "f1be0174447361efcb5f5473a48d9d063ae1761372c1787a55dacc3af843a0fc"
+
+[[skill]]
 name = "grow-harness"
 source_path = ".claude/skills/grow-harness/SKILL.md"
 source_hash = "56f40527068b867a2ab87e93bb88f4a596b971352c3ddbcdfad1c4aeaee6ad5c"
@@ -75,14 +81,8 @@ emit_hash = "56f40527068b867a2ab87e93bb88f4a596b971352c3ddbcdfad1c4aeaee6ad5c"
 [[skill]]
 name = "temper"
 source_path = ".claude/skills/temper/SKILL.md"
-source_hash = "b7064b2cad6a5aa7363f85304349b5e97c5b035f808908a3550d39348c9449e0"
-emit_hash = "b7064b2cad6a5aa7363f85304349b5e97c5b035f808908a3550d39348c9449e0"
-
-[[skill]]
-name = "verify-summary"
-source_path = ".claude/skills/verify-summary/SKILL.md"
-source_hash = "a385c98df646e6663d4d4395b4e08aa5dce4f5b4dc89dd3e7c261a820a1ae487"
-emit_hash = "a385c98df646e6663d4d4395b4e08aa5dce4f5b4dc89dd3e7c261a820a1ae487"
+source_hash = "b210dbe0971439ec8ef8ad4ab1cd44ec491890bfb71fc53c23fe1e415c292adb"
+emit_hash = "b210dbe0971439ec8ef8ad4ab1cd44ec491890bfb71fc53c23fe1e415c292adb"
 
 [[superseded-decision]]
 name = "per-change-doc-duty"
@@ -182,6 +182,13 @@ source_hash = "e024283e5644f77a03483241785ade243678bda74b74f053079cf559ccc42530"
 emit_hash = "e024283e5644f77a03483241785ade243678bda74b74f053079cf559ccc42530"
 
 [[supporting-doc]]
+name = "kind-supporting-doc"
+host = "skill:temper"
+source_path = ".claude/skills/temper/kind-supporting-doc.md"
+source_hash = "d96b90bb1009a026fd82f93e54d8a7c9e1872868ef48321b3e0ccfa451e25374"
+emit_hash = "d96b90bb1009a026fd82f93e54d8a7c9e1872868ef48321b3e0ccfa451e25374"
+
+[[supporting-doc]]
 name = "kind-system"
 host = "skill:temper"
 source_path = ".claude/skills/temper/kind-system.md"
@@ -220,8 +227,8 @@ emit_hash = "9c9633ba49197076b299b38e408edadb19f919adf73ce8095eace75167708e1f"
 name = "requirement-operations"
 host = "skill:temper"
 source_path = ".claude/skills/temper/requirement-operations.md"
-source_hash = "39a8f1df7122e9bfc0b33990d2b082fbf765829750fa1c7ba05824df9dc30d4d"
-emit_hash = "39a8f1df7122e9bfc0b33990d2b082fbf765829750fa1c7ba05824df9dc30d4d"
+source_hash = "1b03341400ed7379a66253f390896ba700a2b55d46944ee1f857ac38ad3a987c"
+emit_hash = "1b03341400ed7379a66253f390896ba700a2b55d46944ee1f857ac38ad3a987c"
 
 [[supporting-doc]]
 name = "requirement-orientation"
@@ -234,8 +241,22 @@ emit_hash = "009c9d4640a37dba855bdcc6047deff8d27e4b0f92f47b737ef50fb8e1511ebb"
 name = "requirement-standards"
 host = "skill:temper"
 source_path = ".claude/skills/temper/requirement-standards.md"
-source_hash = "d9ca673c38b6df87d1697ff2f3f0c0e6aa23dcf2e4e6113e54743b064ee0327b"
-emit_hash = "d9ca673c38b6df87d1697ff2f3f0c0e6aa23dcf2e4e6113e54743b064ee0327b"
+source_hash = "bedf57f772308abfeefb009d5c557330d8684945d01e0ea203d5c1c1865fcf6f"
+emit_hash = "bedf57f772308abfeefb009d5c557330d8684945d01e0ea203d5c1c1865fcf6f"
+
+[[supporting-doc]]
+name = "supersede-a-decision"
+host = "skill:corpus"
+source_path = ".claude/skills/corpus/supersede-a-decision.md"
+source_hash = "69a990dced4b5717c181b2fd0072884f676da30175d09c42ea577023dd34fcbf"
+emit_hash = "69a990dced4b5717c181b2fd0072884f676da30175d09c42ea577023dd34fcbf"
+
+[[supporting-doc]]
+name = "verify-summary"
+host = "skill:corpus"
+source_path = ".claude/skills/corpus/verify-summary.md"
+source_hash = "b5864ab655362200a9507daf5f7e1e56c3262f8dc7fb5cd867f9203b1fe26e5e"
+emit_hash = "b5864ab655362200a9507daf5f7e1e56c3262f8dc7fb5cd867f9203b1fe26e5e"
 
 [[system]]
 name = "renderer"
@@ -699,8 +720,12 @@ member = "rule:conduct"
 requirement = "conduct"
 
 [[declaration.satisfies]]
-member = "rule:docs-discipline"
+member = "rule:corpus"
 requirement = "standards"
+
+[[declaration.satisfies]]
+member = "skill:corpus"
+requirement = "operations"
 
 [[declaration.satisfies]]
 member = "skill:grow-harness"
@@ -709,10 +734,6 @@ requirement = "governance"
 [[declaration.satisfies]]
 member = "skill:temper"
 requirement = "governance"
-
-[[declaration.satisfies]]
-member = "skill:verify-summary"
-requirement = "operations"
 
 [[declaration.satisfies]]
 member = "system:renderer"
@@ -729,6 +750,26 @@ target = "system:scanner"
 [[declaration.mention]]
 member = "flow:summarize/step/summarize/in"
 target = "system:renderer"
+
+[[declaration.mention]]
+member = "rule:corpus"
+target = "skill:corpus"
+
+[[declaration.mention]]
+member = "skill:corpus"
+target = "skill:corpus/supporting-doc/supersede-a-decision"
+
+[[declaration.mention]]
+member = "skill:corpus"
+target = "skill:corpus/supporting-doc/verify-summary"
+
+[[declaration.mention]]
+member = "skill:corpus/supporting-doc/verify-summary"
+target = "system:renderer"
+
+[[declaration.mention]]
+member = "skill:corpus/supporting-doc/verify-summary"
+target = "system:scanner"
 
 [[declaration.mention]]
 member = "skill:temper"
@@ -781,6 +822,10 @@ target = "skill:temper/supporting-doc/kind-step"
 [[declaration.mention]]
 member = "skill:temper"
 target = "skill:temper/supporting-doc/kind-superseded-decision"
+
+[[declaration.mention]]
+member = "skill:temper"
+target = "skill:temper/supporting-doc/kind-supporting-doc"
 
 [[declaration.mention]]
 member = "skill:temper"
@@ -1017,11 +1062,6 @@ tool = "root/tool/tsc"
 project = ".temper/tsconfig.json"
 
 [[declaration.input]]
-member = "skill:verify-summary"
-source_path = "src/main.js"
-import_hash = "41f1d85716afec8bd550cccb357c045717649708a03cdf5f2985100065447786"
-
-[[declaration.input]]
 member = "system:scanner"
 source_path = "src/scan.js"
 import_hash = "3a853fe2b288daffa1b14b805f68d5549388083670b5a0079d37e1812d876f1e"
@@ -1069,7 +1109,7 @@ import_hash = "aa75a0eb2ddf78bdf6523400863e0e5eb8d04a21bb15a8fe7001477702b26bc2"
 [[declaration.module]]
 member = "root"
 source_path = ".temper/harness.ts"
-import_hash = "97cc260433997280f4d03f3734e902c9e0226125f787837f49d3da2779562446"
+import_hash = "c3e9ebf7639a0b68dd6b07ee5a2464cc2f948a31643fcea47f8305e4056c7f14"
 
 [[declaration.module]]
 member = "root"
@@ -1079,7 +1119,12 @@ import_hash = "640c4356efd8313110c2f869ff6758892a82819ea4a5aaf3a1de8a9dfe9b9124"
 [[declaration.module]]
 member = "root"
 source_path = ".temper/memory/CLAUDE.ts"
-import_hash = "a7cd18abc0f10694db8f7e7e58c2c153c9af22fcf975e9de9ee6c37263451b25"
+import_hash = "5e646198ff9cf2593bb8d91f3beeba75eb41d95f30edfe30dcd0c05258e9efa1"
+
+[[declaration.module]]
+member = "root"
+source_path = ".temper/playbooks/corpus.ts"
+import_hash = "930eb1bc7d842bd90a28136f70dcdc4abe3599f73caedbd305b8fbcb69d63fb0"
 
 [[declaration.module]]
 member = "root"
@@ -1088,18 +1133,8 @@ import_hash = "b4871e01768edf8f724a7a74ab445a363315ea1254210c2db574ff3a486f981e"
 
 [[declaration.module]]
 member = "root"
-source_path = ".temper/rules/docs-discipline.ts"
-import_hash = "9e786133d2bf6c440e0c7030160bf14ce90b2b970121b04dec191c9868f9e4de"
-
-[[declaration.module]]
-member = "root"
 source_path = ".temper/skills/grow-harness.ts"
 import_hash = "52edc7db8fc2913c6e62eb52db0928d31beb91933fa832b1f74c0cc6fbb021f3"
-
-[[declaration.module]]
-member = "root"
-source_path = ".temper/skills/verify-summary.ts"
-import_hash = "7f0b1c11a83bcc3e94be1a91e9342b87eb691bbf427624ac9704903dd0531e8f"
 
 [[declaration.layout_prose]]
 member = "glossary:glossary"

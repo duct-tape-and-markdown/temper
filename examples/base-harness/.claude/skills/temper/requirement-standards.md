@@ -10,4 +10,4 @@ It is unheld — no verifier is declared, so nothing judges its behavior.
 
 ## Owners
 
-- `rule:docs-discipline`
+- `rule:corpus`

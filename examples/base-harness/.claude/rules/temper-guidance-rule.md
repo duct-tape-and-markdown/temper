@@ -7,4 +7,4 @@ paths: ["**/.claude/rules/**/*.md"]
 - `conduct`: how any agent behaves here — epistemics, gap handling, escalation — is declared, portable, and free of project facts
   Satisfied by `rule:conduct`.
 - `standards`: what correct code and change look like, scoped to the trees the conventions govern
-  Satisfied by `rule:docs-discipline`.
+  Satisfied by `rule:corpus`.

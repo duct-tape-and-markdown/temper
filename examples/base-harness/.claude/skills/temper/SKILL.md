@@ -86,6 +86,7 @@ Read the topic file for what you are about to change before changing it: it carr
 - When you add or change a `skill` member, read [kind-skill.md](kind-skill.md).
 - When you add or change a `step` member, read [kind-step.md](kind-step.md).
 - When you add or change a `superseded-decision` member, read [kind-superseded-decision.md](kind-superseded-decision.md).
+- When you add or change a `supporting-doc` member, read [kind-supporting-doc.md](kind-supporting-doc.md).
 - When you add or change a `system` member, read [kind-system.md](kind-system.md).
 - When you add or change a `tool` member, read [kind-tool.md](kind-tool.md).
 

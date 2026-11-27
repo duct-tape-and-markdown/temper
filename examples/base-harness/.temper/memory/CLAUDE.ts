@@ -5,15 +5,15 @@ import { GATE_COMMAND, VERIFY_COMMAND, VERIFY_EXPECTED } from "../facts.ts";
 /**
  * The Orientation member: where to look and how to work. Authored inline
  * rather than as an adjacent file so the commands it states interpolate
- * from `facts.ts` — the verify skill speaks the same commands from the same
- * constants, and neither surface can drift from the other.
+ * from `facts.ts` — the corpus playbook's verify topic speaks the same
+ * commands from the same constants, and neither surface can drift from the other.
  */
 export const memory_CLAUDE = memory({
   name: "CLAUDE",
   satisfies: ["orientation"],
   prose: span(`# base-harness
 
-A starter harness whose documentation corpus is a temper program. This file
+A base harness whose documentation corpus is a temper program. This file
 tells you where to look and how to work; \`docs/\` holds the intent, and
 \`src/\` reconciles toward it.
 
@@ -45,7 +45,7 @@ tells you where to look and how to work; \`docs/\` holds the intent, and
   owning \`.temper/\` module, never these files.
 - After changing \`src/\` or \`TODO.md\`, verify end to end: run
   \`${VERIFY_COMMAND}\` (the committed input prints \`${VERIFY_EXPECTED}\`);
-  the \`verify-summary\` skill walks the full procedure.
+  the \`corpus\` skill's \`verify-summary\` topic walks the full procedure.
 - Structural verdicts come from \`${GATE_COMMAND}\`; do not re-derive them
   by reading files. \`temper explain <member>\` narrates any member's
   edges, coverage, and blast radius.

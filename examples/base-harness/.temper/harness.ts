@@ -3,9 +3,8 @@ import { settings, skill, skillDefaultContract } from "@dtmd/temper/claude-code"
 import { defaultPatterns } from "@dtmd/temper/patterns";
 import { memory_CLAUDE } from "./memory/CLAUDE.ts";
 import { rule_conduct } from "./rules/conduct.ts";
-import { rule_docsDiscipline } from "./rules/docs-discipline.ts";
 import { skill_growHarness } from "./skills/grow-harness.ts";
-import { skill_verifySummary } from "./skills/verify-summary.ts";
+import { playbook_corpus } from "./playbooks/corpus.ts";
 import { alternative, decision, flow, glossary, invariant, stepKind, system } from "./kinds.ts";
 import { system_scanner } from "./docs/systems/scanner.ts";
 import { system_renderer } from "./docs/systems/renderer.ts";
@@ -19,9 +18,12 @@ import { decision_perChangeDocDuty } from "./docs/decisions/per-change-doc-duty.
 // reference at `.claude/skills/temper/`. The project file is the one required
 // argument, since the path is ours; everything else is a defaulted option.
 //
-// The worked customization: the reference's description is hydrated with this
-// project's own trigger, and the reference declares the domain it fills. Its
-// body and topics still derive from what this program declares.
+// The worked customization, two shapes hydrated. The reference's description
+// carries this project's own trigger, and the reference declares the domain it
+// fills; its body and topics still derive from what this program declares. The
+// `corpus` playbook (`./playbooks/corpus.ts`) is this project's one area of
+// guidance: its facts, description and procedures are ours, and the shape
+// emits them as a path rule, a routing skill and one topic file per procedure.
 const base = defaultPatterns({
   typecheck: { project: input(import.meta.url, "./tsconfig.json") },
   reference: {
@@ -29,6 +31,7 @@ const base = defaultPatterns({
       "How to operate the temper gate over this repository's harness and documentation corpus. Use when a temper finding appears, before editing anything under .claude/ or docs/, or when adding a member to .temper/.",
     satisfies: ["governance"],
   },
+  playbooks: [playbook_corpus],
 });
 
 export default harness({
@@ -85,8 +88,6 @@ export default harness({
     ...base.members,
     memory_CLAUDE,
     rule_conduct,
-    rule_docsDiscipline,
-    skill_verifySummary,
     skill_growHarness,
     system_scanner,
     system_renderer,

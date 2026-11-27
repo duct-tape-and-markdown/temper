@@ -2,7 +2,7 @@
 
 # base-harness
 
-A starter harness whose documentation corpus is a temper program. This file
+A base harness whose documentation corpus is a temper program. This file
 tells you where to look and how to work; `docs/` holds the intent, and
 `src/` reconciles toward it.
 
@@ -34,7 +34,7 @@ tells you where to look and how to work; `docs/` holds the intent, and
   owning `.temper/` module, never these files.
 - After changing `src/` or `TODO.md`, verify end to end: run
   `node src/main.js TODO.md` (the committed input prints `2/3 done`);
-  the `verify-summary` skill walks the full procedure.
+  the `corpus` skill's `verify-summary` topic walks the full procedure.
 - Structural verdicts come from `temper check .`; do not re-derive them
   by reading files. `temper explain <member>` narrates any member's
   edges, coverage, and blast radius.

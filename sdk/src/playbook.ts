@@ -104,6 +104,12 @@ export interface PlaybookRenderer {
   readonly pointer: (view: PointerView) => Text;
 }
 
+/** The requirements a playbook's rule and its skill each fill — the consumer's own domains. */
+export interface PlaybookSatisfies {
+  readonly rule?: readonly string[];
+  readonly skill?: readonly string[];
+}
+
 /** What {@link playbook} takes. */
 export interface PlaybookInit {
   /** The area's name — the rule's file stem and the skill's directory. */
@@ -121,6 +127,12 @@ export interface PlaybookInit {
   readonly trigger?: PlaybookTrigger;
   /** Who may invoke the skill; absent, `"model-and-user"`. */
   readonly invocation?: PlaybookInvocation;
+  /**
+   * The requirements the area fills, per surface — each the `satisfies` edge of that
+   * member. Per surface because a requirement may bind the kind that fills it: the
+   * standing facts fill one domain, the procedures another. Absent, none.
+   */
+  readonly satisfies?: PlaybookSatisfies;
   /** Replaces the default wording, either half. */
   readonly render?: Partial<PlaybookRenderer>;
   /** Declared but not yet offered — setting it refuses. */
@@ -256,9 +268,11 @@ export function playbook(init: PlaybookInit): Playbook {
   const placement = placementOf(name, trigger);
   const id = `${placement.prefix}${name}`;
 
+  const claims = (names: readonly string[] | undefined) => (names === undefined ? {} : { satisfies: [...names] });
   const fields = {
     name: id,
     description: init.description,
+    ...claims(init.satisfies?.skill),
     ...invocationFields(invocation),
     ...(gated ? { paths } : {}),
     ...(placement.skill === undefined ? {} : { location: placement.skill }),
@@ -277,6 +291,7 @@ export function playbook(init: PlaybookInit): Playbook {
   const topics = init.topics.map((topic) => supportingDoc({ name: topic.name, host: routing, prose: topic.prose }));
   const standing = rule({
     name: id,
+    ...claims(init.satisfies?.rule),
     ...(paths === undefined ? {} : { paths }),
     ...(placement.rule === undefined ? {} : { location: placement.rule }),
     prose: blocks(init.facts, pointer({ invocation, skill: mentionOf(routing) })),

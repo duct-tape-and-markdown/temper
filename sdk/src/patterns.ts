@@ -40,6 +40,7 @@ export type {
   PlaybookInit,
   PlaybookInvocation,
   PlaybookRenderer,
+  PlaybookSatisfies,
   PlaybookTopic,
   PlaybookTrigger,
   PointerView,

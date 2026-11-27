@@ -30,16 +30,44 @@ members beside the patterns':
 const base = defaultPatterns({
   typecheck: { project: input(import.meta.url, "./tsconfig.json") },
   reference: { description: "How to operate the temper gate over this repository's …", satisfies: ["governance"] },
+  playbooks: [playbook_corpus],
 });
 const program = harness({ ...base, require: { … }, members: [...base.members, memory_CLAUDE, …] });
 ```
 
-The worked customization is the reference: its description is hydrated
-with this project's own trigger, and it names the domain it fills. Its
-body and topics are still derived, so declaring a kind or a domain grows
-the reference without anyone writing to it. Everything else here is the
-project's content: the domains, the memory, the rules, the skills, and
-the documentation corpus.
+Two shapes carry a worked customization. The reference's description is
+hydrated with this project's own trigger, and it names the domain it
+fills. Its body and topics are still derived, so declaring a kind or a
+domain grows the reference without anyone writing to it.
+
+The second is a playbook, the central pattern: one area of guidance
+emitted across the surfaces Claude Code loads for it.
+`.temper/playbooks/corpus.ts` hydrates it for the documentation corpus
+and the code it governs:
+
+```ts
+export const playbook_corpus = playbook({
+  name: "corpus",
+  description: "Procedures for the documentation corpus and the code it governs: …",
+  trigger: { paths: ["docs/**", "src/**", "TODO.md"] },
+  satisfies: { rule: ["standards"], skill: ["operations"] },
+  facts: span(`# The corpus is the program …`),
+  topics: [
+    { name: "verify-summary", when: "a change under `src/` or `TODO.md` needs confirming", prose: … },
+    { name: "supersede-a-decision", when: "a standing ruling under `docs/decisions/` is replaced", prose: … },
+  ],
+});
+```
+
+The module supplies the content: the name, the description, the area's
+paths, the domains it fills, its standing facts and one procedure per
+topic. The shape supplies the structure. The facts become the path rule
+`.claude/rules/corpus.md`, which closes on a typed pointer to the skill.
+The skill `.claude/skills/corpus/SKILL.md` routes to one topic file per
+procedure beside it, each link a typed mention. The skill stays listed
+before any file is read, so a question asked first can still find it.
+Everything else here is the project's content: the domains, the memory,
+the conduct rule, the `grow-harness` skill, and the documentation corpus.
 
 What the harness demonstrates:
 
@@ -59,21 +87,20 @@ What the harness demonstrates:
 
 - **One fact, one home.** Commands and expected outputs that more than one
   surface states live once in `.temper/facts.ts`; the memory's map and the
-  verify skill's procedure interpolate the same constants, so one edit
+  playbook's verify topic interpolate the same constants, so one edit
   moves every projection and the surfaces cannot contradict each other.
   The gate hooks state no command at all: they come from the patterns, and
   the engine renders the command each runs into the settings manifest.
-- **A skill can be path-gated, and its claims rest on declared inputs.**
-  `verify-summary` declares `paths: ["src/**", "TODO.md"]`, so it
-  registers only when the work touches what it knows how to verify, and it
-  declares the entrypoint it tests, `src/main.js`, as an input the lock
-  fingerprints. Delete `src/main.js` and `temper emit` refuses:
+- **A procedure's claims rest on declared inputs.** The `verify-summary`
+  topic links the scanner and renderer documents by typed mention, and
+  each system declares the `src/` files implementing it as inputs the lock
+  fingerprints. Delete `src/scan.js` and `temper emit` refuses:
 
   ```
   Error: temper::drift::dangling_import
 
-    × member `skill:verify-summary` references `src/main.js`, resolving to `./
-    │ src/main.js`, which does not exist — a dangling reference
+    × member `system:scanner` references `src/scan.js`, resolving to `./src/
+    │ scan.js`, which does not exist — a dangling reference
   ```
 - **Claims about code go stale, and the gate says where to look.** Each
   system declares the `src/` files implementing it as inputs. Change

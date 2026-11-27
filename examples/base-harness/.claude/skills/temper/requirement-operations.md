@@ -10,4 +10,4 @@ It is unheld — no verifier is declared, so nothing judges its behavior.
 
 ## Owners
 
-- `skill:verify-summary`
+- `skill:corpus`

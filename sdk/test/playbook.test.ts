@@ -169,3 +169,12 @@ test("a playbook refuses a blank description, no topics, and a duplicated topic"
   const [first] = base.topics;
   assert.throws(() => playbook({ ...base, topics: [first, first] }), /two topics are named `adding-a-module`/);
 });
+
+test("a playbook's rule and skill each fill the requirements named for them", () => {
+  const book = playbook({ ...base, satisfies: { rule: ["standards"], skill: ["operations"] } });
+  assert.deepEqual(book.rule.satisfies, ["standards"]);
+  assert.deepEqual(book.skill.satisfies, ["operations"]);
+  for (const topic of book.topics) assert.deepEqual(topic.satisfies, []);
+  const bare = playbook(base);
+  assert.deepEqual([bare.rule.satisfies, bare.skill.satisfies], [[], []]);
+});
