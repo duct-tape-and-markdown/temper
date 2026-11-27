@@ -1,11 +1,10 @@
 {
   "tag": "BASE-HARNESS-HYDRATES-A-PLAYBOOK",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "PLAYBOOK-SHAPE"
-    ]
+    "kind": "open"
   },
+  "dependsOnForks": [],
+  "kind": "work",
   "files": {
     "new": [],
     "edit": [
@@ -29,7 +28,8 @@
         "path": "examples/base-harness/CLAUDE.md",
         "description": "re-emitted"
       }
-    ]
+    ],
+    "retire": []
   },
   "summary": "The shipped example hydrates a playbook with a worked customization, so the playbook's structure reads beside its import",
   "per": {
@@ -38,5 +38,7 @@
   },
   "acceptance": "examples/base-harness composes a playbook, emits clean and passes check --deny-advisories",
   "tests": [],
+  "pins": [],
+  "laneTests": [],
   "notes": "Owed per notes/BASE-HARNESS-HYDRATES-THE-STARTER (the example hydrates \"the shapes\"). Replaces the hand-wired rule_docsDiscipline + skill_verifySummary pair with one hydrated playbook from the `patterns` subpath; their retired .temper/ sources and .claude/ projections join files as build finds them."
 }

@@ -1,11 +1,10 @@
 {
   "tag": "PLAYBOOK-ATTACHMENTS",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "PLAYBOOK-SHAPE"
-    ]
+    "kind": "open"
   },
+  "dependsOnForks": [],
+  "kind": "work",
   "files": {
     "new": [],
     "edit": [
@@ -29,7 +28,8 @@
         "path": "sdk/test/emit.test.ts",
         "description": "the derived ask list"
       }
-    ]
+    ],
+    "retire": []
   },
   "summary": "A playbook carries enforcement attachments: a clause, a fence of `ask` permissions over owner paths, and an allowlisted task script whose allow rule derives from its invoked command",
   "per": {
@@ -38,5 +38,7 @@
   },
   "acceptance": "an attached clause lands in the lock over the area's members; an ask fence derives settings permissions.ask; a task script's allow rule is the Bash rule of the command as invoked; pnpm --dir sdk test green",
   "tests": [],
+  "pins": [],
+  "laneTests": [],
   "notes": "SDK-only: the SDK gate holds it. The guard-hook attachment waits on question playbook-guard-hook-command. Permission rule syntax is an external fact: cite code.claude.com/docs/en/permissions at the site."
 }
