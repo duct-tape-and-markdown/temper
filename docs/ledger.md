@@ -14,7 +14,7 @@ hard.
   the launch demo is this repo's spec corpus governing itself. Kernel
   corpus in `specs/model/`; decisions outside every read path.
 - **Distribution**: `npx @dtmd/temper` delivers prebuilt linux/win32
-  engines; 0.0.18 cut 2026-09-08 (tag c60c976a, smoke green). The cut
+  engines; 0.0.26 cut 2026-11-27 (tag v0.0.26, smoke green). The cut
   procedure is the `release` rule. Darwin + plugin channel ride
   PACKAGING-CHANNELS-REMAINDER (parked); 0.1.0 is the launch tag's.
 - **First adopter**: cascade (John's). Its session live-verifies every
@@ -26,34 +26,30 @@ hard.
   and is the latent-bug surface. Validate it; never cut capability for
   want of a consumer.
 
-## Next session's one focus (11-26, loop stopped)
+## Next session's one focus (11-27, 0.0.26 shipped, loop stopped)
 
-- **State:** 80 entries shipped since v0.0.25 (net code about +7k), loop
-  stopped with the stop flag after the typecheck entry (10021f1f). Restart:
-  `rm .flume/stop`, then the usual launch.
-- **Queue on restart:** 3 pending entries and 16 inbox records. Most are the
-  census triage (fixed checks become clauses, the install report, the
-  no-lock guard, the script-verifier edge, nine review-only pins), the
-  restored intent (per-member mode, layer slots, loud nondeterminism, typed
-  kind identity, typecheck before the program, the unrepresented modeline,
-  `package.json` never rewritten), memory claiming `AGENTS.md`, and nested
-  output styles. Questions: `cross-source-edge-correlation` (on the
-  reporter) and `out-of-corpus-edge-targets` (new, unread).
-- **0.0.26:** main carries extension, the emitted reference, guidance
-  delivery, edge intent, review verifiers, the tool kind, output styles and
-  the probe fixes. Breaks: emit's declared typecheck, and binaries folded
-  into tools. Cut when the queue settles; record net growth in the commit.
-- **Spec census (0105):** 448 claims, 310 held, 87 review-only, 36 the code
-  does not meet, 15 unclear. Ruled: the spec states intent and conformance
-  is the loop's job. The census tables were in the session scratchpad
-  (volatile); the routed records carry each finding.
-- **Open for John:** self-hosting, meaning this harness declares the 0093
-  reference skill so "the plugin a stranger installs gates this repo"
-  holds; and the target state, a temper-typed spec whose invariants carry
-  holders that `check` reads.
-- **Flume issues filed:** #23-#28 (judge blind spots, environment-fault
-  quarantine, an event stream, debt on disk, a derive reconcile mode;
-  #25 closed as `flume exclusive`).
+- **0.0.26 cut** 2026-11-27 (`92b6ac2c`, smoke green, npm locks synced
+  `3c142aae`): 167 entries, decisions 0085-0120, about +14.5k net code.
+  Notes: `CHANGELOG.md`, `docs/MIGRATING-0.0.26.md`. #52 and #62 closed; #44
+  open for a heading shifted with no sub-headings (needs a ruling); Cascade
+  told. The session gate runs the released engine again and is green.
+- **First focus: a consolidation pass.** +14.5k net in a day and a half is
+  more growth than its features explain. Weigh it against `engineering.md`
+  before new surface lands.
+- **Then: the dogfood adopts what shipped.** Compose `defaultPatterns()` and
+  a playbook in `.temper/harness.ts`, the self-hosting John asked for.
+- **Landed 11-26/27:** the playbook at `@dtmd/temper/patterns` (0111, with
+  attachments and declared-but-not-offered axes), context cost (0112),
+  one concept, one name (0114, from an inventory and a blind name test),
+  stale locks (0117), the load-moment guard (0120). The `blind-review`
+  skill and the probe-before-encoding rule live in the harness.
+- **Open for John:** the #88565 comment (Grep and Glob hits load no path
+  rule); doc tooling (type-checked doc blocks plus API Extractor, unanswered).
+- **Product ideas parked:** a probe verb or telemetry report of what
+  actually loaded per member (0112 measured, not computed); checking
+  built-in kind types against the Agent SDK's `.d.ts` each release.
+- **Restart the loop:** `rm .flume/stop`, then the relaunch below. Queue and
+  questions are empty apart from the two parked ones.
 
 ## Parked (pointers only)
 
@@ -76,7 +72,7 @@ hard.
 - Base harness dogfood: `docs/base-harness-primer.md`,
   `examples/base-harness/`, `docs/market-formats.md`. Stranger dry run
   next, then channel 3.
-- On John, later: revisit the README and public-facing docs against today's model (0090-0097: extension, the emitted reference, guidance delivery); a public gist on the project once it is stable, for outside interest.
+- On John, later: revisit the README and public-facing docs against today's model (0090-0120: extension, the emitted reference, guidance delivery, the playbook, patterns); a public gist on the project once it is stable, for outside interest.
 - Parked, John's call (2026-11-25): is the Rust engine worth its second implementation of the semantics? emit compiles a TS program that holds the whole truth, erases it to TOML, and Rust reimplements its meaning; every feature lands on both sides. Keep the lock as interchange either way: it is reviewable, joinable, and never runs foreign code. Evidence to gather: guard latency of a compiled-TS binary (Bun, or Node single-executable) against Rust on a real tool call; the share of entries since 0.0.20 that touched both sides; whether discovery's whole-tree walk needs Rust's speed. Full Rust is the third option, judged weakest: the TS authoring surface (typed at the keystroke, composed as ordinary code, npm-distributed, the language agents write well) is the product's front door.
 - Parked design: a kind's TS surface and its shape clauses spell one fact twice (`holder: string` beside `required("holder")`). tsc holds it for projected members, and only the clause reaches source documents. Derive one from the other (clauses from the surface, or the surface from the contract, as `schema` already does) once extension has shipped and been used.
 - Parked design, the holder ladder (Jeff's tell / holder / misfit model, 2026-11-26): temper's verifier species and clause severities are a holder ladder. A promotion queue lists review-held requirements; a misfit list is the dry-run of raising a holder (advisory findings before required); a downgrade is a lowered severity or verifier in a diff; an orphan is a clause or tool no requirement reaches. A requirement's tell stays consumer vocabulary: today a consumer's own embedded kind carries it and `satisfies` the requirement. `extend(requirement, …)` waits on the requirement becoming a real kind (inbox 2026-11-26-the-requirement-is-a-kind).
