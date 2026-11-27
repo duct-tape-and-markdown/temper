@@ -52,7 +52,7 @@ export { playbook } from "./playbook.js";
 
 /**
  * The tool-name matcher the guard's `PostToolUse` edge binds: a Bash write carries no file
- * path, so the guard judges the tree the call left (`src/install.rs`'s `BASH_MATCHER`).
+ * path, so the guard judges the tree the call left.
  */
 const SHELL_MATCHER = "Bash";
 

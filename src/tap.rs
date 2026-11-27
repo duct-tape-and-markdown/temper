@@ -200,7 +200,7 @@ pub(crate) fn log_path(bytes: &crate::bytes::Bytes, workspace_dir: &Path) -> Pat
         && let Some(primary_root) = dirs.common_dir.parent()
         && primary_root.is_dir()
     {
-        return primary_root.join(".temper").join(LOG_FILENAME);
+        return primary_root.join(crate::WORKSPACE_DIR).join(LOG_FILENAME);
     }
     workspace_dir.join(LOG_FILENAME)
 }

@@ -1114,8 +1114,7 @@ export interface GateHookInit {
 
 /**
  * The tool-name matcher the guard's `PreToolUse` edge binds — Claude Code's own
- * file-writing tools (`code.claude.com/docs/en/hooks`, retrieved 2026-07-24), the matcher
- * `temper install` places (`src/install.rs`'s `GUARD_MATCHER`).
+ * file-writing tools (`code.claude.com/docs/en/hooks`, retrieved 2026-07-24).
  */
 export const GUARD_MATCHER = "Write|Edit|MultiEdit";
 
