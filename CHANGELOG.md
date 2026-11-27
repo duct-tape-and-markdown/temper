@@ -9,6 +9,230 @@ breaking changes. Releases are small and frequent.
 
 ## [Unreleased]
 
+## [0.0.26] — 2026-11-27
+
+### Upgrading from 0.0.25
+
+Each line is what a 0.0.25 harness may see first, then what to do.
+[`docs/MIGRATING-0.0.26.md`](docs/MIGRATING-0.0.26.md) walks each one with
+before and after.
+
+- **`check` reports `root.engine-matches`.** The lock was written by 0.0.25.
+  It still reads, with its old built-in rows read as the embedded built-ins,
+  so re-emit once the program emits (the next lines).
+- **`emit` fails with "does not provide an export named 'emit'".** End the
+  program with `export default program;` in place of the stdout write.
+- **`emit` refuses with `temper::drift::typecheck_undeclared`.** Declare
+  `typecheck` on `harness()`, with a `tsconfig.json` and the `typescript`
+  dev dependency.
+- **`check` refuses with `temper::tool::no_package_manager`.** Add
+  `"packageManager"` to `.temper/package.json`.
+- **The SDK refuses a hook's `name`, or `tsc` prints a remedy.** Run the
+  compiler over `.temper/` and apply the renames it names.
+- **`install.gate-installed` reports your gate hooks.** Re-emit: gate hooks
+  now run the program's own `temper` bin.
+- **`check` reports members under a subdirectory's `.claude/`, an
+  `AGENTS.md`, or a `CLAUDE.local.md`.** Declare them, or leave a fixture
+  tree ungoverned with `relocate(<kind>, { exclude })`.
+- **A dial entry keyed `label` is refused.** Rename the key to `id` and
+  spell the clause id in kebab case.
+- **`emit` writes `.claude/rules/temper-sdk.md` and
+  `temper-guidance-<kind>.md` rules.** Commit them with the lock.
+
+### Breaking
+
+- **`emit` typechecks the program and refuses one that declares no
+  typecheck.** `harness({ typecheck: { tool, project } })` names a composed
+  `tool(...)` and the project file; emit runs it with `--noEmit --project`
+  and refuses on a type error with the compiler's diagnostics, so a type
+  error Node's type stripping used to skip now stops `emit`.
+- **The program's `.temper/package.json` must declare `packageManager`.**
+  `check` and `install` refuse without it, and read the lockfile of the
+  manager it names. npm and pnpm are read; yarn and bun are refused by
+  name.
+- **A program ends `export default program;`.** `emit`, `EmitResult`,
+  `RegistrationFact` and `SettingsResidue` leave the `@dtmd/temper` root for
+  the new `@dtmd/temper/pipe` subpath, which `temper emit` drives; a program
+  writes nothing to stdout.
+- **`temper emit` takes its workspace positionally.** `--into` is removed:
+  `temper emit --into X` is now `temper emit X`.
+- **Predicate keys are kebab case** (`max-len`, `min-len`, `forbidden-keys`,
+  `allowed-chars`, `require-sections`, `must-define`, `section-contains`),
+  and every clause id with them, such as `skill.max-len.name`. A 0.0.25 lock's
+  snake-case spellings still read until `temper emit` rewrites them.
+- **A dial entry names its clause `[[clause]] id = …`.** The `label` key is
+  refused by the dial's closed key set, and the SDK's `DialEntry` field is
+  `id`.
+- **Five finding ids are renamed.** `graph.route` is `root.resolves`,
+  `graph.directive-unbacked` is `root.import-backed`, `requirement.unfilled`
+  is `requirement.count`, `requirement.dangling` is `requirement.resolves`,
+  and `kind.governs-collision` is `kind.locus-collision`. The first four are
+  now default-contract clauses a dial entry can lower.
+- **`hook()` and `gateHook()` take the lifecycle event as `event`.** A
+  `name` fails `tsc` with a remedy naming `event`, and refuses at runtime in
+  the same words.
+- **`gateHook()` and `telemetry()` take a `tool(...)` member as `tool`,
+  never a `binary` string.** With none, a represented harness's gate hooks
+  and taps run `./.temper/node_modules/.bin/temper`, where they used to run
+  `temper` on the PATH.
+- **`relocate(kind, { governs })` is `relocate(kind, { locus })`.** The lock
+  columns follow (`locus_root`, `locus_glob`); a lock with the old columns
+  still reads.
+- **`memoryAnthropicDefaultContract` is `memoryDefaultContract`**, so every
+  kind's default contract is `<kind>DefaultContract`.
+- **`when()` takes a required `severity`**, as `clause()` does.
+- **An edge field's `to` and a requirement's `kind` take kind values**, not
+  kind-name strings. A self-edge names its kind through a getter,
+  `get to() { return [self] as const; }`.
+- **`permissionUnion()` returns `{ allow, ask }`** in place of a flat allow
+  array, and a `capability()` takes `list: "ask"`.
+- **`settings()` types `statusLine`.** A `statusLine` passed through
+  `residue` is refused; move it to the typed field.
+- **Built-in kinds claim more of the tree.** Skills, rules and output styles
+  under any subdirectory's own `.claude/`, commands in subfolders of
+  `.claude/commands/`, every `AGENTS.md`, and every `CLAUDE.local.md` are
+  members now, so a tree holding fixture harness files may fail `check`
+  until it excludes them.
+
+### Added
+
+- **`@dtmd/temper/patterns`.** `defaultPatterns({ typecheck, gates,
+  reference, playbooks })` returns `{ members, typecheck }` for `harness()`:
+  the typecheck and its `tsc` tool, the three gate hooks, and the harness
+  reference. `gateHooks()`, `typecheck()` and `reference()` compose alone.
+- **`playbook()` turns one area of guidance into a path rule, a routing
+  skill, and one topic file per procedure**, linked by typed mentions. Its
+  trigger is `paths`, `{ nested: "<dir>" }` or none, and `attachments` adds
+  `clauses`, an ask `fence`, exact-allow `tasks`, and a `guard` that
+  `temper guard` enforces over the area's paths.
+- **`reference()` emits a harness reference skill at
+  `.claude/skills/temper/`**, rendered from the program's declarations with
+  one topic file per kind and per requirement. `temper bundle` ships the
+  same reference as the plugin's skill.
+- **Context-cost advisories.** `root.listing.description+when_to_use` sums
+  the skill and command listing against the 8,000-character budget. A rule,
+  subdirectory memory, `CLAUDE.local.md` or import target loaded on demand
+  draws an advisory past 40,000 characters, and `trigger-agrees` flags a rule
+  scoped narrower than its mentioned skill's `paths`.
+- **`explain` states what loads a member, when, and what it costs** in
+  characters. It also names what holds a requirement, the anchor each
+  permission path rule resolves at, and an agent that shares a built-in
+  agent's name.
+- **The `tool` kind** is the one home of a command the harness runs:
+  `tool({ package, bin })`, `tool({ file })` or `tool({ system })`. A hook
+  handler, the `statusLine`, a gate hook, a tap, the typecheck and a
+  `script()` verifier reach it by a `runs` edge, and `check` reports
+  `tool.unlocked` when the program's lockfile does not lock a package tool.
+- **Nested placements.** A nested skill, rule, command, output style or
+  `CLAUDE.md` is a member named by its path (`skill:apps:web:deploy`,
+  `command:frontend:component`) and emits back where it was read. A member
+  whose name carries such a prefix declares its `location`.
+- **The `output-style` kind**, with the settings `outputStyle` edge and an
+  `unshadowed` advisory for a nested style that takes over a shallower one.
+- **The `memory-local` kind for `CLAUDE.local.md`**, read in place and never
+  emitted, and `AGENTS.md` as memory behind the runtime's absence gate.
+- **`extend(base, { name, … })` mints a subkind** that keeps its base's facts
+  and contract and adds fields, edges and counsel. `extend(requirement,
+  { name })` adds a requirement vocabulary of your own.
+- **`loads("launch" | "on-demand")` is a `when()` guard** over a member's
+  load moment.
+- **Emit delivers guidance as rules.** `.claude/rules/temper-sdk.md` carries
+  the SDK's authoring counsel over `.temper/**`, and one
+  `temper-guidance-<kind>.md` per guided kind carries its `guidance`,
+  `fieldGuidance`, edges and requirements over the kind's locus.
+- **`relocate()` takes `exclude`, `guidance`, `fieldGuidance` and `cite`**,
+  so a relocation can leave a tree ungoverned and carry its own counsel.
+- **A member or a kind can declare its own enforcement `mode`.** Each guard
+  edge and the dial resolve the member's mode first, then its kind's, then
+  the root's.
+- **`review("…")` is a requirement verifier** naming the reader whose
+  judgment holds it.
+- **`mentionOf(member, { as: "path" })`** renders the target's path relative
+  to the host.
+- **The SDK package ships a JSON Schema per frontmatter kind** under
+  `schemas/`, and `install --no-represent` seats a version-pinned
+  `yaml-language-server` modeline pointing at it.
+
+### Changed
+
+- **An optional requirement left unfilled reports an advisory**
+  (`requirement.count`), where it used to stay silent.
+- **A finding names its severity as `required`, `advisory` or
+  `disclosure`** on the terminal help line and in SARIF
+  `properties.severity`. SARIF `level` and GitHub annotations keep their
+  own vocabularies.
+- **A nested rule's id joins its folders with `:`**:
+  `.claude/rules/sub/x.md` is `rule:sub:x`, where it was `rule:sub-x`.
+- **A skill, command or output style whose frontmatter YAML does not parse
+  loads with no fields set**, as Claude Code loads it, and draws one
+  `member.non-portable-yaml` advisory naming the keys read as unset. An
+  agent of that shape is still a load fault.
+- **An `.mcp.json` server with no `type` is judged a stdio server**, so a
+  url-only entry draws `mcp-server.when.type=stdio.required.command`.
+- **An agent `name` is held to the documented rules:** at most 256
+  characters, no `:`, no leading `-`. The lowercase charset is gone, so
+  `Explore` and `reviewer-v2` pass.
+- **`plugin.json` admits every top-level key the plugins reference
+  documents**, and `outputStyles`, `workflows` and `experimental` are
+  typed.
+- **A collection key of the wrong JSON type is an error**
+  (`manifest.rejected-collection`), such as `"mcpServers": []`, at `check`
+  and at the guard, and its value is kept.
+- **A reference the runtime may answer from outside the tree** (a user
+  output style, a marketplace declared in user settings) is one
+  `coverage.off-tree-targets` note, never a route error.
+- **On an unrepresented harness**, unreached supporting docs fold into one
+  `coverage.unreached-supporting-docs` note, and a settings file that runs
+  commands draws one `coverage.unrepresented-scripts` note.
+- **Emit refuses** a program whose two runs differ
+  (`temper::drift::nondeterministic`), two members deriving one projection
+  path (`temper::drift::projection_path_collision`), and a hook group added
+  or edited by hand in a settings file no member owns
+  (`temper::drift::ownerless_manifest_entries`,
+  `temper::drift::ownerless_registration_drift`). `check` reports that hand
+  edit as drift.
+- **A root-family clause bound where its judge never reads it** (on a kind
+  or a requirement) is refused as vacuous.
+- **`install` prints the contract's findings** before it asks to represent
+  the harness. On a fresh scaffold it writes `packageManager`, a
+  `tsconfig.json`, the typecheck dev dependencies and a program over
+  `defaultPatterns()`; it never rewrites an existing `.temper/package.json`,
+  and lists a missing dependency instead.
+- **`install` re-points a stale schema modeline** and refuses a represented
+  install over a skill named `temper`
+  (`temper::install::reference_name_collision`).
+- **An unreleased build stamps its locks `X+unreleased.<digest>`**, which
+  moves only when the built-in facts do. A lock from another engine reads as
+  a stale snapshot in every verb: a moved built-in row reads as the embedded
+  built-in with the `root.engine-matches` advisory, never as a kind
+  collision.
+- **Every shipped clause carries guidance and a dated cite.**
+- **Without a lock, `temper guard` allows every write.**
+
+### Fixed
+
+- **A dangling bare one-element edge target defers to `check`** like its
+  qualified spelling (GH #52).
+- **Nested `CLAUDE.md` files lift and emit at their own paths.** They used
+  to all land at the root `CLAUDE.md`.
+- **A relocation keeps only the base exclusions its new template still
+  reaches**, so moving `memory` off `.` no longer refuses at lock load.
+- **`check` reads a committed layout document's entries and `satisfies`
+  section off the document**, so a hand edit is judged without a re-emit.
+- **An `@path` import honors the backslash-space escape**
+  (`@Design\ Docs/api.md`).
+- **A file or `.claude/` directory a memory import reaches is no longer an
+  unclaimed entry**, and the `.claude/` entry scan honors the root
+  `.gitignore`. An unignored `.claude/worktrees/` names the documented
+  remedy.
+- **A program that prints to stdout is reported as a payload parse
+  failure**, not as SDK version skew.
+- **`install.gate-installed` reports a projection it could not read** in
+  place of passing. On a tree with no program, it judges a seated
+  SessionStart hook and its schema modelines.
+- **`explain`'s impact strand reads the gate's own reachability**, custom
+  kinds and declared edges included.
+
 ## [0.0.25] — 2026-11-25
 
 ### Upgrading from 0.0.24

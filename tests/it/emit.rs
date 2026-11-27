@@ -3637,9 +3637,10 @@ fn emit_program_runs_the_shipped_example_harness() {
             "the example's committed artifacts are byte-current: {} {} reported {:?}. \
              That emit needs the SDK resolvable from the example's own root first — \
              vendor it the way `vendor_sdk` does, `ln -s $PWD/sdk \
-             examples/base-harness/.temper/node_modules/@dtmd/temper` (gitignored, \
-             never committed) — then re-run `cargo run -- emit \
-             examples/base-harness/.temper` and commit what moves.",
+             examples/base-harness/.temper/node_modules/@dtmd/temper`, and link its \
+             compiler the way `link_typescript_bin` does (both gitignored, never \
+             committed) — then re-run `cargo run -- emit examples/base-harness/.temper` \
+             and commit what moves.",
             entry.kind,
             entry.name,
             entry.outcome
