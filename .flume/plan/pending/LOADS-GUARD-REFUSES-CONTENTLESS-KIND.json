@@ -1,15 +1,36 @@
 {
   "tag": "LOADS-GUARD-REFUSES-CONTENTLESS-KIND",
-  "gate": { "kind": "blockedBy", "tags": ["LOAD-CHANNEL-OUTPUT-STYLE", "LOAD-CHANNEL-SUPPORTING-DOC"] },
-  "files": {
-    "edit": [
-      { "path": "src/engine.rs", "description": "when-guard admissibility: a loads guard over a kind with no content-carrying channel refuses at load" },
-      { "path": "src/gate.rs", "description": "one predicate for whether a channel carries content, shared with channel_load_moment" },
-      { "path": "tests/it/load_moment_guard.rs", "description": "refusal cases" }
+  "gate": {
+    "kind": "blockedBy",
+    "tags": [
+      "LOAD-CHANNEL-SUPPORTING-DOC"
     ]
   },
+  "dependsOnForks": [],
+  "kind": "work",
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "src/engine.rs",
+        "description": "when-guard admissibility: a loads guard over a kind with no content-carrying channel refuses at load"
+      },
+      {
+        "path": "src/gate.rs",
+        "description": "one predicate for whether a channel carries content, shared with channel_load_moment"
+      },
+      {
+        "path": "tests/it/load_moment_guard.rs",
+        "description": "refusal cases"
+      }
+    ],
+    "retire": []
+  },
   "summary": "A loads guard over a kind none of whose channels carries its content, an empty registration included, refuses at load",
-  "per": { "path": "specs/model/contract.md", "section": "clause" },
+  "per": {
+    "path": "specs/model/contract.md",
+    "section": "clause"
+  },
   "acceptance": "a loads guard on hook, mcp-server, settings or an empty-registration custom kind fails check naming the kind",
   "tests": [
     "a loads guard over a kind registering only content-less channels is inadmissible",
@@ -19,5 +40,6 @@
   "pins": [
     "a loads guard over an output style or a supporting doc is admissible"
   ],
+  "laneTests": [],
   "notes": "Blocked so output-style and supporting-doc carry their channels before refusal lands. Content-less channels are those channel_load_moment returns None for (event, connection, enablement, registry)."
 }
