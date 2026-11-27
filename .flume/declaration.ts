@@ -92,12 +92,7 @@ export const declaration = {
     enabled: ["plan-inbox", "plan-derive", "plan-sweep"],
     sweep: {
       domain: ["src/**", "sdk/src/**", "tests/**"],
-      posturePages: [
-        "specs/process/engineering.md",
-        "specs/process/architecture.md",
-        // The harness's own engineering invariants: editing one re-sweeps the whole domain.
-        ".temper/rules/rust.md",
-      ],
+      posturePages: ["specs/process/engineering.md", "specs/process/architecture.md"],
     },
   },
 
