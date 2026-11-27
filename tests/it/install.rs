@@ -348,6 +348,227 @@ fn a_gate_command_in_the_unanchored_form_reads_as_no_rendered_gate() {
     assert!(gate_installed(&root).is_empty());
 }
 
+/// `current` as the retired engine rendering spelled it: the same probe and verb, but the
+/// missing-binary branch exits 127 and names no install command.
+fn retired_rendering(current: &str) -> String {
+    let retired = current
+        .replace(
+            "; install temper with npm install -g @dtmd/temper, or npm -C .temper install for a represented harness",
+            "",
+        )
+        .replace("exit 2; }", "exit 127; }");
+    assert_ne!(retired, current, "the retired spelling must differ");
+    retired
+}
+
+/// A settings document holding the retired session-start rendering beside a sibling tool's
+/// handler in the same group, a sibling group, and a near-miss of the retired form.
+fn settings_with_retired_session_start(retired: &str, near_miss: &str) -> String {
+    format!(
+        "{}\n",
+        serde_json::to_string_pretty(&serde_json::json!({
+            "hooks": {
+                "SessionStart": [
+                    { "hooks": [
+                        { "type": "command", "command": retired },
+                        { "type": "command", "command": "other-tool sync" }
+                    ] },
+                    { "matcher": "startup", "hooks": [ { "type": "command", "command": near_miss } ] }
+                ],
+                "PreToolUse": [
+                    { "matcher": "Write", "hooks": [ { "type": "command", "command": "other-tool lint" } ] }
+                ]
+            }
+        }))
+        .unwrap()
+    )
+}
+
+#[test]
+fn re_running_install_over_the_retired_gate_rendering_leaves_one_group_per_gate_address_at_todays_rendering()
+ {
+    let current = temper::install::SESSION_START_COMMAND;
+    let retired = retired_rendering(current);
+
+    // Unrepresented: the session-start hook is install's own write, so the re-run re-renders
+    // the retired command in place instead of seating a second group beside it.
+    let root = write_harness("gate-retired-unrepresented", false);
+    let settings_path = root.join(".claude").join("settings.json");
+    let near_miss = retired.replace("exit 127", "exit 1");
+    fs::write(
+        &settings_path,
+        settings_with_retired_session_start(&retired, &near_miss),
+    )
+    .unwrap();
+    let discovery = install::discover(&root).unwrap();
+    let outcome = install::run(&root, &discovery, Represent::No, false).unwrap();
+    assert_eq!(
+        outcome_of(&outcome, temper::install::Placement::SessionStart),
+        ApplyOutcome::Applied
+    );
+    let after = fs::read_to_string(&settings_path).unwrap();
+    assert_eq!(
+        after,
+        settings_with_retired_session_start(current, &near_miss),
+        "only the retired command's bytes change"
+    );
+    let again = install::run(&root, &discovery, Represent::No, false).unwrap();
+    assert_eq!(
+        outcome_of(&again, temper::install::Placement::SessionStart),
+        ApplyOutcome::Unchanged
+    );
+    assert_eq!(fs::read_to_string(&settings_path).unwrap(), after);
+
+    // Represented: the projection is emit's, so the re-run's emit re-renders every gate hook.
+    common::ensure_sdk_built();
+    let root = write_harness("gate-retired-represented", false);
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    common::vendor_install_workspace(&temper_dir);
+    let discovery = install::discover(&root).unwrap();
+    install::run(&root, &discovery, Represent::Yes, false).unwrap();
+    let settings_path = root.join(".claude").join("settings.json");
+    let projected = fs::read_to_string(&settings_path).unwrap();
+    let mut held = projected.clone();
+    // The guard's two edges run one command, so `PreToolUse`'s replace retires both.
+    for event in ["SessionStart", "PreToolUse"] {
+        let command = represented_gate_command(event);
+        let quoted = serde_json::to_string(&command).unwrap();
+        assert!(held.contains(&quoted), "{event} is projected");
+        held = held.replace(
+            &quoted,
+            &serde_json::to_string(&retired_rendering(&command)).unwrap(),
+        );
+    }
+    fs::write(&settings_path, &held).unwrap();
+    // An older engine's emit fingerprinted the groups it rendered, so the lock's
+    // registration rows carry the retired groups' hashes, not today's.
+    let lock_path = temper_dir.join("lock.toml");
+    let mut lock = fs::read_to_string(&lock_path).unwrap();
+    let entry_hash = |group: &serde_json::Value| {
+        use sha2::Digest;
+        format!("{:x}", sha2::Sha256::digest(group.to_string().as_bytes()))
+    };
+    let (projected, held): (serde_json::Value, serde_json::Value) = (
+        serde_json::from_str(&projected).unwrap(),
+        serde_json::from_str(&held).unwrap(),
+    );
+    for (event, groups) in projected["hooks"].as_object().unwrap() {
+        for (index, group) in groups.as_array().unwrap().iter().enumerate() {
+            let (from, to) = (entry_hash(group), entry_hash(&held["hooks"][event][index]));
+            assert!(lock.contains(&from), "{event} is fingerprinted");
+            lock = lock.replace(&from, &to);
+        }
+    }
+    fs::write(&lock_path, lock).unwrap();
+    install::run(&root, &discovery, Represent::Yes, false).unwrap();
+    let json: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(&settings_path).unwrap()).unwrap();
+    for hook in [
+        ("SessionStart", None),
+        ("PreToolUse", Some("Write|Edit|MultiEdit")),
+        ("PostToolUse", Some("Bash")),
+    ] {
+        let (event, matcher) = hook;
+        let groups: Vec<&serde_json::Value> = json["hooks"][event]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|group| group["matcher"].as_str() == matcher)
+            .collect();
+        assert_eq!(groups.len(), 1, "{event}: one group at the gate address");
+        assert_eq!(
+            groups[0]["hooks"][0]["command"].as_str(),
+            Some(represented_gate_command(event).as_str()),
+            "{event}: today's rendering"
+        );
+    }
+    assert!(gate_installed(&root).is_empty());
+}
+
+#[test]
+fn a_represented_harness_reports_a_retired_gate_rendering_as_stale_with_the_emit_remedy() {
+    common::ensure_sdk_built();
+    let root = write_harness("gate-retired-report", false);
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    common::vendor_install_workspace(&temper_dir);
+    let discovery = install::discover(&root).unwrap();
+    install::run(&root, &discovery, Represent::Yes, false).unwrap();
+    assert!(gate_installed(&root).is_empty());
+
+    // The projection an older engine wrote: the session-start member is a gate hook, its
+    // bytes the retired rendering.
+    let settings_path = root.join(".claude").join("settings.json");
+    let command = represented_gate_command("SessionStart");
+    let quoted = serde_json::to_string(&command).unwrap();
+    let projected = fs::read_to_string(&settings_path).unwrap();
+    let held = projected.replacen(
+        &quoted,
+        &serde_json::to_string(&retired_rendering(&command)).unwrap(),
+        1,
+    );
+    assert_ne!(held, projected);
+    fs::write(&settings_path, &held).unwrap();
+
+    let findings = gate_installed(&root);
+    let message = one_gate_finding(&findings);
+    for needle in [
+        "session-start hook stale",
+        "retired rendering",
+        "run `temper emit`",
+    ] {
+        assert!(
+            message.contains(needle),
+            "the retired report must name `{needle}`, got: {message}"
+        );
+    }
+    for absent in ["missing", "gateHook(", "is not a gate hook"] {
+        assert!(
+            !message.contains(absent),
+            "a retired rendering is no foreign member, got: {message}"
+        );
+    }
+    assert_eq!(fs::read_to_string(&settings_path).unwrap(), held);
+}
+
+#[test]
+fn install_never_rewrites_a_hook_that_runs_a_command_other_than_a_temper_gate_rendering() {
+    // Near misses of either rendering, and plain sibling hooks: none is temper's gate, so
+    // install appends its own group and leaves every one of their bytes alone.
+    let current = temper::install::SESSION_START_COMMAND;
+    let retired = retired_rendering(current);
+    for (label, near_miss) in [
+        ("gate-foreign-exit", retired.replace("exit 127", "exit 1")),
+        (
+            "gate-foreign-verb",
+            retired.replace("session-start", "plain"),
+        ),
+        (
+            "gate-foreign-unanchored",
+            retired.replace("cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; ", ""),
+        ),
+    ] {
+        let root = write_harness(label, false);
+        let settings_path = root.join(".claude").join("settings.json");
+        let original = settings_with_retired_session_start(&near_miss, &near_miss);
+        fs::write(&settings_path, &original).unwrap();
+        let discovery = install::discover(&root).unwrap();
+        install::run(&root, &discovery, Represent::No, false).unwrap();
+        let after = fs::read_to_string(&settings_path).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&after).unwrap();
+        let original: serde_json::Value = serde_json::from_str(&original).unwrap();
+        let groups = json["hooks"]["SessionStart"].as_array().unwrap();
+        assert_eq!(
+            &groups[..2],
+            &original["hooks"]["SessionStart"].as_array().unwrap()[..],
+            "{label}: every foreign group survives"
+        );
+        assert_eq!(groups[2]["hooks"][0]["command"].as_str(), Some(current));
+        assert_eq!(json["hooks"]["PreToolUse"], original["hooks"]["PreToolUse"]);
+    }
+}
+
 #[test]
 fn the_gate_commands_render_from_a_binary_and_the_default_is_todays_command() {
     use temper::install::{

@@ -4714,6 +4714,9 @@ pub enum ApplyOutcome {
     /// shape a respelled gate command leaves behind, and it is reported with the remedy
     /// its module owes rather than passed over.
     SupersededByMember,
+    /// The placement holds a retired engine rendering of its own command — bytes an older
+    /// temper wrote. Stale, and re-rendering converges it.
+    Retired,
 }
 
 impl ApplyOutcome {
@@ -4725,6 +4728,7 @@ impl ApplyOutcome {
             ApplyOutcome::Unchanged => "unchanged",
             ApplyOutcome::Conflicted => "conflicted",
             ApplyOutcome::SupersededByMember => "superseded-by-member",
+            ApplyOutcome::Retired => "retired",
         }
     }
 }

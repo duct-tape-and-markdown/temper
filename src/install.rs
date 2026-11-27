@@ -305,6 +305,33 @@ fn render_gate_command(verb: GateVerb, binary: &str) -> String {
     )
 }
 
+/// The one prior rendering of a gate command [`render_gate_command`] still recognizes: the
+/// 0.0.26 bytes, whose missing-binary branch exited 127 with no install hint — a
+/// non-blocking exit, so that guard failed open. Recognized so a re-run converges it to
+/// today's rendering rather than seating a second gate beside it.
+fn render_retired_gate_command(verb: GateVerb, binary: &str) -> String {
+    let word = shell_word(binary);
+    let missing = match &word {
+        std::borrow::Cow::Borrowed(_) => format!("\"{binary}: command not found\""),
+        std::borrow::Cow::Owned(_) => {
+            shell_word(&format!("{binary}: command not found")).into_owned()
+        }
+    };
+    format!(
+        "{PROJECT_ANCHOR}command -v {word} >/dev/null 2>&1 || {{ echo {missing} >&2; exit 127; }} && {word} {}",
+        verb.args()
+    )
+}
+
+/// Which engine rendering a gate command is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum GateRendering {
+    /// Today's bytes ([`render_gate_command`]).
+    Current,
+    /// The retired bytes ([`render_retired_gate_command`]).
+    Retired,
+}
+
 /// The command the gate hook keyed under lifecycle `event` runs with `binary` as temper —
 /// `None` where `event` is not one temper's gate rides ([`GATE_HOOKS`]). `emit` renders a
 /// gate hook member's tool through this, so the bytes a represented harness
@@ -325,11 +352,13 @@ pub fn tap_hook_command(binary: &str) -> String {
     render_gate_command(GateVerb::Tap, binary)
 }
 
-/// The binary `command` runs as temper when it is exactly the command a gate hook firing
-/// `verb` renders ([`render_gate_command`]) — `None` for any other command. This is how a
-/// projection is recognized as a gate hook member's, whatever binary the member states:
-/// the probe's word is unquoted and re-rendered, so only the engine's own bytes match.
-fn rendered_gate_binary(verb: GateVerb, command: &str) -> Option<String> {
+/// The binary `command` runs as temper and which engine rendering it is, when it is
+/// exactly a gate command firing `verb` — today's ([`render_gate_command`]) or the retired
+/// one ([`render_retired_gate_command`]). Any other command, however close, is `None`.
+/// This is how a projection is recognized as a gate hook member's, whatever binary the
+/// member states: the probe's word is unquoted and re-rendered, so only the engine's own
+/// bytes match.
+fn gate_rendering(verb: GateVerb, command: &str) -> Option<(String, GateRendering)> {
     let rest = command
         .strip_prefix(PROJECT_ANCHOR)?
         .strip_prefix("command -v ")?;
@@ -352,7 +381,16 @@ fn rendered_gate_binary(verb: GateVerb, command: &str) -> Option<String> {
         }
         None => rest.split(' ').next()?.to_owned(),
     };
-    (!binary.is_empty() && render_gate_command(verb, &binary) == command).then_some(binary)
+    if binary.is_empty() {
+        return None;
+    }
+    if render_gate_command(verb, &binary) == command {
+        Some((binary, GateRendering::Current))
+    } else if render_retired_gate_command(verb, &binary) == command {
+        Some((binary, GateRendering::Retired))
+    } else {
+        None
+    }
 }
 
 /// The tool-name matcher the guard's `PostToolUse` row binds — direct Bash tool
@@ -1359,6 +1397,11 @@ fn gate_hook_clause(hook: &GateHook, outcome: ApplyOutcome, represented: bool) -
     if !represented {
         return format!("{label} stale: run `temper install`");
     }
+    if outcome == ApplyOutcome::Retired {
+        return format!(
+            "{label} stale: the projection holds a retired rendering of the gate command, so run `temper emit` to re-render it"
+        );
+    }
     let module = gate_hook_module(hook);
     if outcome == ApplyOutcome::SupersededByMember {
         return format!(
@@ -1472,6 +1515,9 @@ struct GateHookState {
     wired: bool,
     /// Some group is seated at this hook's `(event, matcher)` address, whatever it runs.
     seated: bool,
+    /// The group seated at this hook's address runs the retired rendering
+    /// ([`render_retired_gate_command`]) — a projection an older engine wrote.
+    retired: bool,
 }
 
 /// Every one of [`GATE_HOOKS`] read off `.claude/settings.json`, in `GATE_HOOKS` order —
@@ -1490,6 +1536,7 @@ fn gate_hooks_state(
     const ABSENT: GateHookState = GateHookState {
         wired: false,
         seated: false,
+        retired: false,
     };
     let Some(text) = read_optional(bytes, path)? else {
         return Ok([ABSENT; GATE_HOOK_COUNT]);
@@ -1513,6 +1560,10 @@ fn gate_hooks_state(
         seated: event_has_group(object, hook.event, |group| {
             group_binds_matcher(group, hook.matcher)
         }),
+        retired: event_has_group(object, hook.event, |group| {
+            group_binds_matcher(group, hook.matcher)
+                && group_runs_rendering(group, hook.verb, GateRendering::Retired)
+        }),
     }))
 }
 
@@ -1521,6 +1572,8 @@ fn gate_hooks_state(
 ///
 /// - wired now, not before → [`Applied`](ApplyOutcome::Applied): this run wired it.
 /// - wired now and before → [`Unchanged`](ApplyOutcome::Unchanged).
+/// - not wired, its address running the retired rendering →
+///   [`Retired`](ApplyOutcome::Retired): stale, and `emit` re-renders it.
 /// - not wired, a member seated at its `(event, matcher)` address →
 ///   [`SupersededByMember`](ApplyOutcome::SupersededByMember): the member is *stale* —
 ///   it holds temper's gate address and runs something else, which is exactly the shape a
@@ -1535,6 +1588,7 @@ fn gate_outcome(before: bool, now: GateHookState) -> ApplyOutcome {
     match (now.wired, before, now.seated) {
         (true, true, _) => ApplyOutcome::Unchanged,
         (true, false, _) => ApplyOutcome::Applied,
+        (false, _, _) if now.retired => ApplyOutcome::Retired,
         (false, _, true) => ApplyOutcome::SupersededByMember,
         (false, _, false) => ApplyOutcome::Conflicted,
     }
@@ -3340,6 +3394,14 @@ fn merge_settings(path: &Path, text: &str) -> Result<SettingsProjection, Install
             path: path.to_path_buf(),
         })?;
 
+    let rerendered = rerender_retired_session_start(text);
+    if !rerendered.is_empty() {
+        return Ok(SettingsProjection {
+            desired: json_splice::apply_edits(text, rerendered),
+            hook_present: false,
+        });
+    }
+
     let hook_present = event_has_group(object, "SessionStart", |group| {
         group_runs_gate(group, GateVerb::SessionStart)
     });
@@ -3388,6 +3450,64 @@ fn merge_settings(path: &Path, text: &str) -> Result<SettingsProjection, Install
     })
 }
 
+/// One edit per `SessionStart` handler whose command is the retired rendering
+/// ([`render_retired_gate_command`]), splicing today's rendering at the same binary over
+/// that command string alone — so the group keeps its address and every other handler,
+/// key and byte survives. `text` has already parsed.
+fn rerender_retired_session_start(text: &str) -> Vec<json_splice::Edit> {
+    let member = |shape: &json_splice::ObjectShape, key: &str| {
+        shape
+            .members
+            .iter()
+            .find(|m| m.key == key)
+            .map(|m| m.value_span)
+    };
+    let object_at = |span: json_splice::Span| {
+        (text.as_bytes()[span.0] == b'{').then(|| json_splice::object_shape(text, span.0))
+    };
+    let array_at = |span: json_splice::Span| {
+        (text.as_bytes()[span.0] == b'[').then(|| json_splice::array_shape(text, span.0))
+    };
+    let Some(start) = text.find(|c: char| !c.is_whitespace()) else {
+        return Vec::new();
+    };
+    let Some(groups) = object_at((start, start))
+        .and_then(|root| member(&root, CollectionKeyPath::HooksEvent.collection_key()))
+        .and_then(object_at)
+        .and_then(|hooks| member(&hooks, "SessionStart"))
+        .and_then(array_at)
+    else {
+        return Vec::new();
+    };
+    let mut edits = Vec::new();
+    for group in groups.elements.into_iter().filter_map(object_at) {
+        let Some(handlers) = member(&group, HOOK_HANDLER_KEY).and_then(array_at) else {
+            continue;
+        };
+        for handler in handlers.elements.into_iter().filter_map(object_at) {
+            let Some(span) = member(&handler, "command") else {
+                continue;
+            };
+            let Ok(command) = serde_json::from_str::<String>(&text[span.0..span.1]) else {
+                continue;
+            };
+            if let Some((binary, GateRendering::Retired)) =
+                gate_rendering(GateVerb::SessionStart, &command)
+            {
+                edits.push(json_splice::Edit {
+                    span,
+                    replacement: JsonValue::String(render_gate_command(
+                        GateVerb::SessionStart,
+                        &binary,
+                    ))
+                    .to_string(),
+                });
+            }
+        }
+    }
+    edits
+}
+
 /// The `SessionStart` hook group temper installs: the exec-form command alone.
 /// Shape: `{hooks: [{type, command}]}` (`code.claude.com/docs/en/hooks`, retrieved 2026-07-24);
 /// `matcher` is optional for `SessionStart` (fires on every session start).
@@ -3428,10 +3548,16 @@ fn group_binds_matcher(group: &JsonValue, matcher: Option<&str>) -> bool {
 }
 
 /// Whether a hook group carries, on one of its handlers, the command a gate hook firing
-/// `verb` renders at some binary ([`rendered_gate_binary`]) — the projection of a gate hook
+/// `verb` renders today at some binary ([`gate_rendering`]) — the projection of a gate hook
 /// member, wherever its binary lives. Any other command reads `false`: a hook that runs
 /// something else is not temper's gate.
 fn group_runs_gate(group: &JsonValue, verb: GateVerb) -> bool {
+    group_runs_rendering(group, verb, GateRendering::Current)
+}
+
+/// Whether a hook group carries, on one of its handlers, a gate command firing `verb` at
+/// `rendering` ([`gate_rendering`]).
+fn group_runs_rendering(group: &JsonValue, verb: GateVerb, rendering: GateRendering) -> bool {
     group
         .get(HOOK_HANDLER_KEY)
         .and_then(JsonValue::as_array)
@@ -3439,7 +3565,8 @@ fn group_runs_gate(group: &JsonValue, verb: GateVerb) -> bool {
             hooks.iter().any(|hook| {
                 hook.get("command")
                     .and_then(JsonValue::as_str)
-                    .is_some_and(|found| rendered_gate_binary(verb, found).is_some())
+                    .and_then(|found| gate_rendering(verb, found))
+                    .is_some_and(|(_, found)| found == rendering)
             })
         })
 }
@@ -4587,13 +4714,15 @@ pub fn render(outcome: &InstallOutcome) -> String {
         out.push_str("not represented — session-start reporter only\n");
     }
 
-    let (mut applied, mut unchanged, mut conflicted, mut superseded) = (0u32, 0u32, 0u32, 0u32);
+    let (mut applied, mut unchanged, mut conflicted, mut superseded, mut retired) =
+        (0u32, 0u32, 0u32, 0u32, 0u32);
     for entry in &outcome.entries {
         match entry.outcome {
             ApplyOutcome::Applied => applied += 1,
             ApplyOutcome::Unchanged => unchanged += 1,
             ApplyOutcome::Conflicted => conflicted += 1,
             ApplyOutcome::SupersededByMember => superseded += 1,
+            ApplyOutcome::Retired => retired += 1,
         }
         out.push_str(&format!(
             "{:<10}  {:<18}  {}\n",
@@ -4603,7 +4732,7 @@ pub fn render(outcome: &InstallOutcome) -> String {
         ));
     }
     out.push_str(&format!(
-        "\n{applied} applied, {unchanged} unchanged, {conflicted} conflicted, {superseded} superseded-by-member\n"
+        "\n{applied} applied, {unchanged} unchanged, {conflicted} conflicted, {superseded} superseded-by-member, {retired} retired\n"
     ));
     out
 }
@@ -4952,31 +5081,35 @@ mod tests {
             for verb in [GateVerb::SessionStart, GateVerb::Guard] {
                 let command = render_gate_command(verb, binary);
                 assert_eq!(
-                    rendered_gate_binary(verb, &command).as_deref(),
-                    Some(binary),
+                    gate_rendering(verb, &command),
+                    Some((binary.to_owned(), GateRendering::Current)),
                     "{command}"
+                );
+                let retired = render_retired_gate_command(verb, binary);
+                assert_eq!(
+                    gate_rendering(verb, &retired),
+                    Some((binary.to_owned(), GateRendering::Retired)),
+                    "{retired}"
                 );
             }
             // A verb's rendering is not the other verb's.
             let guard = render_gate_command(GateVerb::Guard, binary);
-            assert_eq!(rendered_gate_binary(GateVerb::SessionStart, &guard), None);
+            assert_eq!(gate_rendering(GateVerb::SessionStart, &guard), None);
         }
         assert_eq!(
-            rendered_gate_binary(GateVerb::Guard, GUARD_COMMAND).as_deref(),
-            Some(DEFAULT_GATE_BINARY)
+            gate_rendering(GateVerb::Guard, GUARD_COMMAND),
+            Some((DEFAULT_GATE_BINARY.to_owned(), GateRendering::Current))
         );
         for other in [
             "temper guard .",
             "command -v temper && temper guard .",
             "command -v  >/dev/null 2>&1 || { echo \": command not found; install temper with npm install -g @dtmd/temper, or npm -C .temper install for a represented harness\" >&2; exit 2; } &&  guard .",
+            "command -v temper >/dev/null 2>&1 || { echo \"temper: command not found\" >&2; exit 127; } && temper guard .",
+            "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; command -v temper >/dev/null 2>&1 || { echo \"temper: command not found\" >&2; exit 1; } && temper guard .",
             "cargo fmt --quiet",
             "",
         ] {
-            assert_eq!(
-                rendered_gate_binary(GateVerb::Guard, other),
-                None,
-                "{other}"
-            );
+            assert_eq!(gate_rendering(GateVerb::Guard, other), None, "{other}");
         }
     }
 
