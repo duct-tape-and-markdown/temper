@@ -283,7 +283,7 @@ import_hash = "3513a2dd05c72537a95430096150cb3880a14abcfae52295ebdc64ce3306cc37"
 [[declaration.module]]
 member = "root"
 source_path = ".temper/harness.ts"
-import_hash = "5a53338c8c7a4847955a4104e4276c774d0d3761f46f351b400a868b5c03e82f"
+import_hash = "9ee71fa1c829e83d130d02c922ba7c420893c067113ba1e15949b842620703e5"
 
 [[declaration.module]]
 member = "root"

@@ -1,4 +1,4 @@
-import { emit, harness, input, requirement, telemetry, tool } from "@dtmd/temper";
+import { harness, input, requirement, telemetry, tool } from "@dtmd/temper";
 import { settings } from "@dtmd/temper/claude-code";
 import { memory_AGENTS } from "./memory/AGENTS.ts";
 import { memory_CLAUDE } from "./memory/CLAUDE.ts";
@@ -98,4 +98,4 @@ const program = harness({
   ],
 });
 
-process.stdout.write(emit(program).seam);
+export default program;
