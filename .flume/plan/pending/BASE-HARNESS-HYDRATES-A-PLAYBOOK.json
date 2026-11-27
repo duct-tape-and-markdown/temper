@@ -1,10 +1,8 @@
 {
   "tag": "BASE-HARNESS-HYDRATES-A-PLAYBOOK",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "STARTER-SHIPS-THE-PLAYBOOK"
-    ]
+    "kind": "deferred",
+    "reason": "awaits the playbook SDK entry derive re-files from 9194fcde/c224cfbb (STARTER-SHIPS-THE-PLAYBOOK retired unshipped); re-gate blockedBy that tag when it files"
   },
   "files": {
     "new": [],
@@ -22,9 +20,9 @@
   "summary": "The shipped example hydrates a playbook with a worked customization, so the playbook's structure reads beside its import",
   "per": {
     "path": "specs/distribution.md",
-    "section": "What ships — three channels"
+    "section": "What ships \u2014 three channels"
   },
   "acceptance": "examples/base-harness composes a playbook, emits clean and passes check --deny-advisories",
   "tests": [],
-  "notes": "Owed per notes/BASE-HARNESS-HYDRATES-THE-STARTER (the example hydrates \"the shapes\"). Its retired hand-written rule/skill files and emitted .claude/ projections join files as build finds them."
+  "notes": "Owed per notes/BASE-HARNESS-HYDRATES-THE-STARTER (the example hydrates \"the shapes\"). Replaces the hand-wired rule_docsDiscipline + skill_verifySummary pair with one hydrated playbook from the `patterns` subpath; their retired .temper/ sources and .claude/ projections join files as build finds them."
 }
