@@ -75,7 +75,9 @@ instructions to file.
   the whole surface once before encoding any of it**: headless Claude Code
   in a trusted throwaway project (an untrusted one loads no project
   memory), canary instructions, and the session transcript as the record.
-  The probe, its version and date are the citation.
+  The probe, its version and date are the citation. "The docs are silent"
+  is itself a claim: read the whole page and search the provider's issue
+  tracker first, since a report there is a citation too.
 - The product already holds this bar for its own default contracts (per-clause
   `cite`, `specs/builtins.md`). The project holds itself to the bar it ships.
 
