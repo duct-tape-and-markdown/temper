@@ -57,8 +57,8 @@ emit_hash = "5337e06350ac4eb9572687f9e87392c43decc60ded60cec35bd31e8731e59f63"
 [[settings]]
 name = "settings"
 source_path = ".claude/settings.json"
-source_hash = "4c6f81d1d21b868b42db0b24b06263fdb1162a99826034b8a79a11150110d313"
-emit_hash = "4c6f81d1d21b868b42db0b24b06263fdb1162a99826034b8a79a11150110d313"
+source_hash = "7a5d7df4710032bb6b2ee726ad279f7864eb0ef78799005866591fa8b8f122fe"
+emit_hash = "7a5d7df4710032bb6b2ee726ad279f7864eb0ef78799005866591fa8b8f122fe"
 
 [[skill]]
 name = "blind-review"
@@ -302,69 +302,69 @@ key_path = "hooks.<Event>"
 
 [declaration.typecheck]
 tool = "root/tool/tsc"
-project = "tsconfig.json"
+project = ".temper/tsconfig.json"
 
 [[declaration.input]]
 member = "root"
-source_path = "tsconfig.json"
+source_path = ".temper/tsconfig.json"
 import_hash = "3513a2dd05c72537a95430096150cb3880a14abcfae52295ebdc64ce3306cc37"
 
 [[declaration.module]]
 member = "root"
-source_path = "harness.ts"
+source_path = ".temper/harness.ts"
 import_hash = "9ee71fa1c829e83d130d02c922ba7c420893c067113ba1e15949b842620703e5"
 
 [[declaration.module]]
 member = "root"
-source_path = "hooks.ts"
+source_path = ".temper/hooks.ts"
 import_hash = "0e90f1db10305fd9bbc64aa5b02adae6ec0d2d6f3a63d8b9a6286acace8b6fa2"
 
 [[declaration.module]]
 member = "root"
-source_path = "kinds.ts"
+source_path = ".temper/kinds.ts"
 import_hash = "e8c64cb207963de919266c883c4f2b8c98fc0040b2220b6844a2c1dfecd4e7d2"
 
 [[declaration.module]]
 member = "root"
-source_path = "memory/AGENTS.ts"
+source_path = ".temper/memory/AGENTS.ts"
 import_hash = "53759f9b644dbd50ed9c7c3dd3a6d7fa8ada36ef1dcae69bd1aa8fde8b91c67c"
 
 [[declaration.module]]
 member = "root"
-source_path = "memory/CLAUDE.ts"
+source_path = ".temper/memory/CLAUDE.ts"
 import_hash = "038edfa3535d7fbb0a3994189a9c08544b194da8b6d1db10a78a0aa77cc95623"
 
 [[declaration.module]]
 member = "root"
-source_path = "rules/collaboration.ts"
+source_path = ".temper/rules/collaboration.ts"
 import_hash = "64c083e3a41093dc920854900defc7e449fb84aa59db4254afe5bc3714dd860f"
 
 [[declaration.module]]
 member = "root"
-source_path = "rules/public-prose.ts"
+source_path = ".temper/rules/public-prose.ts"
 import_hash = "1ce6e469dd9e06dc16146a1c9a129958b2ed17d20f6569f29bbd5b38395ca9d3"
 
 [[declaration.module]]
 member = "root"
-source_path = "rules/release.ts"
+source_path = ".temper/rules/release.ts"
 import_hash = "2a67fcd84a4ff11f6d597346c0c1f4377ad013f3cf1fc5b1ce4dcf1a645ec6dc"
 
 [[declaration.module]]
 member = "root"
-source_path = "rules/rust.ts"
+source_path = ".temper/rules/rust.ts"
 import_hash = "90ec48943ef14e98eb2abea3f6f204e219ae87298d0eb5d45ca421d1a16d6fae"
 
 [[declaration.module]]
 member = "root"
-source_path = "rules/sdk.ts"
+source_path = ".temper/rules/sdk.ts"
 import_hash = "baffb71f25b95db57b8bcb41b70fdb2abe77c9b893314aa50437cf7d6089f3a9"
 
 [[declaration.module]]
 member = "root"
-source_path = "skills/blind-review.ts"
+source_path = ".temper/skills/blind-review.ts"
 import_hash = "19efd0ae571816bde1b3a8d32e43399397dcbfd3711e442388a2c0367f57bb51"
 
 [[declaration.module]]
 member = "root"
-source_path = "skills/capture-friction.ts"
+source_path = ".temper/skills/capture-friction.ts"
 import_hash = "9557ab0b1be92d0290693cc1646c6bf16806ee9f83da9c0644337e40eb02a910"
