@@ -227,7 +227,7 @@ test("an exclude-only relocation of skill fences the fixture tree its any-depth 
 test("ruleDefaultContract forbids Cursor keys, validates path globs, budgets body size, and gates mentions", () => {
   assert.deepEqual(
     ruleDefaultContract.map((c) => c.predicate.key),
-    ["forbidden-keys", "glob-valid", "extent", "when", "mention-reachable", "trigger-agrees"],
+    ["forbidden-keys", "glob-valid", "when", "when", "mention-reachable", "trigger-agrees"],
   );
   assert.deepEqual(ruleDefaultContract[0].predicate.keys, ["description", "globs", "alwaysApply"]);
   // The `glob-valid` clause ranges over the one documented rules key, `paths`.
@@ -243,6 +243,19 @@ test("ruleDefaultContract forbids Cursor keys, validates path globs, budgets bod
   assert.equal(ruleDefaultContract[5].predicate.field, "paths");
   assert.equal(ruleDefaultContract[5].predicate.gate, "paths");
   assert.equal(ruleDefaultContract[5].severity, "advisory");
+});
+
+test("the rule contract judges only a launch-loaded rule against the 200-line target", () => {
+  // A path-scoped or nested rule loads on demand, so it is paid only where it registers.
+  const budget = ruleDefaultContract[2];
+  assert.equal(budget.severity, "advisory");
+  assert.equal(budget.when_guard?.key, "loads");
+  assert.deepEqual(budget.when_guard?.values, ["launch"]);
+  assert.equal(budget.when_body?.length, 1);
+  const body = budget.when_body![0];
+  assert.equal(body.predicate.key, "extent");
+  assert.equal(body.predicate.unit, "lines");
+  assert.deepEqual(body.predicate.args, { max: 200 });
 });
 
 test("the rule contract judges an on-demand rule against the per-file truncation limit", () => {
