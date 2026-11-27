@@ -49,13 +49,16 @@ program, riding the lock or embedded in the engine — none can drift.
    file is read can find it; listing it only once its area is read is the
    trigger's option, which spends no listing budget until then. Its router
    wording is a default renderer the consumer replaces, never fixed
-   phrasing. `defaultPatterns()` composes every shape with its defaults.
-   Customization is typed options, with `extend()` the escape hatch, and the
-   patterns carry no taste: no memory content, no conventions, telemetry
-   opt-in. An upgrade improves the shapes while the content stays the
-   consumer's, as arguments in its own program. The shipped example hydrates
-   the shapes with a worked customization, so the structure stays readable
-   beside the import.
+   phrasing. A pattern emits members, and members fill requirements, so a
+   pattern takes `satisfies` keyed by the surface it emits (a playbook's
+   rule or skill, a gate hook by its event) and passes each to that member,
+   never a flat list binding every surface. `defaultPatterns()` composes
+   every shape with its defaults. Customization is typed options, with
+   `extend()` the escape hatch, and the patterns carry no taste: no memory
+   content, no conventions, telemetry opt-in. An upgrade improves the shapes
+   while the content stays the consumer's, as arguments in its own program.
+   The shipped example hydrates the shapes with a worked customization, so
+   the structure stays readable beside the import.
 2. **The engine binary** — pinned by the SDK at an exact version
    (per-platform `optionalDependencies`), also acquirable standalone. It
    embeds a **built-in lock**: the first-party module's own emit — the same
