@@ -544,6 +544,62 @@ pub fn gate(
     harness_root: &Path,
     layers: &[std::path::PathBuf],
 ) -> miette::Result<(Vec<check::Diagnostic>, check::Announcement)> {
+    gate_in(&import::Discovery::new(harness_root), workspace, layers)
+}
+
+/// The gate's verdict over a caller-held run: [`gate_in`] with a load fault lowered to
+/// its one `error` diagnostic ([`check::load_fault`]) rather than propagated, so a
+/// harness that cannot be *loaded* still reaches the reporter as a verdict. `subject` is
+/// the path the invocation named; where it is not the walked root (a workspace gated
+/// against its enclosing root) the announcement states the root, and a fault names the
+/// subject.
+///
+/// A load fault over a lock *another* engine wrote leads with the skew: the
+/// `engine-matches` clause that ordinarily says so is judged inside the gate this run
+/// never finished (`specs/model/pipeline.md`, "The lock"). That stamp is a failure-path
+/// second lock read the healthy run never takes, best-effort — a lock that will not parse
+/// passes `None`, *unknown*, never a forged stamp.
+#[must_use]
+pub fn verdict_in(
+    discovery: &import::Discovery,
+    workspace: &Path,
+    layers: &[std::path::PathBuf],
+    subject: &Path,
+) -> (Vec<check::Diagnostic>, check::Announcement) {
+    match gate_in(discovery, workspace, layers) {
+        Ok((diagnostics, mut announcement)) => {
+            if discovery.harness() != subject {
+                announcement.harness_root = Some(discovery.harness().display().to_string());
+            }
+            (diagnostics, announcement)
+        }
+        Err(report) => {
+            let lock_engine = drift::read_engine(workspace).ok().flatten();
+            (
+                vec![check::load_fault(
+                    &report,
+                    subject.display().to_string(),
+                    lock_engine.as_deref(),
+                )],
+                check::Announcement::default(),
+            )
+        }
+    }
+}
+
+/// [`gate`] over a caller-held [`import::Discovery`]: the run's one tree index and bytes
+/// owner, rooted at the harness the gate walks, so a verb that discovers or places
+/// around its gate (`install`) reads every input through the same owners the gate does.
+///
+/// # Errors
+///
+/// As [`gate`].
+pub fn gate_in(
+    discovery: &import::Discovery,
+    workspace: &Path,
+    layers: &[std::path::PathBuf],
+) -> miette::Result<(Vec<check::Diagnostic>, check::Announcement)> {
+    let harness_root = discovery.harness();
     // The gate's one read and one parse of the committed lock, shared by every consumer
     // below — the declaration rows this tier judges against and the source-dependency
     // families further down, per the cost doctrine (engineering.md, "Cost scale is
@@ -561,10 +617,9 @@ pub fn gate(
     // before the family assembles, so every overlay and partition below reads the
     // embedded built-in, and reported beside the `engine-matches` finding.
     let (committed, stale_builtin_rows) = compose::committed_declarations_from_doc(&lock_doc)?;
-    // The run's one owner of the fenced tree index ([`import::Discovery`]), threaded
-    // through every discovery call and the stray scan below; pinned at run granularity
-    // by [`import::index_pass_count`].
-    let discovery = import::Discovery::new(harness_root);
+    // `discovery` is the run's one owner of the fenced tree index, threaded through every
+    // discovery call and the stray scan below; pinned at run granularity by
+    // [`import::index_pass_count`].
     // The dial's softening is inert under `block`, so the modes are resolved before any
     // contract is, and off the same declarations the family assembles from — a run whose
     // gate and whose guard disagreed about the harness's own posture would be two gates.
@@ -583,7 +638,7 @@ pub fn gate(
         dial,
         overlaid_builtin_kinds,
         declared_kinds,
-    } = compose::assemble_lock_family(&discovery, &committed, layers, &empty_cache)?;
+    } = compose::assemble_lock_family(discovery, &committed, layers, &empty_cache)?;
     // Every address the dial reached, accumulated across the contracts and selections
     // below: an entry that reached none is the one thing a dial can be wrong about that
     // its own schema cannot catch.
@@ -631,7 +686,7 @@ pub fn gate(
 
     // Build a shared manifest cache: one read per manifest file, shared across all
     // manifest kinds that govern it.
-    let manifest_cache = compose::build_manifest_cache(&discovery, &declared_kinds)?;
+    let manifest_cache = compose::build_manifest_cache(discovery, &declared_kinds)?;
 
     // Every clause's address is unique across the lock, decided before a single contract
     // is lifted: a clause no finding can name unambiguously cannot be judged usefully.
@@ -652,7 +707,7 @@ pub fn gate(
                     kind_name.clone(),
                     compose::kind_units_and_features(
                         kind,
-                        &discovery,
+                        discovery,
                         &declarations,
                         &manifest_cache,
                         &declared_kinds,
@@ -667,7 +722,7 @@ pub fn gate(
             let custom_kind = compose::published_kind_lift(&declared_kinds, &row.name)?;
             let uaf = compose::kind_units_and_features(
                 custom_kind,
-                &discovery,
+                discovery,
                 &declarations,
                 &manifest_cache,
                 &declared_kinds,
@@ -769,7 +824,7 @@ pub fn gate(
     diagnostics.extend(admissibility::locus_collision_diagnostics(&declared_kinds));
     diagnostics.extend(admissibility::document_locus_collision_diagnostics(
         &declared_kinds,
-        &discovery,
+        discovery,
     ));
     // Two distinct kinds declaring the same collection address would silently union their
     // selections and cross-apply each other's contracts — a manifest registration at one
@@ -1119,7 +1174,7 @@ pub fn gate(
     // what judged this run beyond the committed harness, assembled here rather than
     // re-derived by whichever reporter renders it. The resolved root is left empty — the
     // gate is handed the workspace and the harness root, never the spelling the
-    // invocation used, so divergence is the caller's to judge (`main::harness_diagnostics`).
+    // invocation used, so divergence is the caller's to judge ([`verdict_in`]).
     let announcement = check::Announcement {
         harness_root: None,
         local_members,
@@ -1451,7 +1506,7 @@ pub fn gate(
             .map(|input| crate::path::normalize_path(&harness_root.join(&*input.source_path))),
     );
     diagnostics.extend(coverage_note::check(
-        &discovery,
+        discovery,
         &declared_kinds,
         &member_counts,
         &nested_member_counts,
@@ -1460,7 +1515,11 @@ pub fn gate(
         unreached_docs.len(),
     ));
     if !represented {
-        diagnostics.extend(coverage_note::script_note(harness_root, &declared_kinds));
+        diagnostics.extend(coverage_note::script_note(
+            discovery.bytes(),
+            harness_root,
+            &declared_kinds,
+        ));
     }
 
     // The freshness facts — the root member's own `fresh` clause, whose subject is every

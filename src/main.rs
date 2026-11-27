@@ -266,7 +266,7 @@ fn main() -> miette::Result<ExitCode> {
             reporter,
         } => {
             // The one resolution for every reporter: the path argument (the positional
-            // root or its `--harness` synonym) goes to `harness_diagnostics`, which
+            // root or its `--harness` synonym) goes to `gate_verdict`, which
             // resolves a harness root and a workspace directory alike — and resolves
             // either whole. A terminal `check <path>` can never read the lock from a
             // different place than it discovers the corpus from, nor from a different
@@ -488,6 +488,7 @@ fn main() -> miette::Result<ExitCode> {
                 HarnessPath::Root { lock, .. } => lock.clone(),
                 HarnessPath::Workspace { .. } | HarnessPath::Raw => None,
             };
+            let (workspace, root) = resolved.gate_pair(&path);
 
             // Which mark already settled the represent fork on disk. The authored program
             // comes first, and it is the reading `check`'s self-verify shares
@@ -498,31 +499,39 @@ fn main() -> miette::Result<ExitCode> {
             // for a harness whose program was emitted and then deleted from under it.
             let settled = install::represented_by(&path).or(lock);
 
-            let discovery = install::discover(&path)?;
-            let (findings, announced) = gate_verdict(&path, &[]);
-            print!(
-                "{}",
-                install::render_discovery(&discovery, settled.as_deref(), &findings, &announced)
-            );
+            // Discovery, the gate's verdict and the placements run as one library call
+            // over one set of owners; the closure is the one question between them, asked
+            // once the report and the contract's verdict are on screen.
+            let outcome = install::execute(
+                &root,
+                &workspace,
+                dry_run,
+                |discovery, findings, announced| {
+                    print!(
+                        "{}",
+                        install::render_discovery(
+                            discovery,
+                            settled.as_deref(),
+                            findings,
+                            announced
+                        )
+                    );
 
-            // A settled fork skips both the prompt and `ask_represent`'s conservative
-            // unattended default: converge on what is already on disk. `--no-represent`
-            // there asserts the false half of a settled fork — refuse rather than place
-            // less than the program justifies.
-            let represent = match (&settled, yes, no_represent) {
-                (Some(mark), _, true) => {
-                    return Err(miette::miette!(
-                        "`--no-represent` contradicts `{}`: this project is already represented, and a represented harness's placements follow its own program. Re-run without the flag.",
-                        mark.display()
-                    ));
-                }
-                (Some(_), _, false) => install::Represent::Yes,
-                (None, true, _) => install::Represent::Yes,
-                (None, _, true) => install::Represent::No,
-                (None, false, false) => ask_represent()?,
-            };
-
-            let outcome = install::run(&path, &discovery, represent, dry_run)?;
+                    // A settled fork skips both the prompt and `ask_represent`'s conservative
+                    // unattended default: converge on what is already on disk. `--no-represent`
+                    // there asserts the false half of a settled fork — refuse rather than place
+                    // less than the program justifies.
+                    match (&settled, yes, no_represent) {
+                        (Some(mark), _, true) => Err(miette::miette!(
+                            "`--no-represent` contradicts `{}`: this project is already represented, and a represented harness's placements follow its own program. Re-run without the flag.",
+                            mark.display()
+                        )),
+                        (Some(_), _, false) | (None, true, _) => Ok(install::Represent::Yes),
+                        (None, _, true) => Ok(install::Represent::No),
+                        (None, false, false) => ask_represent(),
+                    }
+                },
+            )?;
             if dry_run {
                 println!("dry run — no files written");
             }
@@ -585,8 +594,7 @@ impl HarnessPath {
     /// The `(workspace, root)` pair this answer gates through, given the path argument it
     /// was resolved from — the one home for "which workspace does this spelling read its
     /// lock from, and which tree does it walk". Two callers read it: the gate itself
-    /// ([`harness_diagnostics`]) and, on the failure path alone, the lock-stamp read that
-    /// lets a load fault name the engine that wrote the lock. A second copy of the match
+    /// ([`gate_verdict`]) and `install`'s gate-and-place run. A second copy of the match
     /// is exactly how the two could come to disagree about which lock a spelling names.
     fn gate_pair(self, harness_path: &Path) -> (PathBuf, PathBuf) {
         match self {
@@ -634,8 +642,15 @@ fn resolve_harness_path(path: &Path) -> miette::Result<HarnessPath> {
 }
 
 /// The gate bare `check` runs over a path argument, a load fault lowered to its one
-/// `error` diagnostic — shared by `check` and `install`'s discovery report so the two
-/// can never judge a harness by different contracts.
+/// `error` diagnostic — the same [`gate::verdict_in`] `install`'s discovery report
+/// reads, so the two can never judge a harness by different contracts.
+///
+/// A [`HarnessPath::Workspace`] gates against its enclosing root, never against itself:
+/// rooting it at itself would read the lock from `<path>` while walking `<path>` for a
+/// corpus that lives beside it — declared requirements arriving with nothing behind
+/// them, so every one of them false-fires `requirement.count`. The adopted branch never
+/// re-imports: a fresh import discards recognition (the authored `satisfies` links), so
+/// every filled requirement would read unfilled.
 fn gate_verdict(
     harness_path: &Path,
     layers: &[PathBuf],
@@ -644,73 +659,27 @@ fn gate_verdict(
     // selected reporter like any other: propagating the report would abort before
     // `check`'s reporter match, so `--reporter session-start` would print an empty
     // stdout — the shape a clean pass is read from — while the failure went to
-    // stderr, where the hook does not look. Both `?` sites inside
-    // `harness_diagnostics` are covered by catching at this one call site.
-    // `check::load_fault` lowers the report to one `error` diagnostic, so `check`'s
-    // exit rule is unchanged: the hard placements still exit non-zero.
-    match harness_diagnostics(harness_path, layers) {
-        Ok(gated) => gated,
-        Err(report) => {
-            // A load fault over a lock *another* engine wrote leads with the
-            // skew: the `engine-matches` clause that ordinarily says so is
-            // judged inside a gate this run never reached, so without this the
-            // author reads a closed-vocabulary rejection of rows their own
-            // engine never wrote (`specs/model/pipeline.md`, "The lock").
-            //
-            // A failure-path-only second lock read — the healthy run never
-            // takes it, so the `lock_read_count` pins
-            // (`tests/check_cost.rs`) are untouched. Both reads are
-            // best-effort: a workspace that will not resolve, and a lock that
-            // will not parse, pass `None` — *unknown*, never a forged stamp,
-            // and never a second fault stacked on the one being reported.
-            let lock_engine = resolve_harness_path(harness_path)
-                .ok()
-                .and_then(|resolved| {
-                    let (workspace, _) = resolved.gate_pair(harness_path);
-                    drift::read_engine(&workspace).ok()
-                })
-                .flatten();
-            (
-                vec![check::load_fault(
-                    &report,
-                    harness_path.display().to_string(),
-                    lock_engine.as_deref(),
-                )],
-                check::Announcement::default(),
+    // stderr, where the hook does not look. A path that will not resolve lowers
+    // here; a gate that will not load lowers in `gate::verdict_in`. Either way
+    // `check::load_fault` makes it one `error` diagnostic, so `check`'s exit rule is
+    // unchanged: the hard placements still exit non-zero.
+    match resolve_harness_path(harness_path) {
+        Ok(resolved) => {
+            let (workspace, root) = resolved.gate_pair(harness_path);
+            gate::verdict_in(
+                &temper::import::Discovery::new(&root),
+                &workspace,
+                layers,
+                harness_path,
             )
         }
+        Err(report) => (
+            vec![check::load_fault(
+                &report,
+                harness_path.display().to_string(),
+                None,
+            )],
+            check::Announcement::default(),
+        ),
     }
-}
-
-/// The one-shot gate over a path argument — shared by `check` and the session-start
-/// reporter, over [`resolve_harness_path`]'s three answers.
-///
-/// A [`HarnessPath::Workspace`] gates against its enclosing root, never against itself:
-/// rooting it at itself would read the lock from `<path>` while walking `<path>` for a
-/// corpus that lives beside it — declared requirements arriving with nothing behind
-/// them, so every one of them false-fires `requirement.count`.
-///
-/// That re-rooting is the one answer whose root is not the path the invocation gave, so
-/// it is the one that reaches [`check::Announcement::harness_root`]: this is the only
-/// site holding both spellings, and the comparison lives here rather than in the gate,
-/// which is handed the resolved pair and cannot see what it diverged from
-/// (`specs/model/authoring.md`, "Layers").
-///
-/// # Errors
-///
-/// As [`resolve_harness_path`].
-///
-/// The adopted branch never re-imports: a fresh import discards recognition (the
-/// authored `satisfies` links), so every filled requirement would read unfilled — the
-/// false positive on clean input the surface-present clause forbids.
-fn harness_diagnostics(
-    harness_path: &Path,
-    layers: &[PathBuf],
-) -> miette::Result<(Vec<check::Diagnostic>, check::Announcement)> {
-    let (workspace, root) = resolve_harness_path(harness_path)?.gate_pair(harness_path);
-    let (diagnostics, mut announcement) = gate::gate(&workspace, &root, layers)?;
-    if root != harness_path {
-        announcement.harness_root = Some(root.display().to_string());
-    }
-    Ok((diagnostics, announcement))
 }

@@ -230,8 +230,10 @@ pub fn check(
 /// code.claude.com/docs/en/statusline, retrieved 2026-11-25). The note names and counts
 /// no script, since telling a script path from an inline command is mining the command
 /// string. A settings file absent or unparseable is read as running nothing — the
-/// settings kind's own read reports a malformed one.
+/// settings kind's own read reports a malformed one. The settings document is read
+/// through the run's bytes owner, which the settings kind's own read shares.
 pub fn script_note(
+    bytes: &crate::bytes::Bytes,
     root: &Path,
     declared_kinds: &BTreeMap<String, CustomKind>,
 ) -> Option<Diagnostic> {
@@ -242,8 +244,7 @@ pub fn script_note(
             let path = root
                 .join(normalize_root(&governs.root))
                 .join(governs.sole_glob()?);
-            serde_json::from_str::<serde_json::Value>(&crate::bytes::open_to_string(path).ok()?)
-                .ok()
+            serde_json::from_str::<serde_json::Value>(&bytes.read_to_string(&path).ok()?).ok()
         })
         .any(|settings| settings_run_a_command(&settings));
     runs_command.then(|| {

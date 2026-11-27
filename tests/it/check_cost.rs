@@ -1124,7 +1124,7 @@ fn check_builds_one_tree_index_per_run() {
     std::fs::write(rules.join("rust.md"), "# Rust\n").unwrap();
 
     // The raw-harness gate: workspace and harness root are the one path, exactly as
-    // `harness_diagnostics` dispatches a bare harness.
+    // `gate_verdict` dispatches a bare harness.
     // A gitignored local memory file: the local-locus kind reaches it off the one index.
     std::fs::write(harness.join(".gitignore"), "CLAUDE.local.md\n").unwrap();
     std::fs::write(harness.join("CLAUDE.local.md"), "# Mine\n").unwrap();
@@ -1293,7 +1293,7 @@ fn resolve_kind_units_runs_once_per_kind_not_twice() {
     std::fs::write(custom_dir.join("member.md"), "# Member\n").unwrap();
 
     // The adopted-harness dispatch: the workspace is the `.temper/` the lock lives in,
-    // the harness root the tree discovery walks — exactly the pair `harness_diagnostics`
+    // the harness root the tree discovery walks — exactly the pair `gate_verdict`
     // hands `gate` for a root carrying a workspace.
     let before = compose::resolve_kind_units_count();
     let (diagnostics, _) = gate::gate(&harness.join(".temper"), &harness, &[]).unwrap();
@@ -2513,5 +2513,82 @@ fn a_check_reads_nothing_under_a_large_ignored_tree_outside_every_resolved_glob_
     assert!(
         unreachable_rule(&diagnostics),
         "the rule must die once its one match is gone: {diagnostics:?}",
+    );
+}
+
+/// A raw one-skill harness with an empty settings document and a worktree `.git` file —
+/// the unrepresented `install` fixture its count-pins run over.
+fn unrepresented_install_harness(label: &str) -> std::path::PathBuf {
+    let harness = tmpdir(label);
+    let skill = harness.join(".claude/skills/coordinate");
+    fs::create_dir_all(&skill).unwrap();
+    fs::write(
+        skill.join("SKILL.md"),
+        "---\nname: coordinate\ndescription: Coordinate the work.\n---\n\n# Coordinate\n",
+    )
+    .unwrap();
+    fs::write(harness.join(".claude/settings.json"), "{}\n").unwrap();
+    fs::write(harness.join(".git"), "gitdir: /nonexistent/worktree\n").unwrap();
+    harness
+}
+
+/// One `install` run (the unrepresented path) — discovery, the gate verdict shown before
+/// the question, and the placements — over the run's one set of owners.
+fn install_unrepresented(harness: &Path) -> temper::install::InstallOutcome {
+    use temper::install;
+    install::execute(harness, harness, false, |_, _, _| {
+        Ok(install::Represent::No)
+    })
+    .unwrap()
+}
+
+/// The index-count pin for `install`: discovery, the gate verdict and the placements
+/// share the run's one tree index, so the tree is passed once however many phases read it.
+#[test]
+fn install_builds_one_tree_index_per_run() {
+    let harness = unrepresented_install_harness("install-one-index");
+    let before = import::index_pass_count();
+    let outcome = install_unrepresented(&harness);
+    let passes = import::index_pass_count() - before;
+
+    // Non-vacuity: the run discovered the skill and placed its modeline.
+    assert!(
+        outcome
+            .entries
+            .iter()
+            .any(|entry| entry.path.ends_with(".claude/skills/coordinate/SKILL.md")),
+        "the run must reach the discovered skill, got: {:?}",
+        outcome.entries,
+    );
+    assert_eq!(passes, 1, "an install run builds one tree index");
+}
+
+/// The paths-opened pin for `install`: the settings document and every member are read
+/// through the run's one bytes owner, a placement's write read back through it, so no file
+/// is opened twice across discovery, the gate verdict and the placements.
+#[test]
+fn install_opens_each_file_at_most_once_per_run() {
+    use temper::bytes;
+
+    let harness = unrepresented_install_harness("install-one-open");
+    let before = bytes::paths_opened();
+    install_unrepresented(&harness);
+    let opened = bytes::opened_since(&before);
+
+    // Non-vacuity: the run read the settings document and the skill.
+    for path in [
+        harness.join(".claude/settings.json"),
+        harness.join(".claude/skills/coordinate/SKILL.md"),
+    ] {
+        assert!(
+            opened.contains_key(&path),
+            "the run must read {}, opened: {opened:?}",
+            path.display(),
+        );
+    }
+    assert!(
+        reopened(&opened).is_empty(),
+        "an install run opens each file at most once, reopened: {:?}",
+        reopened(&opened),
     );
 }

@@ -850,18 +850,31 @@ impl DiscoveryReport {
 /// if a discovered host manifest cannot be read as JSON — a manifest install cannot parse
 /// is one it could neither report nor lift, so it refuses loud rather than reporting zero.
 pub fn discover(root: &Path) -> miette::Result<DiscoveryReport> {
+    discover_in(&import::Discovery::new(root))
+}
+
+/// [`discover`] over a caller-held run: one tree index shared across every kind this
+/// report discovers, and each host manifest read through the run's bytes owner, so the
+/// gate and the placements after it read the same tree and the same bytes.
+///
+/// # Errors
+/// As [`discover`].
+pub fn discover_in(disc: &import::Discovery) -> miette::Result<DiscoveryReport> {
     let mut members = BTreeMap::new();
     let kinds = builtin_kind::definitions();
-    // One tree index, shared across every kind this report discovers
-    // ([`import::Discovery`]).
-    let disc = import::Discovery::new(root);
     for kind in kinds.values() {
-        let files = import::discover_builtin(&disc, kind, &kinds, import::LocalOverride::Withheld);
+        let files = import::discover_builtin(disc, kind, &kinds, import::LocalOverride::Withheld);
         let found = match &kind.collection_address {
             Some(address) => KindMembers::Registrations {
                 entries: files
                     .iter()
-                    .map(|file| json_manifest::Manifest::read(file, &[address]))
+                    .map(|file| {
+                        let raw = disc
+                            .bytes()
+                            .read_utf8(file)
+                            .map_err(json_manifest::JsonManifestError::from)?;
+                        json_manifest::Manifest::parse(file, &raw, &[address])
+                    })
                     .collect::<Result<Vec<_>, _>>()?
                     .into_iter()
                     .flat_map(|manifest| manifest.members)
@@ -957,15 +970,54 @@ pub fn run(
     represent: Represent,
     dry_run: bool,
 ) -> miette::Result<InstallOutcome> {
+    run_in(&import::Discovery::new(root), discovery, represent, dry_run)
+}
+
+/// One whole `temper install` invocation at `root`: discovery, the gate bare `check`
+/// runs over it ([`crate::gate::verdict_in`], against the lock in `workspace`), the one
+/// question — answered by `decide`, handed the discovery report and the gate's findings
+/// to show before it asks — and the placements that answer selects.
+///
+/// The three phases share one [`import::Discovery`]: one tree index and one bytes owner
+/// for the run, so the tree is passed once and no file is opened twice, a placement's
+/// write read back through the owner that wrote it. The orchestration lives here rather
+/// than in the binary so those counts are taken where the owners are.
+///
+/// # Errors
+/// What `decide` refuses with, and as [`discover`] and [`run`].
+pub fn execute(
+    root: &Path,
+    workspace: &Path,
+    dry_run: bool,
+    decide: impl FnOnce(
+        &DiscoveryReport,
+        &[Diagnostic],
+        &crate::check::Announcement,
+    ) -> miette::Result<Represent>,
+) -> miette::Result<InstallOutcome> {
+    let disc = import::Discovery::new(root);
+    let report = discover_in(&disc)?;
+    let (findings, announcement) = crate::gate::verdict_in(&disc, workspace, &[], root);
+    let represent = decide(&report, &findings, &announcement)?;
+    run_in(&disc, &report, represent, dry_run)
+}
+
+/// [`run`] over a caller-held run's owners, rooted at `disc`'s harness.
+fn run_in(
+    disc: &import::Discovery,
+    discovery: &DiscoveryReport,
+    represent: Represent,
+    dry_run: bool,
+) -> miette::Result<InstallOutcome> {
     match represent {
         Represent::No => Ok(InstallOutcome {
             represented: false,
             scaffolded: 0,
             emit: None,
-            entries: place_unrepresented(root, discovery, dry_run)?,
+            entries: place_unrepresented(disc, discovery, dry_run)?,
             missing_dependencies: Vec::new(),
         }),
-        Represent::Yes => run_represented(root, discovery, dry_run),
+        Represent::Yes => run_represented(disc, discovery, dry_run),
     }
 }
 
@@ -973,10 +1025,11 @@ pub fn run(
 /// dependency, run `emit`, then place the guard/note/modeline at the fresh lock's
 /// emit-owned targets.
 fn run_represented(
-    root: &Path,
+    disc: &import::Discovery,
     discovery: &DiscoveryReport,
     dry_run: bool,
 ) -> miette::Result<InstallOutcome> {
+    let root = disc.harness();
     ensure_node_available()?;
 
     let temper_dir = root.join(crate::WORKSPACE_DIR);
@@ -986,8 +1039,8 @@ fn run_represented(
     // What the settings document wired before this run touched anything — the only
     // reading of "before" the emit below cannot destroy, and the split between a gate
     // hook this run wired ([`ApplyOutcome::Applied`]) and one already in place.
-    let gate_before = gate_hooks_state(&crate::bytes::Bytes::new(), &settings_path(root))?
-        .map(|state| state.wired);
+    let gate_before =
+        gate_hooks_state(disc.bytes(), &settings_path(root))?.map(|state| state.wired);
 
     // Read and judged before any write: an artifact the lift cannot convert, or one the
     // default patterns' own members would collide with, refuses with `.temper/` untouched.
@@ -1050,7 +1103,8 @@ fn run_represented(
         // Read *after* the emit above rewrote the lock: placements bind to the rows this
         // run just wrote, never to the previous run's.
         let lock = drift::read_lock_document(&temper_dir)?;
-        // A fresh owner: the emit above rewrote the targets behind any earlier read.
+        // A fresh owner: the emit above rewrote the targets behind the run's owner,
+        // through its own, so every bytes `disc` holds for them is stale.
         evaluate_placements(
             &crate::bytes::Bytes::new(),
             root,
@@ -1337,13 +1391,13 @@ fn settings_path(root: &Path) -> PathBuf {
 /// [`represented_by`], the same reading [`gate_installed`] takes, so neither face can send
 /// a represented harness down this path.
 fn place_unrepresented(
-    root: &Path,
+    disc: &import::Discovery,
     discovery: &DiscoveryReport,
     dry_run: bool,
 ) -> miette::Result<Vec<InstallEntry>> {
-    let bytes = crate::bytes::Bytes::new();
-    let mut entries = vec![place_session_start(&bytes, root, dry_run)?];
-    entries.extend(place_cdn_modelines(&bytes, root, discovery, dry_run)?);
+    let (bytes, root) = (disc.bytes(), disc.harness());
+    let mut entries = vec![place_session_start(bytes, root, dry_run)?];
+    entries.extend(place_cdn_modelines(bytes, root, discovery, dry_run)?);
     Ok(entries)
 }
 
