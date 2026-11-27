@@ -1196,7 +1196,7 @@ fn a_tap_hook_command_is_anchored_at_the_project() {
 
     assert_eq!(
         projected_tap_command(&harness),
-        "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; command -v ./.temper/node_modules/.bin/temper >/dev/null 2>&1 || { echo \"./.temper/node_modules/.bin/temper: command not found\" >&2; exit 127; } && ./.temper/node_modules/.bin/temper tap ."
+        "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; command -v ./.temper/node_modules/.bin/temper >/dev/null 2>&1 || { echo \"./.temper/node_modules/.bin/temper: command not found; install temper with npm install -g @dtmd/temper, or npm -C .temper install for a represented harness\" >&2; exit 2; } && ./.temper/node_modules/.bin/temper tap ."
     );
 }
 
@@ -1213,7 +1213,7 @@ fn a_tap_runs_the_command_of_its_declarations_tool() {
     .unwrap();
     assert_eq!(
         projected_tap_command(&harness),
-        "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; command -v ./bin/temper >/dev/null 2>&1 || { echo \"./bin/temper: command not found\" >&2; exit 127; } && ./bin/temper tap ."
+        "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; command -v ./bin/temper >/dev/null 2>&1 || { echo \"./bin/temper: command not found; install temper with npm install -g @dtmd/temper, or npm -C .temper install for a represented harness\" >&2; exit 2; } && ./bin/temper tap ."
     );
 
     let (harness, into) = tool_workspace("tap-hook-system-tool");
@@ -1369,7 +1369,7 @@ fn a_gate_hook_runs_the_command_of_the_tool_it_reaches() {
     // Every gate hook probes, names and runs the script its tool states — resolved at the
     // project root as itself rather than looked up on the PATH.
     let (manifest, [session_start, guard, post_guard]) = projected_gate_commands(&harness);
-    let probe = "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; command -v ./bin/temper >/dev/null 2>&1 || { echo \"./bin/temper: command not found\" >&2; exit 127; } && ./bin/temper";
+    let probe = "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; command -v ./bin/temper >/dev/null 2>&1 || { echo \"./bin/temper: command not found; install temper with npm install -g @dtmd/temper, or npm -C .temper install for a represented harness\" >&2; exit 2; } && ./bin/temper";
     assert_eq!(
         session_start,
         format!("{probe} check . --reporter session-start")

@@ -2774,12 +2774,23 @@ export const ruleDefaultContract: readonly Clause[] = [
       "`paths` is the one documented rules key: globs (brace expansion supported) that load the rule when a file tool (read, edit, write) touches a matching path. An unparseable pattern — an unclosed `[`, say — is invalid under globset and silently matches nothing, so the rule never loads where you meant it to, with no error surfaced. Fix the pattern or drop it.",
     cite: "https://code.claude.com/docs/en/memory#path-specific-rules (retrieved 2026-07-15)",
   }),
-  clause(extent("lines", 200), {
-    severity: "advisory",
-    guidance:
-      "Unconditional rules are always-on context, paid every session: the docs' size target is under 200 rendered lines per memory file — 'longer files consume more context and reduce adherence.' Measured render-side, off the projected artifact rather than the source body. (Distinct from the hard 200-line/25KB cutoff, which applies only to auto-memory MEMORY.md. A rule that loads at launch arrives whole up to 4 MiB; a path-scoped rule is cut at a per-file character limit, which the clause below judges.) For each line ask: would removing it cause Claude to make mistakes? If not, cut it.",
-    cite: "https://code.claude.com/docs/en/memory#write-effective-instructions (retrieved 2026-07-15)",
-  }),
+  when(
+    loads("launch"),
+    [
+      clause(extent("lines", 200), {
+        severity: "advisory",
+        guidance:
+          "Unconditional rules are always-on context, paid every session: the docs' size target is under 200 rendered lines per memory file — 'longer files consume more context and reduce adherence.' Measured render-side, off the projected artifact rather than the source body. (Distinct from the hard 200-line/25KB cutoff, which applies only to auto-memory MEMORY.md. A rule that loads at launch arrives whole up to 4 MiB; a path-scoped rule is cut at a per-file character limit, which the clause below judges.) For each line ask: would removing it cause Claude to make mistakes? If not, cut it.",
+        cite: "https://code.claude.com/docs/en/memory#write-effective-instructions (retrieved 2026-07-15)",
+      }),
+    ],
+    {
+      severity: "advisory",
+      guidance:
+        "A root rule without `paths` loads at launch, so it rides every session and is judged against the docs' 200-line size target. A rule that carries `paths`, or sits under a subdirectory's own `.claude/rules/`, loads on demand, is paid only where it registers, and is judged by the per-file character limit instead.",
+      cite: "https://code.claude.com/docs/en/memory#write-effective-instructions (retrieved 2026-07-15)",
+    },
+  ),
   when(
     loads("on-demand"),
     [

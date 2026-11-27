@@ -2402,3 +2402,75 @@ fn explain_opens_each_file_at_most_once_per_run() {
         "an explain run opens each file at most once",
     );
 }
+
+/// The raw-disk `paths-match` walk reads only as far as the globs it resolves reach: a
+/// large ignored tree outside every glob's literal prefix is never opened, while a
+/// gitignored file inside a resolved glob still backs the rule that names it — the set
+/// stays raw disk, only its reach is scoped.
+#[test]
+fn a_check_reads_nothing_under_a_large_ignored_tree_outside_every_resolved_glob_prefix() {
+    use temper::compose;
+    use temper::gate;
+
+    const IGNORED_FILES: usize = 400;
+
+    let harness = tmpdir("paths-match-walk-reach");
+    let rules = harness.join(".claude").join("rules");
+    fs::create_dir_all(&rules).unwrap();
+    fs::write(
+        rules.join("rust.md"),
+        "---\npaths:\n  - \"src/**/*.rs\"\n---\n# Rust\n",
+    )
+    .unwrap();
+    fs::write(harness.join(".gitignore"), "target/\nsrc/gen/\n").unwrap();
+    // The rule's only match is gitignored: raw disk must still see it.
+    let generated = harness.join("src").join("gen");
+    fs::create_dir_all(&generated).unwrap();
+    fs::write(generated.join("lib.rs"), "// generated\n").unwrap();
+    // A build-output tree no resolved glob's literal prefix reaches.
+    for bucket in 0..IGNORED_FILES / 20 {
+        let dir = harness
+            .join("target")
+            .join("debug")
+            .join(format!("b{bucket}"));
+        fs::create_dir_all(&dir).unwrap();
+        for file in 0..20 {
+            fs::write(dir.join(format!("f{file}.rs")), "").unwrap();
+        }
+    }
+    common::write_lock(
+        &harness,
+        Declarations {
+            clauses: vec![common::clause("reachable", "advisory")],
+            ..Declarations::default()
+        },
+    );
+
+    let unreachable_rule = |diagnostics: &[temper::check::Diagnostic]| {
+        diagnostics
+            .iter()
+            .any(|d| d.rule == "root.reachable" && d.message.contains("rule `rust`"))
+    };
+
+    let before = compose::repo_file_set_entries_read();
+    let (diagnostics, _) = gate::gate(&harness.join(".temper"), &harness, &[]).unwrap();
+    let read = compose::repo_file_set_entries_read() - before;
+
+    assert!(
+        read < IGNORED_FILES / 20,
+        "the walk must read only under `src/`, never the ignored `target/` tree; read {read} entries",
+    );
+    assert!(
+        !unreachable_rule(&diagnostics),
+        "a gitignored file inside a resolved glob still counts: {diagnostics:?}",
+    );
+
+    // Non-vacuity: with the gitignored match gone the same run finds the rule dead, so the
+    // clause bound and the walk is what kept it live above.
+    fs::remove_file(generated.join("lib.rs")).unwrap();
+    let (diagnostics, _) = gate::gate(&harness.join(".temper"), &harness, &[]).unwrap();
+    assert!(
+        unreachable_rule(&diagnostics),
+        "the rule must die once its one match is gone: {diagnostics:?}",
+    );
+}

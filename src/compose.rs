@@ -40,6 +40,7 @@ thread_local! {
     static RESOLVE_KIND_UNITS_COUNT: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
     static OVERLAY_BUILTIN_KIND_COUNT: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
     static REPO_FILE_SET_COUNT: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    static REPO_FILE_SET_ENTRIES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
     static DECLARED_KINDS_COUNT: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 
@@ -59,6 +60,14 @@ pub fn overlay_builtin_kind_count() -> usize {
 #[must_use]
 pub fn repo_file_set_count() -> usize {
     REPO_FILE_SET_COUNT.with(std::cell::Cell::get)
+}
+
+/// This thread's cumulative count of directory entries `repo_file_set` walks have read —
+/// files and directories alike, so a subtree the walk descends shows however few files
+/// it holds.
+#[must_use]
+pub fn repo_file_set_entries_read() -> usize {
+    REPO_FILE_SET_ENTRIES.with(std::cell::Cell::get)
 }
 
 /// This thread's cumulative count of `declared_kinds_with_overlaid` derivations — the
@@ -2537,28 +2546,83 @@ fn body_occurrences(
     }
 }
 
-/// Every file on disk under `root` as a raw [`Vec<String>`] of paths, hoisted to at most
-/// one walk per run ([`repo_file_set_count`] pins it). `graph::reachable`'s `paths-match`
-/// channel is the whole set's consumer, so the gate takes the walk only where a root
-/// `reachable` clause binds — a cited `@import`'s backing resolves per target through
-/// [`backed_on_disk`] instead. Entries are spelled relative to `root`, the domain a
-/// `paths` glob is authored in, so the set is the same whatever spelling the harness
-/// root arrived in (`.`, `m`, or an absolute path).
-pub fn repo_file_set(root: &Path) -> Vec<String> {
+/// Every file on disk under `root` that one of `globs` could match, as a raw
+/// [`Vec<String>`] of paths, hoisted to at most one walk per run
+/// ([`repo_file_set_count`] pins it). `graph::reachable`'s `paths-match` channel is the
+/// set's one consumer, so the gate takes the walk only where a root `reachable` clause
+/// binds — a cited `@import`'s backing resolves per target through [`backed_on_disk`]
+/// instead. Entries are spelled relative to `root`, the domain a `paths` glob is
+/// authored in, so the set is the same whatever spelling the harness root arrived in
+/// (`.`, `m`, or an absolute path).
+///
+/// The walk is raw disk — no ignore rules — but descends only each glob's literal
+/// directory prefix (`glob_literal_dir`): a file outside every prefix can match no
+/// glob, so the set agrees with a whole-tree walk on every glob it was handed. A glob
+/// with no literal prefix (`**/*.md`, `*.md`) walks from `root`.
+pub fn repo_file_set(root: &Path, globs: &[String]) -> Vec<String> {
     REPO_FILE_SET_COUNT.with(|c| c.set(c.get() + 1));
+    let mut prefixes: Vec<PathBuf> = globs.iter().map(|glob| glob_literal_dir(glob)).collect();
+    prefixes.sort();
+    prefixes.dedup();
+    // A prefix under another one is already walked; sorted order puts the ancestor first.
+    let mut walked: Vec<PathBuf> = Vec::new();
+    for prefix in prefixes {
+        if !walked.iter().any(|ancestor| prefix.starts_with(ancestor)) {
+            walked.push(prefix);
+        }
+    }
     let mut files = Vec::new();
-    for entry in walkdir::WalkDir::new(root).min_depth(1).sort_by_file_name() {
-        let Ok(entry) = entry else { continue };
-        if !entry.file_type().is_file() {
+    for prefix in walked {
+        // `walkdir` always follows its start path, while a whole-tree walk with links
+        // unfollowed never enters a symlinked directory: every prefix segment must be a
+        // real directory, or nothing under it is in the set.
+        let mut start = root.to_path_buf();
+        let mut real_dir = true;
+        for segment in prefix.components() {
+            start.push(segment);
+            if !fs::symlink_metadata(&start).is_ok_and(|meta| meta.file_type().is_dir()) {
+                real_dir = false;
+                break;
+            }
+        }
+        if !real_dir {
             continue;
         }
-        // Every entry the walk yields is `root` joined with its descent.
-        if let Ok(relative) = entry.path().strip_prefix(root) {
-            let normalized = crate::path::normalize_path(relative);
-            files.push(crate::path::to_canonical_spelling(&normalized));
+        for entry in walkdir::WalkDir::new(&start)
+            .min_depth(1)
+            .sort_by_file_name()
+        {
+            REPO_FILE_SET_ENTRIES.with(|c| c.set(c.get() + 1));
+            let Ok(entry) = entry else { continue };
+            if !entry.file_type().is_file() {
+                continue;
+            }
+            // Every entry the walk yields is `root` joined with its descent.
+            if let Ok(relative) = entry.path().strip_prefix(root) {
+                let normalized = crate::path::normalize_path(relative);
+                files.push(crate::path::to_canonical_spelling(&normalized));
+            }
         }
     }
     files
+}
+
+/// The literal directory a `/`-separated glob is anchored under: its leading segments up
+/// to the first carrying glob syntax, never the final (file-name) segment. Empty, `.` and
+/// `..` segments end the prefix too — a root-relative entry spells none of them, so
+/// stopping early only widens the walk, never narrows what the glob can match.
+fn glob_literal_dir(glob: &str) -> PathBuf {
+    let segments: Vec<&str> = glob.split('/').collect();
+    let directories = &segments[..segments.len().saturating_sub(1)];
+    directories
+        .iter()
+        .take_while(|segment| {
+            !segment.is_empty()
+                && **segment != "."
+                && **segment != ".."
+                && !segment.contains(['*', '?', '[', ']', '{', '}', '\\'])
+        })
+        .collect()
 }
 
 /// The **disk** [`graph::BackingResolver`]: is one cited `@import` target backed by a
@@ -3079,12 +3143,58 @@ mod tests {
         // An `@import` target the harness loads even though `.gitignore` excludes it.
         fs::write(dep.join("SHARED.md"), "shared\n").unwrap();
 
-        let files = repo_file_set(&root);
+        let files = repo_file_set(&root, &["**".to_string()]);
         assert!(
             files.iter().any(|f| f == "node_modules/dep/SHARED.md"),
             "the gitignored backing target must still be seen (raw disk): {files:?}"
         );
         assert!(files.iter().any(|f| f == "CLAUDE.md"));
+    }
+
+    /// A scoped walk keeps exactly the whole-tree entries each of its globs can match:
+    /// it descends only literal prefixes, a symlinked prefix contributes nothing (a
+    /// whole-tree walk never enters it), and a prefix-less glob still walks from root.
+    #[test]
+    fn repo_file_set_scoped_to_globs_keeps_every_whole_tree_match() {
+        use crate::test_support::tmpdir;
+
+        let root = tmpdir("repo-file-set-scoped");
+        for file in [
+            "src/a/x.rs",
+            "src/b.rs",
+            "docs/page.md",
+            "target/out.rs",
+            "top.md",
+        ] {
+            let path = root.join(file);
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(path, "").unwrap();
+        }
+        let globs = |list: &[&str]| list.iter().map(ToString::to_string).collect::<Vec<_>>();
+        let whole = repo_file_set(&root, &globs(&["**"]));
+        let scoped_globs = globs(&["src/**/*.rs", "src/a/*.rs", "docs/page.md", "*.md"]);
+        let scoped = repo_file_set(&root, &scoped_globs);
+        for glob in &scoped_globs {
+            let matcher = crate::glob::compile_glob(glob).unwrap();
+            let in_whole: Vec<_> = whole.iter().filter(|f| matcher.is_match(f)).collect();
+            let in_scoped: Vec<_> = scoped.iter().filter(|f| matcher.is_match(f)).collect();
+            assert_eq!(
+                in_whole, in_scoped,
+                "`{glob}` must see the whole-tree matches"
+            );
+        }
+        assert_eq!(
+            repo_file_set(&root, &globs(&["src/**/*.rs"])),
+            vec!["src/a/x.rs", "src/b.rs"],
+            "a literal prefix walks nothing outside it",
+        );
+        assert!(repo_file_set(&root, &[]).is_empty());
+
+        #[cfg(unix)]
+        {
+            std::os::unix::fs::symlink(root.join("src"), root.join("linked")).unwrap();
+            assert!(repo_file_set(&root, &globs(&["linked/**"])).is_empty());
+        }
     }
 
     /// An absolute harness root yields the same root-relative entries a `.` root does:
@@ -3102,10 +3212,13 @@ mod tests {
         fs::write(subdir.join("child.md"), "child").unwrap();
 
         assert!(root.is_absolute(), "the case needs an absolute root");
-        assert_eq!(repo_file_set(&root), vec!["root.md", "src/child.md"]);
+        assert_eq!(
+            repo_file_set(&root, &["**".to_string()]),
+            vec!["root.md", "src/child.md"]
+        );
         // A root spelled with a `.` segment walks to the same set.
         assert_eq!(
-            repo_file_set(&root.join(".")),
+            repo_file_set(&root.join("."), &["**".to_string()]),
             vec!["root.md", "src/child.md"]
         );
     }
@@ -3124,7 +3237,7 @@ mod tests {
         }
         let cleanup = test_file.clone();
 
-        let files = repo_file_set(&root);
+        let files = repo_file_set(&root, &["**".to_string()]);
         // When root is `.`, output paths are relative (normalized, with `.` removed).
         assert!(
             files
@@ -3206,7 +3319,7 @@ mod tests {
             excluded.push(root.join("link-dir").join("inner.md")); // under an unentered link
         }
 
-        let files = repo_file_set(&root);
+        let files = repo_file_set(&root, &["**".to_string()]);
         let backed = backed_on_disk(&root);
 
         for path in &collected {

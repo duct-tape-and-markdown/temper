@@ -5,11 +5,23 @@
  * `optionalDependencies` package and exec it. Fail-loud invariant: a
  * missing platform binary is an install error with instructions, never a
  * silent skip — if it cannot check, it fails loud.
+ *
+ * Every can't-reach-the-engine path (unsupported platform, missing platform
+ * package, spawn failure) exits 2: a gate hook runs through this launcher,
+ * and Claude Code treats only exit 2 as blocking — every other non-zero exit
+ * is a non-blocking error that lets the action through
+ * (https://code.claude.com/docs/en/hooks, "Exit code output", retrieved
+ * 2026-11-27). An engine killed by a signal never finished checking, so it
+ * exits 2 too, naming the signal. An engine that exited passes its own exit
+ * status through.
  */
 import { createRequire } from "node:module";
 import { spawnSync } from "node:child_process";
 
 const require = createRequire(import.meta.url);
+
+/** The hook runtime's blocking exit — see the module doc. */
+const UNREACHABLE = 2;
 
 /** platform+arch → [platform package, binary path inside it]. */
 const PLATFORMS = {
@@ -27,7 +39,7 @@ if (!entry) {
       `Build from source with a Rust 1.96+ toolchain instead:\n` +
       `  cargo install --git https://github.com/duct-tape-and-markdown/temper\n`,
   );
-  process.exit(1);
+  process.exit(UNREACHABLE);
 }
 
 const [pkg, binPath] = entry;
@@ -41,12 +53,22 @@ try {
       `with optional dependencies disabled skips it. Restore it with:\n` +
       `  npm install ${pkg}\n`,
   );
-  process.exit(1);
+  process.exit(UNREACHABLE);
 }
 
 const result = spawnSync(bin, process.argv.slice(2), { stdio: "inherit" });
 if (result.error) {
-  process.stderr.write(`temper: failed to run ${bin}: ${result.error.message}\n`);
-  process.exit(1);
+  process.stderr.write(
+    `temper: failed to run ${bin}: ${result.error.message}\n` +
+      `Reinstall the platform engine package with:\n` +
+      `  npm install ${pkg}\n`,
+  );
+  process.exit(UNREACHABLE);
 }
-process.exit(result.status ?? 1);
+if (result.status === null) {
+  process.stderr.write(
+    `temper: the engine ${bin} was killed by ${result.signal ?? "a signal"} before it finished.\n`,
+  );
+  process.exit(UNREACHABLE);
+}
+process.exit(result.status);

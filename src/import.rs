@@ -197,6 +197,51 @@ impl<'a> Discovery<'a> {
         })
     }
 
+    /// Whether a local-flavor scan of `glob` from `root` reaches `file` once it exists —
+    /// the single-path answer to [`collect_glob`] over [`Reach::children`]. A wildcard or
+    /// `**` directory step out of a directory the index descended lists the index, so the
+    /// child must be one the walk descends; any other step is fenced only, which
+    /// [`discovers_path`] judges.
+    fn local_scan_reaches(&self, root: &Path, glob: &str, file: &Path) -> bool {
+        let Ok(relative) = file.strip_prefix(root) else {
+            return false;
+        };
+        let Some(names) = relative
+            .iter()
+            .map(OsStr::to_str)
+            .collect::<Option<Vec<_>>>()
+        else {
+            return false;
+        };
+        let mut dir = root.to_path_buf();
+        let mut descended = vec![self.would_descend(&dir)];
+        for name in names.iter().take(names.len().saturating_sub(1)) {
+            dir.push(name);
+            descended.push(self.would_descend(&dir));
+        }
+        let segments: Vec<Segment> = glob.split('/').map(Segment::new).collect();
+        steps_reach(&segments, &names, &descended)
+    }
+
+    /// Whether the index walk descends `dir`: the index's answer for a directory on disk,
+    /// and for one a pending write would create, whether the walk would admit it.
+    fn would_descend(&self, dir: &Path) -> bool {
+        if on_disk(dir).is_dir() {
+            return self.index().descended(dir);
+        }
+        let harness = crate::path::normalize_path(self.harness);
+        dir.strip_prefix(&harness).is_ok_and(|relative| {
+            admitted(
+                &self.bytes,
+                self.harness,
+                relative,
+                true,
+                true,
+                |path, depth, is_dir| fenced(path, depth, is_dir, false),
+            )
+        })
+    }
+
     /// Whether the index has been built.
     #[cfg(test)]
     fn indexed(&self) -> bool {
@@ -419,9 +464,11 @@ pub fn nested_file_placement(
         .into_iter()
         .find_map(|(host, pattern, unit)| {
             let under = crate::path::to_canonical_spelling(file.strip_prefix(&unit.dir).ok()?);
+            let local = local_governs(host, over);
             let placed = file != unit.entry
                 && crate::glob::compile_glob(pattern).is_some_and(|m| m.is_match(&under))
-                && discovers_path(disc.bytes(), &harness, relative, local_governs(host, over));
+                && discovers_path(disc.bytes(), &harness, relative, local)
+                && (!local || disc.local_scan_reaches(&unit.dir, pattern, &file));
             placed.then(|| unit.child(host, pattern, file.clone()))
         })
 }
@@ -787,6 +834,40 @@ impl Reach<'_> {
     }
 }
 
+/// Whether the glob `segments` reach the path `names` spells, step by step as
+/// [`collect_glob`] walks it: `descended[i]` is whether the index descended the directory
+/// `names[i]` sits in. A non-literal directory step out of a descended directory needs the
+/// child descended too, since that listing is the index's.
+fn steps_reach(segments: &[Segment], names: &[&str], descended: &[bool]) -> bool {
+    let (Some((segment, rest)), Some((name, deeper))) =
+        (segments.split_first(), names.split_first())
+    else {
+        return false;
+    };
+    let leaf = deeper.is_empty();
+    let step_listed = |literal: bool| literal || !descended[0] || descended[1];
+    match segment {
+        Segment::AnyDepth => {
+            steps_reach(rest, names, descended)
+                || (!leaf && step_listed(false) && steps_reach(segments, deeper, &descended[1..]))
+        }
+        Segment::Name { text, matcher } => {
+            if !matcher
+                .as_ref()
+                .is_some_and(|matcher| matcher.is_match(name))
+            {
+                return false;
+            }
+            if leaf {
+                return rest.is_empty();
+            }
+            !rest.is_empty()
+                && step_listed(is_literal(text))
+                && steps_reach(rest, deeper, &descended[1..])
+        }
+    }
+}
+
 /// Whether a glob segment names one entry exactly — no wildcard, class or alternation.
 fn is_literal(segment: &str) -> bool {
     !segment.contains(['*', '?', '[', '{'])
@@ -1006,6 +1087,7 @@ pub(crate) fn discovers_path(
         harness,
         relative,
         !local_governs,
+        false,
         |path, depth, is_dir| fenced(path, depth, is_dir, local_governs),
     )
 }
@@ -1040,6 +1122,7 @@ pub(crate) fn repository_keeps(path: &Path, fallback_root: &Path) -> bool {
         &root,
         relative,
         true,
+        false,
         |path, _depth, _is_dir| path.file_name() == Some(OsStr::new(".git")),
     )
 }
@@ -1056,6 +1139,7 @@ fn admitted(
     root: &Path,
     relative: &Path,
     git_declarations: bool,
+    leaf_dir: bool,
     fence: impl Fn(&Path, usize, bool) -> bool,
 ) -> bool {
     use ignore::gitignore::{Gitignore, GitignoreBuilder};
@@ -1080,7 +1164,7 @@ fn admitted(
     for (index, component) in components.iter().enumerate() {
         let path = dir.join(component);
         let last = index + 1 == components.len();
-        let is_dir = !last || path.is_dir();
+        let is_dir = !last || leaf_dir || path.is_dir();
         if fence(&path, index + 1, is_dir) {
             return false;
         }

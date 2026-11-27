@@ -14,7 +14,18 @@ import { isDeepStrictEqual } from "node:util";
 
 import type { Harness } from "./assembly.js";
 import type { EdgeField, EmbeddedMemberValue, KindFacts, Layout, Member, Registration } from "./kind.js";
-import { absenceGatesOf, baseOf, collectionAddressOf, edgeTargetNames, manifestOf, registrationOf, templatesOf } from "./kind.js";
+import {
+  absenceGatesOf,
+  baseOf,
+  collectionAddressOf,
+  edgeTargetNames,
+  locusPattern,
+  manifestOf,
+  registrationOf,
+  templateMatches,
+  templateReachesBeneath,
+  templatesOf,
+} from "./kind.js";
 import type { Clause, Predicate, Requirement, Verifier } from "./contract.js";
 import type { Include, MentionScope } from "./prose.js";
 import { isTextSpan, resolveEmbeddedLeaves, span } from "./prose.js";
@@ -542,15 +553,24 @@ function isRelocationOf(relocation: KindFacts, base: KindFacts): boolean {
 }
 
 /**
- * Whether `relocation` still excludes every path `base` does — the half of the erased
- * `exclude` face a relocation may not change. `relocate` only *appends* exclusions, so
- * the base's are a subset of a relocation's; a value of the name excluding less than its
- * base claims paths the base never governed, and is a third kind, not a relocation.
+ * Whether `relocation` still excludes every path of `base`'s its own templates reach — the
+ * half of the erased `exclude` face a relocation may not change. `relocate` only *appends*
+ * exclusions, and a moved locus keeps each base exclusion its new template still matches
+ * or reaches beneath while dropping the rest, which would subtract nothing
+ * ({@link relocatedLocus}). So a base exclusion the relocation's templates no longer reach
+ * owes nothing, while a value of the name dropping one they still reach claims paths the
+ * base never governed, and is a third kind, not a relocation.
  */
 function keepsExclusionsOf(relocation: KindFacts, base: KindFacts): boolean {
   if (base.locus.kind !== "at") return true;
-  const kept = relocation.locus.kind === "at" ? (relocation.locus.exclude ?? []) : [];
-  return (base.locus.exclude ?? []).every((path) => kept.includes(path));
+  const excluded = base.locus.exclude ?? [];
+  if (relocation.locus.kind !== "at") return excluded.length === 0;
+  const { root } = relocation.locus;
+  const kept = relocation.locus.exclude ?? [];
+  const patterns = templatesOf(relocation.locus).map((glob) => locusPattern(root, glob));
+  const reached = (path: string) =>
+    patterns.some((pattern) => templateMatches(pattern, path) || templateReachesBeneath(pattern, path));
+  return excluded.every((path) => kept.includes(path) || !reached(path));
 }
 
 /**

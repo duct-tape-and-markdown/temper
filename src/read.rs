@@ -3075,7 +3075,10 @@ pub fn explain_target(harness_root: &Path, target: &str) -> miette::Result<Strin
 
     // The whole file-set stays: `graph::reachability_orphaned` below reads it entire,
     // through `live_members`, and the read verb binds no clause to gate the walk behind.
-    let repo_files = compose::repo_file_set(harness_root);
+    let repo_files = compose::repo_file_set(
+        harness_root,
+        &crate::graph::registration_globs(&registrations, &by_kind),
+    );
     let gate_states = crate::gate::absence_gate_states(
         harness_root,
         &overlaid_builtin_kinds,

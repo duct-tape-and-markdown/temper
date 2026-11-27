@@ -12,6 +12,7 @@ import type { Clause, Harness, Prose } from "../src/index.js";
 import { blocks, embeddedMemberValue, extend, harness, kind, relocate, requirement, span } from "../src/index.js";
 import { emit } from "../src/emit.js";
 import { compileDeclarations } from "../src/declarations.js";
+import type { KindFacts, Member } from "../src/kind.js";
 import { manifestOf } from "../src/kind.js";
 // The provider face's own tap-registration builder — internal to the SDK (`tapHookRows`
 // is its one caller), so the test reaches the module rather than the public subpath.
@@ -227,7 +228,7 @@ test("an exclude-only relocation of skill fences the fixture tree its any-depth 
 test("ruleDefaultContract forbids Cursor keys, validates path globs, budgets body size, and gates mentions", () => {
   assert.deepEqual(
     ruleDefaultContract.map((c) => c.predicate.key),
-    ["forbidden-keys", "glob-valid", "extent", "when", "mention-reachable", "trigger-agrees"],
+    ["forbidden-keys", "glob-valid", "when", "when", "mention-reachable", "trigger-agrees"],
   );
   assert.deepEqual(ruleDefaultContract[0].predicate.keys, ["description", "globs", "alwaysApply"]);
   // The `glob-valid` clause ranges over the one documented rules key, `paths`.
@@ -243,6 +244,19 @@ test("ruleDefaultContract forbids Cursor keys, validates path globs, budgets bod
   assert.equal(ruleDefaultContract[5].predicate.field, "paths");
   assert.equal(ruleDefaultContract[5].predicate.gate, "paths");
   assert.equal(ruleDefaultContract[5].severity, "advisory");
+});
+
+test("the rule contract judges only a launch-loaded rule against the 200-line target", () => {
+  // A path-scoped or nested rule loads on demand, so it is paid only where it registers.
+  const budget = ruleDefaultContract[2];
+  assert.equal(budget.severity, "advisory");
+  assert.equal(budget.when_guard?.key, "loads");
+  assert.deepEqual(budget.when_guard?.values, ["launch"]);
+  assert.equal(budget.when_body?.length, 1);
+  const body = budget.when_body![0];
+  assert.equal(body.predicate.key, "extent");
+  assert.equal(body.predicate.unit, "lines");
+  assert.deepEqual(body.predicate.args, { max: 200 });
 });
 
 test("the rule contract judges an on-demand rule against the per-file truncation limit", () => {
@@ -1725,6 +1739,45 @@ test("a relocation keeps exactly the base exclusions its new template still reac
   ]);
   const underSkills = relocate<Memory>(memory, { locus: { root: ".claude/skills", glob: "*/CLAUDE.md" } });
   assert.deepEqual(memoryKindRow(underSkills).exclude, [".claude/skills"]);
+});
+
+test("a moved relocation dropping exclusions its templates no longer reach replaces its built-in", () => {
+  // `docs/**/CLAUDE.md` reaches none of built-in memory's `.claude/` exclusions, so the
+  // relocation carries none — and must still be recognised as derived from the built-in
+  // a member beside it was built from, whichever order the two arrive in.
+  const docsMemory = relocate<Memory>(memory, { locus: { root: "docs", glob: "**/CLAUDE.md" } });
+  assert.ok(!("exclude" in docsMemory.facts.locus), "the moved relocation must have dropped the exclusions");
+  const arrangements = [
+    harness({
+      members: [memory({ name: "CLAUDE", prose: text`Always true.` })],
+      expect: [{ kind: docsMemory, clauses: [] }],
+    }),
+    harness({
+      members: [docsMemory({ name: "CLAUDE", prose: text`Always true.` })],
+      expect: [{ kind: memory, clauses: [] }],
+    }),
+  ];
+  for (const h of arrangements) {
+    const rows = compileDeclarations(h).kinds.filter((row) => row.name === "memory");
+    assert.equal(rows.length, 1, "one name is one kind-fact row");
+    assert.equal(rows[0].locus_root, "docs");
+    assert.ok(!("exclude" in rows[0]));
+  }
+});
+
+test("a value dropping an exclusion its templates still reach refuses as a third kind", () => {
+  // Same reach as the built-in, so every `.claude/` exclusion is still reached; a value
+  // bearing the relocation marker that drops one claims paths the built-in never governed.
+  const sameReach = relocate<Memory>(memory, { locus: { root: ".", glob: "**/CLAUDE.md" } });
+  const member = sameReach({ name: "CLAUDE", prose: text`Always true.` });
+  const locus = member.facts.locus;
+  if (locus.kind !== "at" || !locus.exclude?.includes(".claude/skills")) {
+    assert.fail("the same-reach relocation must keep `.claude/skills` excluded");
+  }
+  const dropped = { ...locus, exclude: locus.exclude.filter((path) => path !== ".claude/skills") };
+  const forged: Member = { ...member, facts: { ...member.facts, locus: dropped } as KindFacts };
+  const h = harness({ members: [forged], expect: [{ kind: memory, clauses: [] }] });
+  assert.throws(compileDeclarations.bind(null, h), /two kinds named `memory` are in play/);
 });
 
 /** The one `skill` kind-fact row a harness expecting `skillKind` compiles to. */

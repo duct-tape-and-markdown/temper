@@ -1,4 +1,4 @@
-engine = "0.0.26+unreleased.3fa5f4853cb5"
+engine = "0.0.26+unreleased.f649fa51572e"
 
 [[decision]]
 name = "authority-arrow"
@@ -63,8 +63,8 @@ emit_hash = "5337e06350ac4eb9572687f9e87392c43decc60ded60cec35bd31e8731e59f63"
 [[settings]]
 name = "settings"
 source_path = ".claude/settings.json"
-source_hash = "e26e0ef5b42be14f59f06a10a12ab7b6510e2b301e7ebb5152135b9f79189ad7"
-emit_hash = "e26e0ef5b42be14f59f06a10a12ab7b6510e2b301e7ebb5152135b9f79189ad7"
+source_hash = "abeae83879879686aa6cbb1ac652aeeaaf5eec23575744ecb841053afc190b79"
+emit_hash = "abeae83879879686aa6cbb1ac652aeeaaf5eec23575744ecb841053afc190b79"
 
 [[skill]]
 name = "corpus"

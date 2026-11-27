@@ -22,7 +22,8 @@ use crate::common;
 
 /// The decidable `(severity, predicate)` vector the rule built-in must carry, in
 /// declaration order — the Cursor-key `forbidden-keys` (required), the `paths`
-/// `glob-valid` (required), the lean-rule `extent` (advisory), the on-demand size
+/// `glob-valid` (required), the lean-rule line `extent` guarded on a launch load
+/// (advisory), the on-demand size
 /// advisory (a `when` over `paths` guarding a character `extent`), the
 /// `mention-reachable` gate check and its converse `trigger-agrees` (both advisory). Guidance and
 /// `source` ride each clause but are product prose, so they are excluded from this
@@ -49,10 +50,21 @@ fn expected_clauses() -> Vec<(Severity, Predicate)> {
         ),
         (
             Severity::Advisory,
-            Predicate::Extent {
-                unit: ExtentUnit::Lines,
-                max: 200,
-                whole: false,
+            Predicate::When {
+                guard: Box::new(Predicate::Loads {
+                    moment: LoadMoment::Launch,
+                }),
+                body: vec![Clause {
+                    label: "rule.when.loads=launch.extent".to_string(),
+                    severity: Severity::Advisory,
+                    predicate: Predicate::Extent {
+                        unit: ExtentUnit::Lines,
+                        max: 200,
+                        whole: false,
+                    },
+                    guidance: None,
+                    source: None,
+                }],
             },
         ),
         (
@@ -164,7 +176,6 @@ fn rule_builtin_encodes_only_decidable_clauses() {
     assert_eq!(
         kinds,
         BTreeSet::from([
-            "extent",
             "forbidden-keys",
             "glob-valid",
             "mention-reachable",
@@ -406,6 +417,63 @@ fn an_unscoped_rule_past_the_on_demand_size_limit_draws_no_rule_size_advisory() 
         run.output
     );
     assert!(run.ok, "and the run is clean ⇒ zero, got:\n{}", run.output);
+}
+
+/// A rule of `lines` short lines at `path`, its frontmatter scoped by `paths` or not.
+fn long_rule_run(slug: &str, path: &str, paths: Option<&str>, lines: usize) -> common::CheckRun {
+    let root = common::tmpdir(slug);
+    let scope = paths.map_or_else(String::new, |glob| format!("paths: [\"{glob}\"]\n"));
+    let body = "- an instruction\n".repeat(lines);
+    common::write_sibling(&root, path, &format!("---\n{scope}---\n# Long\n\n{body}"));
+    common::write_lock(&root, Declarations::default());
+    common::check_in(&root, &[], None)
+}
+
+/// The findings a run drew against the 200-line size target, whatever label the clause
+/// carries: the line budget is the one `extent` whose finding names a line count.
+fn line_budget_findings(run: &common::CheckRun) -> usize {
+    run.output
+        .lines()
+        .filter(|line| line.contains("extent") && line.contains("lines"))
+        .count()
+}
+
+/// A path-scoped rule loads on demand, paid only where it registers, so the launch line
+/// budget does not judge it.
+#[test]
+fn a_paths_scoped_rule_past_two_hundred_lines_raises_no_extent_lines_finding() {
+    let run = long_rule_run(
+        "rule-lines-scoped",
+        ".claude/rules/long.md",
+        Some("src/**"),
+        250,
+    );
+    assert_eq!(line_budget_findings(&run), 0, "got:\n{}", run.output);
+    assert!(run.ok, "got:\n{}", run.output);
+}
+
+/// A rule under a subdirectory's own `.claude/rules/` registers on a read beneath that
+/// directory, so even without `paths` it loads on demand and escapes the launch budget.
+#[test]
+fn a_rule_under_a_subdirectory_rules_directory_past_two_hundred_lines_raises_no_extent_lines_finding()
+ {
+    let run = long_rule_run(
+        "rule-lines-nested",
+        "apps/web/.claude/rules/long.md",
+        None,
+        250,
+    );
+    assert_eq!(line_budget_findings(&run), 0, "got:\n{}", run.output);
+    assert!(run.ok, "got:\n{}", run.output);
+}
+
+/// A root rule without `paths` loads at launch and rides every session, so the line
+/// budget judges it — one advisory, and the run stays zero.
+#[test]
+fn a_root_rule_without_paths_past_two_hundred_lines_raises_an_extent_lines_finding() {
+    let run = long_rule_run("rule-lines-root", ".claude/rules/long.md", None, 250);
+    assert_eq!(line_budget_findings(&run), 1, "got:\n{}", run.output);
+    assert!(run.ok, "advisory ⇒ zero, got:\n{}", run.output);
 }
 
 /// The rule built-in is itself admissible — it passes the second green.

@@ -1436,6 +1436,32 @@ fn live_members(
     live
 }
 
+/// Every glob a `paths-match` or `paths-listing` channel declares across `by_kind`,
+/// deduplicated — the whole domain [`dead_registration`] tests repository files against,
+/// so a file set scoped to these globs decides every channel a whole-tree set would.
+pub(crate) fn registration_globs(
+    registrations: &BTreeMap<&str, Vec<Registration>>,
+    by_kind: &BTreeMap<&str, &[Features]>,
+) -> Vec<String> {
+    let mut globs = BTreeSet::new();
+    for (kind, channels) in registrations {
+        let Some(members) = by_kind.get(kind) else {
+            continue;
+        };
+        for channel in channels {
+            let (Registration::PathsMatch { field } | Registration::PathsListing { field }) =
+                channel
+            else {
+                continue;
+            };
+            for member in *members {
+                globs.extend(declared_globs(member, field));
+            }
+        }
+    }
+    globs.into_iter().collect()
+}
+
 /// Whether every channel of a member's declared [`Registration`] **set** is provably
 /// dead, and why — `Some(reason)` joins each dead channel's own reason for the finding,
 /// `None` leaves the member reachable because at least one channel is live (or the set

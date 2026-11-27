@@ -254,6 +254,60 @@ fn a_rendered_gate_command_with_the_project_dir_unset_runs_where_it_is_invoked()
     }
 }
 
+/// Every command a gate or tap hook renders, at a binary no shell can find — a bare name
+/// off an empty PATH, a relative path and a quoted path absent from the tree — each run
+/// through `sh -c` as Claude Code runs a hook; yields the command and its output.
+#[cfg(unix)]
+fn rendered_commands_with_the_binary_absent(label: &str) -> Vec<(String, std::process::Output)> {
+    let root = tempfile::Builder::new().prefix(label).tempdir().unwrap();
+    let mut commands = Vec::new();
+    for binary in ["temper", "./bin/temper", "/nowhere/my tools/it's temper"] {
+        for (event, _) in GATE_EVENTS {
+            commands.push(install::gate_hook_command(event, binary).unwrap());
+        }
+        commands.push(install::tap_hook_command(binary));
+    }
+    commands
+        .into_iter()
+        .map(|command| {
+            let output = Command::new("/bin/sh")
+                .arg("-c")
+                .arg(&command)
+                .current_dir(root.path())
+                .env_clear()
+                .env("CLAUDE_PROJECT_DIR", root.path())
+                .stdin(std::process::Stdio::null())
+                .output()
+                .unwrap();
+            (command, output)
+        })
+        .collect()
+}
+
+#[cfg(unix)]
+#[test]
+fn a_rendered_gate_command_whose_binary_cannot_be_found_exits_2() {
+    for (command, output) in rendered_commands_with_the_binary_absent("gate-absent-exit") {
+        assert_eq!(
+            output.status.code(),
+            Some(2),
+            "exit 2 is the blocking exit: {command}"
+        );
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn a_rendered_gate_command_whose_binary_cannot_be_found_names_how_to_install_temper_on_stderr() {
+    for (command, output) in rendered_commands_with_the_binary_absent("gate-absent-hint") {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains("command not found; install temper with npm install -g @dtmd/temper"),
+            "{command}: {stderr}"
+        );
+    }
+}
+
 #[test]
 fn a_gate_command_in_the_unanchored_form_reads_as_no_rendered_gate() {
     // A settings document wiring temper's session-start command in the spelling from
@@ -316,7 +370,7 @@ fn the_gate_commands_render_from_a_binary_and_the_default_is_todays_command() {
     assert_eq!(
         gate_hook_command("PreToolUse", "./node_modules/.bin/temper").as_deref(),
         Some(
-            "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; command -v ./node_modules/.bin/temper >/dev/null 2>&1 || { echo \"./node_modules/.bin/temper: command not found\" >&2; exit 127; } && ./node_modules/.bin/temper guard ."
+            "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; command -v ./node_modules/.bin/temper >/dev/null 2>&1 || { echo \"./node_modules/.bin/temper: command not found; install temper with npm install -g @dtmd/temper, or npm -C .temper install for a represented harness\" >&2; exit 2; } && ./node_modules/.bin/temper guard ."
         )
     );
 
@@ -324,7 +378,7 @@ fn the_gate_commands_render_from_a_binary_and_the_default_is_todays_command() {
     assert_eq!(
         gate_hook_command("SessionStart", "/opt/my tools/it's/temper").as_deref(),
         Some(
-            "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; command -v '/opt/my tools/it'\\''s/temper' >/dev/null 2>&1 || { echo '/opt/my tools/it'\\''s/temper: command not found' >&2; exit 127; } && '/opt/my tools/it'\\''s/temper' check . --reporter session-start"
+            "cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 1; command -v '/opt/my tools/it'\\''s/temper' >/dev/null 2>&1 || { echo '/opt/my tools/it'\\''s/temper: command not found; install temper with npm install -g @dtmd/temper, or npm -C .temper install for a represented harness' >&2; exit 2; } && '/opt/my tools/it'\\''s/temper' check . --reporter session-start"
         )
     );
 
@@ -5931,11 +5985,17 @@ fn the_pre_edge_names_an_undeclared_named_field_layout_document_by_its_frontmatt
 /// under `warn`. `check`'s nested-file scan honors the host's commitment, so it reaches
 /// every child in the ignored unit.
 fn local_host_child_harness(label: &str) -> PathBuf {
+    local_host_harness(label, "docs/guides/\n", "*.md")
+}
+
+/// A local `guide` host at `docs/guides` with one `operate` unit, its repo ignoring
+/// `gitignore`, and its `spec` child template at `child`.
+fn local_host_harness(label: &str, gitignore: &str, child: &str) -> PathBuf {
     let harness = common::scaffold(label);
     let unit = harness.join("docs/guides/operate");
     fs::create_dir_all(&unit).unwrap();
     fs::write(unit.join("GUIDE.md"), "# Operate\n").unwrap();
-    fs::write(harness.join(".gitignore"), "docs/guides/\n").unwrap();
+    fs::write(harness.join(".gitignore"), gitignore).unwrap();
     let payload = drift::Payload {
         version: drift::SEAM_VERSION,
         declarations: drift::Declarations {
@@ -5945,7 +6005,7 @@ fn local_host_child_harness(label: &str) -> PathBuf {
                     unit_shape: Some("directory".to_string()),
                     templates: vec![drift::TemplateRow {
                         kind: "spec".to_string(),
-                        path: Some("*.md".to_string()),
+                        path: Some(child.to_string()),
                     }],
                     ..common::kind_facts("guide", "docs/guides", "*/GUIDE.md")
                 },
@@ -6168,5 +6228,73 @@ fn guard_leaves_an_edit_outside_every_playbook_area_to_the_other_guards() {
     assert!(
         stderr.contains("temper-managed projection") && !stderr.contains("playbook area"),
         "with its own finding alone: {stderr}"
+    );
+}
+
+#[test]
+fn guard_and_check_agree_on_a_hosted_child_in_an_ignored_subdirectory_of_a_local_host_unit() {
+    let harness = local_host_harness("guard-local-host-ignored-subdir", "build/\n", "**/*.md");
+    let ignored = "docs/guides/operate/build/notes.md";
+    let reached = "docs/guides/operate/notes/stray.md";
+
+    // Pending, before the ignored directory exists: the write would create it ignored.
+    let (code, output) = common::run_guard(
+        &harness,
+        &common::guard_write_payload_with_content(ignored, NESTED_SPEC_DOC),
+    );
+    assert_eq!(code, Some(0), "warn allows the write, got: {output}");
+    assert!(
+        output.is_empty(),
+        "a wildcard never descends the ignored `build/`, got: {output}"
+    );
+
+    fs::create_dir_all(harness.join("docs/guides/operate/build")).unwrap();
+    fs::write(harness.join(ignored), NESTED_SPEC_DOC).unwrap();
+    let (code, output) = common::run_guard(&harness, &common::guard_write_payload(ignored));
+    assert_eq!(code, Some(0), "warn allows the write, got: {output}");
+    assert!(
+        output.is_empty(),
+        "an existing child in the ignored `build/` is no member, got: {output}"
+    );
+    let (findings, _) = common::check_harness(&harness);
+    assert!(
+        !findings.iter().any(|line| line.contains(ignored)),
+        "check discovers no member in the ignored `build/`, got: {findings:#?}"
+    );
+
+    // A child the index reaches is still placed, as check places it.
+    let (code, output) = common::run_guard(
+        &harness,
+        &common::guard_write_payload_with_content(reached, NESTED_SPEC_DOC),
+    );
+    assert_eq!(code, Some(0), "warn allows the write, got: {output}");
+    let in_band = common::guard_in_band(&output, "PreToolUse");
+    fs::create_dir_all(harness.join("docs/guides/operate/notes")).unwrap();
+    fs::write(harness.join(reached), NESTED_SPEC_DOC).unwrap();
+    assert_check_raises_the_guard_s_layout_finding(&harness, &in_band, reached);
+}
+
+#[test]
+fn guard_places_no_memory_local_member_inside_an_ignored_directory_a_wildcard_never_descends() {
+    let harness = common::scaffold("guard-memory-local-ignored-dir");
+    fs::write(harness.join(".gitignore"), "build/\n").unwrap();
+    let pending = "build/CLAUDE.local.md";
+    let (code, output) = common::run_guard(
+        &harness,
+        &common::guard_write_payload_with_content(pending, "# Local\n"),
+    );
+    assert_eq!(code, Some(0), "warn allows the write, got: {output}");
+    assert!(
+        output.is_empty(),
+        "no placement in the ignored `build/`, got: {output}"
+    );
+
+    fs::create_dir_all(harness.join("build")).unwrap();
+    fs::write(harness.join(pending), "# Local\n").unwrap();
+    let (code, output) = common::run_guard(&harness, &common::guard_write_payload(pending));
+    assert_eq!(code, Some(0), "warn allows the write, got: {output}");
+    assert!(
+        output.is_empty(),
+        "no placement in the ignored `build/`, got: {output}"
     );
 }
