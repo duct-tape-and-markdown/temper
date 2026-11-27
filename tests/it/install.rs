@@ -162,7 +162,7 @@ fn has_entry(outcome: &InstallOutcome, placement: temper::install::Placement) ->
 /// twelve copies of the read.
 fn gate_installed(root: &Path) -> Vec<temper::check::Diagnostic> {
     let lock = drift::read_lock_document(&root.join(".temper")).unwrap();
-    install::gate_installed(root, &lock)
+    install::gate_installed(&temper::bytes::Bytes::new(), root, &lock)
 }
 
 /// The message of the one advisory `gate_installed` folds every unplaced placement into,

@@ -31,7 +31,7 @@ fn tap(root: &std::path::Path, payload: &str) -> (bool, LogReadout) {
         .write_all(payload.as_bytes())
         .unwrap();
     let ok = child.wait_with_output().unwrap().status.success();
-    let readout = tap::read_log(&root.join(".temper")).unwrap();
+    let readout = tap::read_log(&temper::bytes::Bytes::new(), &root.join(".temper")).unwrap();
     (ok, readout)
 }
 
@@ -136,7 +136,7 @@ fn a_record_round_trips_through_append_and_read() {
     let record = common::tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "verify");
     tap::append(&workspace, &record).unwrap();
 
-    let readout = tap::read_log(&workspace).unwrap();
+    let readout = tap::read_log(&temper::bytes::Bytes::new(), &workspace).unwrap();
     assert_eq!(readout.records.len(), 1, "one append produces one record");
     assert_eq!(readout.older_version, 0, "the current tap wrote it");
 
@@ -171,7 +171,7 @@ fn an_instructions_loaded_identity_relativizes_against_the_checkout_root() {
     };
     tap::append(&workspace, &record).unwrap();
 
-    let readout = tap::read_log(&workspace).unwrap();
+    let readout = tap::read_log(&temper::bytes::Bytes::new(), &workspace).unwrap();
     let read_record = &readout.records[0];
     assert_eq!(
         std::path::Path::new(&read_record.identity),
@@ -268,7 +268,7 @@ fn two_appends_interleave_as_two_lines_without_rewriting() {
     let raw = std::fs::read_to_string(workspace.join("tap.jsonl")).unwrap();
     assert_eq!(raw.lines().count(), 2, "two appends produce two lines");
 
-    let readout = tap::read_log(&workspace).unwrap();
+    let readout = tap::read_log(&temper::bytes::Bytes::new(), &workspace).unwrap();
     assert_eq!(readout.records.len(), 2);
     assert_eq!(readout.records[0].session, "a");
     assert_eq!(readout.records[0].identity, "Read");
@@ -300,7 +300,7 @@ fn an_older_version_record_reads_tolerated_and_counted() {
     )
     .unwrap();
 
-    let readout = tap::read_log(&workspace).unwrap();
+    let readout = tap::read_log(&temper::bytes::Bytes::new(), &workspace).unwrap();
     assert_eq!(
         readout.records.len(),
         2,
@@ -330,7 +330,7 @@ fn a_current_version_record_without_the_trigger_paths_reads_clean() {
     );
     std::fs::write(workspace.join("tap.jsonl"), format!("{line}\n")).unwrap();
 
-    let readout = tap::read_log(&workspace).unwrap();
+    let readout = tap::read_log(&temper::bytes::Bytes::new(), &workspace).unwrap();
     assert_eq!(readout.records.len(), 1, "the record reads, not rejected");
     assert_eq!(readout.older_version, 0, "it is a current-version record");
     assert_eq!(readout.records[0].identity, "Grep");
@@ -391,7 +391,7 @@ fn log_path_resolves_linked_worktree_to_primary_checkout() {
     );
 
     // Reading the log from the worktree workspace should read from the primary.
-    let readout = tap::read_log(&worktree_workspace).unwrap();
+    let readout = tap::read_log(&temper::bytes::Bytes::new(), &worktree_workspace).unwrap();
     assert_eq!(
         readout.records.len(),
         1,
@@ -416,7 +416,7 @@ fn log_path_resolves_linked_worktree_to_primary_checkout() {
     };
     tap::append(&worktree_workspace, &instructions).unwrap();
 
-    let readout = tap::read_log(&worktree_workspace).unwrap();
+    let readout = tap::read_log(&temper::bytes::Bytes::new(), &worktree_workspace).unwrap();
     assert_eq!(
         readout.records.len(),
         2,
@@ -449,7 +449,7 @@ fn log_path_unchanged_for_primary_checkout_with_git_directory() {
 
     let log = workspace.join("tap.jsonl");
     assert!(log.exists(), "log should be at the workspace path");
-    let readout = tap::read_log(&workspace).unwrap();
+    let readout = tap::read_log(&temper::bytes::Bytes::new(), &workspace).unwrap();
     assert_eq!(readout.records.len(), 1);
     assert_eq!(readout.records[0].identity, "Tool");
 }
@@ -466,7 +466,7 @@ fn log_path_unchanged_for_non_git_directory() {
 
     let log = workspace.join("tap.jsonl");
     assert!(log.exists(), "log should be at the workspace path");
-    let readout = tap::read_log(&workspace).unwrap();
+    let readout = tap::read_log(&temper::bytes::Bytes::new(), &workspace).unwrap();
     assert_eq!(readout.records.len(), 1);
     assert_eq!(readout.records[0].identity, "Tool");
 }

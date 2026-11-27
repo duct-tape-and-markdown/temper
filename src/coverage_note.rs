@@ -242,7 +242,8 @@ pub fn script_note(
             let path = root
                 .join(normalize_root(&governs.root))
                 .join(governs.sole_glob()?);
-            serde_json::from_str::<serde_json::Value>(&std::fs::read_to_string(path).ok()?).ok()
+            serde_json::from_str::<serde_json::Value>(&crate::bytes::open_to_string(path).ok()?)
+                .ok()
         })
         .any(|settings| settings_run_a_command(&settings));
     runs_command.then(|| {

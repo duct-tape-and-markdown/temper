@@ -80,7 +80,7 @@ pub(crate) enum ReadUtf8Error {
 /// Read a file and decode it as UTF-8. Each format maps the error to its own error
 /// vocabulary at the call site.
 pub(crate) fn read_utf8(path: &Path) -> Result<String, ReadUtf8Error> {
-    let bytes = std::fs::read(path).map_err(|source| ReadUtf8Error::Io {
+    let bytes = crate::bytes::open(path).map_err(|source| ReadUtf8Error::Io {
         path: path.to_path_buf(),
         source,
     })?;

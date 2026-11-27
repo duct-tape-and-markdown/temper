@@ -3111,7 +3111,7 @@ pub fn explain_target(harness_root: &Path, target: &str) -> miette::Result<Strin
     // The per-machine tap log at the workspace log path — the evidence the field strand
     // narrates. An absent log yields an empty readout (never an error), so the strand
     // narrates none.
-    let readout = tap::read_log(&workspace)?;
+    let readout = tap::read_log(discovery.bytes(), &workspace)?;
 
     // Build the path-to-id map from the lock's emit-owned entries, used to normalize
     // InstructionsLoaded record identities from paths to member IDs.

@@ -49,7 +49,6 @@
 //! a silent skip.
 
 use std::collections::BTreeMap;
-use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::LazyLock;
@@ -978,7 +977,8 @@ fn run_represented(
     // What the settings document wired before this run touched anything — the only
     // reading of "before" the emit below cannot destroy, and the split between a gate
     // hook this run wired ([`ApplyOutcome::Applied`]) and one already in place.
-    let gate_before = gate_hooks_state(&settings_path(root))?.map(|state| state.wired);
+    let gate_before = gate_hooks_state(&crate::bytes::Bytes::new(), &settings_path(root))?
+        .map(|state| state.wired);
 
     // Read and judged before any write: an artifact the lift cannot convert, or one the
     // default patterns' own members would collide with, refuses with `.temper/` untouched.
@@ -1041,7 +1041,14 @@ fn run_represented(
         // Read *after* the emit above rewrote the lock: placements bind to the rows this
         // run just wrote, never to the previous run's.
         let lock = drift::read_lock_document(&temper_dir)?;
-        evaluate_placements(root, dry_run, Some(gate_before), &lock)?
+        // A fresh owner: the emit above rewrote the targets behind any earlier read.
+        evaluate_placements(
+            &crate::bytes::Bytes::new(),
+            root,
+            dry_run,
+            Some(gate_before),
+            &lock,
+        )?
     } else {
         Vec::new()
     };
@@ -1110,12 +1117,16 @@ pub fn represented_by(root: &Path) -> Option<PathBuf> {
 /// and the `harness.ts` import line that reaches it ([`gate_hook_clause`]); the notes and
 /// modelines really are install's write, so they share the one `temper install` clause.
 #[must_use]
-pub fn gate_installed(root: &Path, lock: &DocumentMut) -> Vec<Diagnostic> {
+pub fn gate_installed(
+    bytes: &crate::bytes::Bytes,
+    root: &Path,
+    lock: &DocumentMut,
+) -> Vec<Diagnostic> {
     let represented = represented_by(root).is_some();
     let evaluated = if represented {
-        evaluate_placements(root, true, None, lock).map(Some)
+        evaluate_placements(bytes, root, true, None, lock).map(Some)
     } else {
-        evaluate_unrepresented(root)
+        evaluate_unrepresented(bytes, root)
     };
     let entries = match evaluated {
         Ok(Some(entries)) => entries,
@@ -1200,8 +1211,11 @@ fn gate_hook_at(placement: Placement) -> Option<&'static GateHook> {
 ///
 /// A settings document that does not parse is no evidence either: whether it seats the
 /// hook is unknowable, and the parse failure is the settings kind's finding to raise.
-fn evaluate_unrepresented(root: &Path) -> miette::Result<Option<Vec<InstallEntry>>> {
-    let Some(text) = read_optional(&settings_path(root))? else {
+fn evaluate_unrepresented(
+    bytes: &crate::bytes::Bytes,
+    root: &Path,
+) -> miette::Result<Option<Vec<InstallEntry>>> {
+    let Some(text) = read_optional(bytes, &settings_path(root))? else {
         return Ok(None);
     };
     let seated = serde_json::from_str::<JsonValue>(&text)
@@ -1215,11 +1229,11 @@ fn evaluate_unrepresented(root: &Path) -> miette::Result<Option<Vec<InstallEntry
         return Ok(None);
     }
     let discovery = discover(root)?;
-    let mut entries = vec![place_session_start(root, true)?];
+    let mut entries = vec![place_session_start(bytes, root, true)?];
     entries.extend(
-        place_cdn_modelines(root, &discovery, true)?
+        place_cdn_modelines(bytes, root, &discovery, true)?
             .into_iter()
-            .filter(|entry| placed_cdn_modeline(&entry.path)),
+            .filter(|entry| placed_cdn_modeline(bytes, &entry.path)),
     );
     Ok(Some(entries))
 }
@@ -1227,12 +1241,12 @@ fn evaluate_unrepresented(root: &Path) -> miette::Result<Option<Vec<InstallEntry
 /// Whether `path`'s frontmatter carries a modeline naming a temper CDN schema — one
 /// [`place_cdn_modelines`] placed, at whatever version. Unreadable reads as `false`: the
 /// dry run that produced the entry has just read it, so this is a race, not a finding.
-fn placed_cdn_modeline(path: &Path) -> bool {
+fn placed_cdn_modeline(bytes: &crate::bytes::Bytes, path: &Path) -> bool {
     let prefix = format!(
         "{MODELINE_MARKER} $schema={}",
         crate::placement::cdn_schema_root()
     );
-    fs::read_to_string(path).is_ok_and(|source| {
+    bytes.read_to_string(path).is_ok_and(|source| {
         frontmatter::frontmatter_matter(&source).is_some_and(|(_, matter)| {
             matter
                 .lines()
@@ -1318,19 +1332,24 @@ fn place_unrepresented(
     discovery: &DiscoveryReport,
     dry_run: bool,
 ) -> miette::Result<Vec<InstallEntry>> {
-    let mut entries = vec![place_session_start(root, dry_run)?];
-    entries.extend(place_cdn_modelines(root, discovery, dry_run)?);
+    let bytes = crate::bytes::Bytes::new();
+    let mut entries = vec![place_session_start(&bytes, root, dry_run)?];
+    entries.extend(place_cdn_modelines(&bytes, root, discovery, dry_run)?);
     Ok(entries)
 }
 
 /// Splice the `SessionStart` hook into `.claude/settings.json` — the only writer that
 /// merges this file, and the one placement an unrepresented harness's [`gate_installed`]
 /// verifies.
-fn place_session_start(root: &Path, dry_run: bool) -> miette::Result<InstallEntry> {
+fn place_session_start(
+    bytes: &crate::bytes::Bytes,
+    root: &Path,
+    dry_run: bool,
+) -> miette::Result<InstallEntry> {
     let settings_path = settings_path(root);
-    let existing = read_optional(&settings_path)?;
+    let existing = read_optional(bytes, &settings_path)?;
     let settings = project_settings(&settings_path, existing.as_deref())?;
-    drift::place(&settings_path, &settings.desired, None, dry_run)?;
+    drift::place(bytes, &settings_path, &settings.desired, None, dry_run)?;
     Ok(InstallEntry {
         placement: Placement::SessionStart,
         outcome: placement_outcome(settings.hook_present),
@@ -1345,6 +1364,7 @@ fn place_session_start(root: &Path, dry_run: bool) -> miette::Result<InstallEntr
 /// tree. A frontmatterless artifact takes none; an existing modeline is re-pointed
 /// unless it already names this URL ([`project_modeline`]).
 fn place_cdn_modelines(
+    bytes: &crate::bytes::Bytes,
     root: &Path,
     discovery: &DiscoveryReport,
     dry_run: bool,
@@ -1361,14 +1381,16 @@ fn place_cdn_modelines(
         let schema = crate::placement::cdn_schema_url(name);
         for file in members.files() {
             let path = root.join(file);
-            let source = fs::read_to_string(&path).map_err(|source| InstallError::Read {
-                path: path.clone(),
-                source,
-            })?;
+            let source = bytes
+                .read_to_string(&path)
+                .map_err(|source| InstallError::Read {
+                    path: path.clone(),
+                    source,
+                })?;
             if let Some(desired) = project_modeline(&source, &schema) {
                 entries.push(InstallEntry {
                     placement: Placement::Modeline,
-                    outcome: drift::place(&path, &desired, None, dry_run)?,
+                    outcome: drift::place(bytes, &path, &desired, None, dry_run)?,
                     path,
                 });
             }
@@ -1398,12 +1420,15 @@ struct GateHookState {
 /// `fields` are seam-inbound and dropped, and 0074 keys a hook registration on the bare
 /// event, so the matcher — the other half of a gate hook member's identity — survives
 /// nowhere else.
-fn gate_hooks_state(path: &Path) -> Result<[GateHookState; GATE_HOOK_COUNT], InstallError> {
+fn gate_hooks_state(
+    bytes: &crate::bytes::Bytes,
+    path: &Path,
+) -> Result<[GateHookState; GATE_HOOK_COUNT], InstallError> {
     const ABSENT: GateHookState = GateHookState {
         wired: false,
         seated: false,
     };
-    let Some(text) = read_optional(path)? else {
+    let Some(text) = read_optional(bytes, path)? else {
         return Ok([ABSENT; GATE_HOOK_COUNT]);
     };
     if text.trim().is_empty() {
@@ -1466,6 +1491,7 @@ fn gate_outcome(before: bool, now: GateHookState) -> ApplyOutcome {
 /// runs no emit at all — takes the current state as the before state, so a wired gate
 /// reads `Unchanged`.
 fn evaluate_placements(
+    bytes: &crate::bytes::Bytes,
     root: &Path,
     dry_run: bool,
     gate_before: Option<[bool; GATE_HOOK_COUNT]>,
@@ -1475,7 +1501,7 @@ fn evaluate_placements(
 
     let mut entries = Vec::new();
     let settings_path = settings_path(root);
-    let now = gate_hooks_state(&settings_path)?;
+    let now = gate_hooks_state(bytes, &settings_path)?;
     let before = gate_before.unwrap_or_else(|| now.map(|state| state.wired));
     for (index, hook) in GATE_HOOKS.iter().enumerate() {
         entries.push(InstallEntry {
@@ -1490,18 +1516,19 @@ fn evaluate_placements(
         // A lock row names its path against the harness root, so it is joined onto the
         // root this install was aimed at — never resolved against the ambient cwd.
         let path = root.join(&target.path);
-        let source = fs::read_to_string(&path).map_err(|source| InstallError::Read {
-            path: path.clone(),
-            source,
-        })?;
-        let mut current = source;
+        let mut current = bytes
+            .read_to_string(&path)
+            .map_err(|source| InstallError::Read {
+                path: path.clone(),
+                source,
+            })?;
 
         // Converge a stale note wording where the frontmatter `#` note already exists.
         // Never creates one: emit places both marker forms — the `#` note on a
         // frontmatter projection, the banner on a frontmatterless markdown one — so
         // install's whole job here is re-wording a retired placement.
         if let Some(desired) = converge_note_wording(&current) {
-            let outcome = drift::place(&path, &desired, None, dry_run)?;
+            let outcome = drift::place(bytes, &path, &desired, None, dry_run)?;
             entries.push(InstallEntry {
                 placement: Placement::Note,
                 outcome,
@@ -1516,7 +1543,7 @@ fn evaluate_placements(
         if crate::placement::is_markdown_path(&path)
             && let Some(desired) = converge_banner_wording(&current)
         {
-            let outcome = drift::place(&path, &desired, None, dry_run)?;
+            let outcome = drift::place(bytes, &path, &desired, None, dry_run)?;
             entries.push(InstallEntry {
                 placement: Placement::Note,
                 outcome,
@@ -1533,7 +1560,7 @@ fn evaluate_placements(
         {
             entries.push(InstallEntry {
                 placement: Placement::Modeline,
-                outcome: drift::place(&path, &desired, None, dry_run)?,
+                outcome: drift::place(bytes, &path, &desired, None, dry_run)?,
                 path,
             });
         }
@@ -1910,7 +1937,7 @@ pub fn shell_edge_findings(
     if let Some(clause) = fresh {
         push_members(
             ShellEdgeHalf::Projection,
-            drift::config_stale_members_from_doc(doc, workspace_dir, clause),
+            drift::config_stale_members_from_doc(disc.bytes(), doc, workspace_dir, clause),
         );
         push_members(
             ShellEdgeHalf::Source,
@@ -2078,6 +2105,7 @@ fn layout_member_sites(
             let (Some(member), Some(source_path)) = (
                 crate::compose::hosted_member_address(
                     kind,
+                    disc,
                     &found,
                     crate::compose::SiteIdentity::OnDisk,
                 ),
@@ -2354,7 +2382,9 @@ impl<'doc> LayoutGuard<'doc> {
                 import::LocalOverride::Honored,
                 target,
             )
-            .and_then(|found| crate::compose::hosted_member_address(kind, &found, identity))
+            .and_then(|found| {
+                crate::compose::hosted_member_address(kind, self.disc, &found, identity)
+            })
         })
     }
 
@@ -2387,7 +2417,8 @@ impl<'doc> LayoutGuard<'doc> {
         let member = match governed {
             Some(locus) => {
                 let local = import::local_governs(&locus.kind, import::LocalOverride::Honored);
-                if !import::discovers_path(root, Path::new(&*normalized), local) {
+                if !import::discovers_path(self.disc.bytes(), root, Path::new(&*normalized), local)
+                {
                     return None;
                 }
                 crate::compose::governed_member_address(&locus.kind, self.disc, &target, identity)?
@@ -2464,7 +2495,13 @@ pub fn guard(
             format!("{}{}", guard_message(), projection_owner_line(owner)),
             modes.for_member(&crate::member_address::address_of(&owner.kind, &owner.name)),
         )
-    } else if let Some(locus) = matches_governed_locus(file_path, root, loci, &layout.loci.kinds) {
+    } else if let Some(locus) = matches_governed_locus(
+        layout.disc.bytes(),
+        file_path,
+        root,
+        loci,
+        &layout.loci.kinds,
+    ) {
         let gate = harness_relative(file_path, root).and_then(|path| {
             layout
                 .loci
@@ -2675,6 +2712,7 @@ fn projection_owner_line(owner: &drift::EmitOwnedEntry) -> String {
 /// guard binds the paths discovery would have walked and no others — a path the
 /// governing kind (looked up in `kinds`) excludes among those it never walks.
 fn matches_governed_locus<'a>(
+    bytes: &crate::bytes::Bytes,
     file_path: &str,
     root: &Path,
     loci: &'a [GuardedLocus],
@@ -2690,7 +2728,7 @@ fn matches_governed_locus<'a>(
     let local = kinds
         .get(&locus.kind)
         .is_some_and(|kind| import::local_governs(kind, import::LocalOverride::Honored));
-    import::discovers_path(root, Path::new(&*normalized), local).then_some(locus)
+    import::discovers_path(bytes, root, Path::new(&*normalized), local).then_some(locus)
 }
 
 /// Whether `harness_relative` is a member path of `locus` — its pattern less the paths
@@ -2818,7 +2856,7 @@ fn pending_manifest(input: &JsonValue, file_path: &str, root: &Path) -> PendingM
     let Some(relative) = crate::path::relativize_against_root(file_path, root) else {
         return PendingManifest::Unreconstructable;
     };
-    let Ok(mut text) = fs::read_to_string(root.join(relative)) else {
+    let Ok(mut text) = crate::bytes::open_to_string(root.join(relative)) else {
         return PendingManifest::Unreconstructable;
     };
     for edit in &edits {
@@ -3162,8 +3200,8 @@ fn placement_outcome(present: bool) -> ApplyOutcome {
 /// Read a file that may not exist, distinguishing "absent" (`Ok(None)`) from a
 /// real read failure. The absent case is normal — a harness with no
 /// `.claude/settings.json` yet is exactly what `install` is for.
-fn read_optional(path: &Path) -> Result<Option<String>, InstallError> {
-    match fs::read_to_string(path) {
+fn read_optional(bytes: &crate::bytes::Bytes, path: &Path) -> Result<Option<String>, InstallError> {
+    match bytes.read_to_string(path) {
         Ok(text) => Ok(Some(text)),
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(None),
         Err(source) => Err(InstallError::Read {
@@ -3841,7 +3879,7 @@ fn hoist_settings_residue(root: &Path, temper_dir: &Path, keys: &[String]) -> mi
     let ident = member_ident(KIND, &stem);
 
     let entry_path = temper_dir.join(HARNESS_ENTRY);
-    let entry = read_optional(&entry_path)?.unwrap_or_default();
+    let entry = read_optional(&crate::bytes::Bytes::new(), &entry_path)?.unwrap_or_default();
     let spliced = splice_member_into_entry(
         &entry,
         &ident,
@@ -4262,7 +4300,7 @@ fn required_dependencies() -> [MissingDependency; 3] {
 /// npm — the manager install runs — at the version it reports. A root `package.json`
 /// that does not parse declares nothing.
 fn scaffold_package_manager(root: &Path) -> Result<String, InstallError> {
-    let declared = fs::read_to_string(root.join("package.json"))
+    let declared = crate::bytes::open_to_string(root.join("package.json"))
         .ok()
         .and_then(|text| serde_json::from_str::<JsonValue>(&text).ok())
         .and_then(|manifest| {
@@ -4299,7 +4337,7 @@ fn ensure_package_json(
     temper_dir: &Path,
 ) -> Result<Vec<MissingDependency>, InstallError> {
     let path = temper_dir.join("package.json");
-    match fs::read_to_string(&path) {
+    match crate::bytes::open_to_string(&path) {
         Ok(text) => {
             let root = serde_json::from_str::<JsonValue>(&text).map_err(|source| {
                 InstallError::PackageJson {
@@ -4511,6 +4549,7 @@ pub fn render(outcome: &InstallOutcome) -> String {
 mod tests {
     use super::*;
     use crate::test_support::tmpdir;
+    use std::fs;
 
     /// Every message the guard speaks at the pending-write edge closes on the one
     /// binding limit, and that limit's tool list is [`GUARD_MATCHER`]'s own alternation

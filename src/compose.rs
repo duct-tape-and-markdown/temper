@@ -701,7 +701,9 @@ pub fn overlay_builtin_kind(
 /// Returns a [`LayoutError`] if the document is unreadable, is not UTF-8, or does not fit
 /// its declared layout, and the frontmatter adapter's refusal if its frontmatter is
 /// malformed or names no id.
+#[allow(clippy::too_many_arguments)]
 fn layout_unit(
+    bytes: &crate::bytes::Bytes,
     kind: &CustomKind,
     layout: &Layout,
     file: &Path,
@@ -714,11 +716,12 @@ fn layout_unit(
     // that load a layout document, and a count taken at one of them would pin a share of
     // the cost rather than the cost. The door reads the frontmatter as any file member's
     // and hands the read fault back unmapped, so it takes this adapter's own vocabulary.
-    let document =
-        drift::read_layout_document_member(kind, file, base).map_err(|fault| match fault {
+    let document = drift::read_layout_document_member(bytes, kind, file, base).map_err(
+        |fault| match fault {
             drift::LayoutDocumentFault::Read(err) => miette::Report::new(LayoutError::from(err)),
             drift::LayoutDocumentFault::Frontmatter(err) => miette::Report::new(err),
-        })?;
+        },
+    )?;
     advisories.extend(forgiven_yaml_advisory(&document));
     let forgiven = document.forgiven.is_some();
     let mut reading = layout.read(&document.body, file, edge_fields)?;
@@ -785,6 +788,7 @@ fn layout_unit(
 /// Returns an error if the file is unreadable, malformed, or does not fit its declared
 /// layout or format.
 fn read_file_unit(
+    bytes: &crate::bytes::Bytes,
     kind: &CustomKind,
     file: &Path,
     base: &Path,
@@ -796,7 +800,16 @@ fn read_file_unit(
     // the member's address, so the host must be in hand before the lowering, not folded on
     // after it. Every other adapter yields the unit alone and qualifies below.
     if let kind::Content::Layout(layout) = &kind.content {
-        return layout_unit(kind, layout, file, base, edge_fields, host, advisories);
+        return layout_unit(
+            bytes,
+            kind,
+            layout,
+            file,
+            base,
+            edge_fields,
+            host,
+            advisories,
+        );
     }
     let mut unit = match &kind.format {
         // Both document faces fold against the very base the frontmatter arm below receives
@@ -804,11 +817,22 @@ fn read_file_unit(
         // file-shaped document's id is a fact about its placement, never about which grammar
         // its author declared.
         Some(kind::Format::JsonDocument) => {
-            json_manifest::DocumentMember::read(kind, file, base)?.to_unit()
+            let raw = bytes
+                .read_utf8(file)
+                .map_err(json_manifest::JsonManifestError::from)?;
+            json_manifest::DocumentMember::parse(kind, file, base, &raw)?.to_unit()
         }
-        Some(kind::Format::TomlDocument) => toml_document::read(kind, file, base)?.to_unit(),
+        Some(kind::Format::TomlDocument) => {
+            let raw = bytes
+                .read_utf8(file)
+                .map_err(toml_document::TomlDocumentError::from)?;
+            toml_document::parse(kind, file, base, &raw)?.to_unit()
+        }
         Some(kind::Format::YamlFrontmatter) | None => {
-            let source = frontmatter::Member::from_source_rooted(kind, file, base)?;
+            let raw = bytes
+                .read_utf8(file)
+                .map_err(frontmatter::FrontmatterError::from)?;
+            let source = frontmatter::Member::from_text_rooted(kind, &raw, file, base)?;
             advisories.extend(forgiven_yaml_advisory(&source));
             Unit {
                 id: source.id.clone(),
@@ -1488,6 +1512,7 @@ fn resolve_kind_units(
                     // it at whatever depth the walk descended to.
                     let (host, base) = nested_host_and_base(&found);
                     match read_file_unit(
+                        disc.bytes(),
                         kind,
                         &found.file,
                         &base,
@@ -1511,6 +1536,7 @@ fn resolve_kind_units(
                 {
                     let base = governed_fold_base(disc, governs, &file);
                     match read_file_unit(
+                        disc.bytes(),
                         kind,
                         &file,
                         &base,
@@ -1607,7 +1633,7 @@ pub fn governed_member_address(
 ) -> Option<String> {
     let governs = kind.governs.as_ref()?;
     let base = governed_fold_base(disc, governs, file);
-    let id = site_id(kind, file, &base, identity)?;
+    let id = site_id(disc.bytes(), kind, file, &base, identity)?;
     Some(member_address::address_of(&kind.name, &id))
 }
 
@@ -1619,11 +1645,12 @@ pub fn governed_member_address(
 #[must_use]
 pub fn hosted_member_address(
     kind: &CustomKind,
+    disc: &import::Discovery,
     found: &import::NestedFileUnit,
     identity: SiteIdentity<'_>,
 ) -> Option<String> {
     let (host, base) = nested_host_and_base(found);
-    let id = site_id(kind, &found.file, &base, identity)?;
+    let id = site_id(disc.bytes(), kind, &found.file, &base, identity)?;
     Some(member_address::address_of(
         &kind.name,
         &host_qualified(Some(&host), &kind.name, id),
@@ -1645,6 +1672,7 @@ fn nested_host_and_base(found: &import::NestedFileUnit) -> (String, PathBuf) {
 /// `identity` names. [`None`] for a load fault, or a `named-field` identity pending bytes
 /// cannot answer.
 fn site_id(
+    bytes: &crate::bytes::Bytes,
     kind: &CustomKind,
     file: &Path,
     base: &Path,
@@ -1653,7 +1681,7 @@ fn site_id(
     let file = crate::path::normalize_path(file);
     Some(match identity {
         SiteIdentity::OnDisk => {
-            drift::read_layout_document_member(kind, &file, base)
+            drift::read_layout_document_member(bytes, kind, &file, base)
                 .ok()?
                 .id
         }
@@ -1875,7 +1903,7 @@ fn read_layer_clauses(layers: &[PathBuf]) -> miette::Result<JoinedLayers> {
         if !seen.insert(identity) {
             continue;
         }
-        let text = fs::read_to_string(&path).map_err(|source| {
+        let text = crate::bytes::open_to_string(&path).map_err(|source| {
             miette::miette!(
                 "failed to read joined layer lock {}: {source}",
                 path.display()
@@ -2626,7 +2654,11 @@ pub fn build_manifest_cache(
 
     // Read each manifest file once with all addresses for that file.
     for (file, addresses) in by_manifest {
-        let manifest = json_manifest::Manifest::read(&file, &addresses)?;
+        let raw = disc
+            .bytes()
+            .read_utf8(&file)
+            .map_err(json_manifest::JsonManifestError::from)?;
+        let manifest = json_manifest::Manifest::parse(&file, &raw, &addresses)?;
         cache.insert(file, (manifest, BTreeMap::new()));
     }
 

@@ -1192,7 +1192,7 @@ pub fn gate(
     let unclaimed_files: Vec<engine::UnclaimedFile> = import_reached_files
         .iter()
         .filter_map(|(path, importers)| {
-            let body = std::fs::read_to_string(path).ok()?;
+            let body = discovery.bytes().read_to_string(path).ok()?;
             let relative = crate::path::relative_from_root(harness_root, path)?;
             Some(engine::UnclaimedFile {
                 path: crate::path::to_canonical_spelling(&relative),
@@ -1344,7 +1344,11 @@ pub fn gate(
     // severity. It reads the hoisted `lock_doc` like every tier above it: the
     // placements it judges are the rows this workspace's lock declares emit-owned,
     // and `harness_root`'s workspace is the one `lock_doc` came off.
-    diagnostics.extend(install::gate_installed(harness_root, &lock_doc));
+    diagnostics.extend(install::gate_installed(
+        discovery.bytes(),
+        harness_root,
+        &lock_doc,
+    ));
 
     // A `{ package, bin }` tool runs at its lockfile's version: one the lockfile does not
     // record is advisory, and a lockfile temper cannot read refuses the run by name.
@@ -1489,7 +1493,10 @@ pub fn gate(
     // were imported and the fingerprints recorded).
     if let Some(clause) = fresh_clause {
         diagnostics.extend(fresh_findings(drift::config_stale_members_from_doc(
-            &lock_doc, workspace, clause,
+            discovery.bytes(),
+            &lock_doc,
+            workspace,
+            clause,
         )));
     }
 

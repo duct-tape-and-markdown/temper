@@ -36,6 +36,7 @@ pub mod builtin;
 pub mod builtin_kind;
 pub mod builtin_lock;
 pub mod bundle;
+pub mod bytes;
 pub mod check;
 pub mod compose;
 pub mod contract;
