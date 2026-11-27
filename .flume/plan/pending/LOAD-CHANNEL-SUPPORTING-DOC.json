@@ -1,0 +1,25 @@
+{
+  "tag": "LOAD-CHANNEL-SUPPORTING-DOC",
+  "gate": { "kind": "open" },
+  "files": {
+    "edit": [
+      { "path": "src/kind.rs", "description": "the supporting-doc kind's derived (nested-file) registration carries the on-read channel" },
+      { "path": "src/gate.rs", "description": "channel_load_moment: a supporting doc loads on demand when read" },
+      { "path": "src/read.rs", "description": "explain narrates a supporting doc's load moment from the one fact" },
+      { "path": "sdk/src/builtins.ts", "description": "supportingDoc doc comment: no longer channel-less, cited" },
+      { "path": "tests/it/load_moment_guard.rs", "description": "guard binds on a supporting doc" }
+    ]
+  },
+  "summary": "A supporting document loads when read, as its skill's references direct: an on-demand load channel for supporting-doc",
+  "per": { "path": "specs/builtins.md", "section": "Default contracts" },
+  "acceptance": "a loads(\"on-demand\") guard judges a skill's supporting doc",
+  "tests": [
+    "a loads on-demand guard binds its body on a supporting doc",
+    "a loads launch guard is silent on a supporting doc",
+    "explain narrates a supporting doc as loading when its skill directs a read"
+  ],
+  "pins": [
+    "a supporting doc no skill body references is still reported unreachable"
+  ],
+  "notes": "Nested-file registration is derived, never declared (sdk/src/kind.ts); the spec names supporting-doc only, so a custom nested-file kind keeps an empty registration. Shares gate.rs/read.rs/load_moment_guard.rs with LOAD-CHANNEL-OUTPUT-STYLE."
+}
