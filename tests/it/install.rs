@@ -158,8 +158,8 @@ fn has_entry(outcome: &InstallOutcome, placement: temper::install::Placement) ->
 }
 
 /// The self-verify driven the way `check` drives it: the harness's parsed lock read once
-/// and threaded into the face, so the twelve arms below carry one expression rather than
-/// twelve copies of the read.
+/// and threaded into the face, so every caller below carries one expression rather than
+/// its own copy of the read.
 fn gate_installed(root: &Path) -> Vec<temper::check::Diagnostic> {
     let lock = drift::read_lock_document(&root.join(".temper")).unwrap();
     install::gate_installed(&temper::bytes::Bytes::new(), root, &lock)

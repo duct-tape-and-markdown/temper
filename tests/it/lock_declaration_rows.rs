@@ -253,7 +253,7 @@ fn emitted(label: &str, payload: &Payload) -> (PathBuf, PathBuf) {
 }
 
 #[test]
-fn lock_carries_all_four_declaration_families() {
+fn lock_carries_every_declaration_family() {
     let payload = golden_payload(rich_declarations());
     let (_harness, into) = emitted("families", &payload);
     let declarations = drift::read_declarations(&into).unwrap();
@@ -1033,13 +1033,13 @@ fn a_require_sections_clause_row_round_trips_the_lock() {
     );
 }
 
-/// The five SDK-authorable predicates lift from their lock rows into the typed
+/// The SDK-authorable predicates lift from their lock rows into the typed
 /// `Predicate` the engine evaluates (`PREDICATE-CONSTRUCTORS`): the row an SDK
 /// constructor emits decodes through `predicate_from_row`, and the lifted
 /// `section-contains` fires on a violating member — author → row → `Predicate` →
 /// finding.
 #[test]
-fn the_five_sdk_authorable_predicate_rows_lift_and_evaluate() {
+fn the_sdk_authorable_predicate_rows_lift_and_evaluate() {
     let optional = ClauseRow {
         unit: None,
         id: None,
@@ -2696,7 +2696,7 @@ fn a_requirement_rows_kind_sources_the_each_grain_kind_clause() {
 // Decision: the built-in lock is derived
 // from the SDK module, never transcribed: `src/builtin_lock.toml` is the real
 // `[declaration.*]` family a memberless emit of `@dtmd/temper/claude-code`'s built-in
-// kinds + four floors produces, and `temper::builtin` projects each kind's floor
+// kinds and their floors produce, and `temper::builtin` projects each kind's floor
 // `Contract` straight off this lock's clause rows — no hand-written mirror any
 // more. These tests pin that projection against the lock's own rows, proving
 // `temper::builtin::contract` round-trips every row's predicate/field/severity

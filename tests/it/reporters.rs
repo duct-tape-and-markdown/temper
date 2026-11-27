@@ -1,6 +1,6 @@
 //! The reporter family — machine formats over one diagnostic source.
 //!
-//! Two layers of proof. First, the library reporters ([`temper::reporter::github`]
+//! The layers of proof. First, the library reporters ([`temper::reporter::github`]
 //! / [`temper::reporter::sarif`]) are driven over a hand-built diagnostic set: the
 //! `github` reporter emits one `::error`/`::warning::` workflow-command line per
 //! finding carrying the rule as `title=`, and the `sarif` reporter emits a SARIF
@@ -19,7 +19,7 @@
 //! alone says nothing extra. The resolved harness root rides the same channel where
 //! it is not the path the invocation named, keyed as its own family on every face.
 //!
-//! Fourth, the one-source claim across all four reporters (terminal, github,
+//! Fourth, the one-source claim across every reporter (terminal, github,
 //! SARIF, session-start): one non-empty diagnostic set, read back out of each
 //! rendering, is the same finding set every time.
 

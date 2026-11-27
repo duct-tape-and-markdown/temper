@@ -1279,7 +1279,7 @@ pub fn raw_unit(
 /// starts from, so a test spells only the columns it varies via struct update:
 /// `Features { body_lines: 1, ..common::features(id) }`. The crate-side twin
 /// (`test_support::features`) is the same base for in-`src` fixtures; the two spell one
-/// shape, and a fourteenth column lands in two places rather than fourteen.
+/// shape, and a new column lands in two places rather than one per fixture.
 ///
 /// The rendered extents are `Some(0)`, not `None`: an `extent` clause reads the `Some`,
 /// and a fixture that wants the undecidable case says so by overriding.

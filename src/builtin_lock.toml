@@ -1,15 +1,15 @@
 # The built-in lock — the compiled default program `temper` embeds for SDK-less
 # checking (specs/distribution.md, "The stranger gate"). Declaration rows only:
-# the twenty-one built-in kinds' facts and their default contract clauses, the **root
-# member's own** default contract (`rootDefaultContract`, `sdk/src/assembly.ts` — the eight
+# the built-in kinds' facts and their default contract clauses, the **root
+# member's own** default contract (`rootDefaultContract`, `sdk/src/assembly.ts` — the
 # clause rows here naming no kind, that absence being what makes them the root's), plus
-# twenty-seven assembly facts — the unconditional `mode = "warn"` (the root member's own
+# the assembly facts — the unconditional `mode = "warn"` (the root member's own
 # enforcement mode, specs/model/representation.md, "The root member", every harness carries
 # absent an authored mode), one `contract` declaredness marker per `expect`-bound kind
-# (twenty-one, each naming its kind in `from`; no marker names no kind, because the program
-# declares no root `contract` of its own and an undeclared contract writes none), the two
+# (each naming its kind in `from`; no marker names no kind, because the program
+# declares no root `contract` of its own and an undeclared contract writes none), the
 # `runs` edges into `tool` — a hook handler's and the `settings` status line's, each naming
-# the tool its command runs (decision 0104) — the two `outputStyle` edges into
+# the tool its command runs (decision 0104) — the `outputStyle` edges into
 # `output-style`, `settings`'s and `settings-local`'s, each carrying the built-in style
 # names the runtime itself answers (`provided`, decision 0101) — and the `installed-plugin` →
 # `known-marketplace` edge, the marketplace half of an enablement's
@@ -20,7 +20,7 @@
 # lock is derived from the SDK module, never transcribed"): this is the
 # real `[declaration.*]` family `drift::emit` writes for a memberless `Payload` whose
 # declarations come from a memberless harness over the whole shipped std-lib:
-# `@dtmd/temper/claude-code`'s eighteen
+# `@dtmd/temper/claude-code`'s
 # built-in kinds (`agent`, `command`, `handler`, `hook`, `installed-plugin`, `known-marketplace`,
 # `marketplace`, `mcp`, `mcp-server`, `output-style`, `plugin-manifest`, `settings`,
 # `settings-local`, `skill`, `supporting-doc`, `rule`, `memory`, `memory-local`) and their
@@ -46,14 +46,14 @@
 # verbatim; never hand-edit a row here.
 #
 # The SDK module exports one `memory` kind and no `provider`-qualified kind values, so
-# this lock's twenty-one kind facts carry no `provider` column. Memory's locus holds two
+# this lock's kind facts carry no `provider` column. Memory's locus holds two
 # templates: `**/CLAUDE.md`, and `**/AGENTS.md` (`.claude/AGENTS.md` among them) behind
 # two absence gates, since Claude Code reads one at launch only where no `CLAUDE.md`,
 # `.claude/CLAUDE.md` or `CLAUDE.local.md` sits in the working directory or above, and a
 # subdirectory's on demand only where that subdirectory has none of its own
 # (code.claude.com/docs/en/memory, retrieved 2026-11-26).
 #
-# `dial`, `settings-local` and `memory-local` are the three kinds here declaring a `local`
+# `dial`, `settings-local` and `memory-local` are the kinds here declaring a `local`
 # commitment class:
 # read in place at check, never an emit input or target, and no row of their members' ever
 # lands in a lock — the rows below declare each kind, which is the committed, reviewed half.
@@ -70,7 +70,7 @@
 # decidable fact left is the graph one: a supporting file no edge from its host skill
 # reaches is never read. `handler` is the embedded one: its members own no file at all,
 # living inside their host hook's `hooks` array and keyed by position, which is why
-# `hook`'s `templates` entry naming it carries no `path`. Its six clauses are the
+# `hook`'s `templates` entry naming it carries no `path`. Its clauses are the
 # handler-level half of the hooks contract and the only binding they have: a `hook` member
 # is its whole matcher group, so `hook` carries the group's event clause and nothing more.
 # `tool` is embedded too, hosted by the root member rather than a kind's `templates`: it
@@ -79,9 +79,9 @@
 # its shipped fill default rides each requirement's own row (its `required` column), a clause
 # over that requirement's selection rather than over the kind's population.
 #
-# `command`, `installed-plugin`, `known-marketplace`, `mcp` and `requirement` are the five
+# `command`, `installed-plugin`, `known-marketplace`, `mcp` and `requirement` are the
 # kinds here contributing a kind fact and no clause row at all: each default contract is
-# empty, so twenty-one kinds carry sixteen contracts' clauses. A command's frontmatter is wholly
+# empty, so only the other kinds' contracts carry clauses. A command's frontmatter is wholly
 # optional, so it documents no requirement to gate. No
 # other format among them documents a gateable schema the member's
 # own type does not already hold — an installed plugin is one scalar under an identity key, a

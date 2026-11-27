@@ -238,9 +238,10 @@ fn no_clause_surface_accepts_an_author_written_pattern() {
     assert_eq!(contract::predicate_from_row(&smuggled), None);
 
     // The engine's own expressions stay engine-side: a shape names them, never carries
-    // them, so the two shipped shapes' arguments are their names alone.
+    // them, so every shipped shape's argument is its name alone.
     assert_eq!(Shape::HyphenPlacement.name(), "hyphen-placement");
     assert_eq!(Shape::NoXmlTags.name(), "no-xml-tags");
+    assert_eq!(Shape::LeadingDotSlash.name(), "leading-dot-slash");
     assert_eq!(Shape::from_name("^[a-z]+$"), None);
 }
 

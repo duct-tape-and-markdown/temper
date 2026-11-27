@@ -38,9 +38,9 @@ use crate::module_closure::without_module_rows;
 /// `supporting-doc` — whose members compose under a host rather than at a locus of their
 /// own, and whose one default clause bounds their place in the graph rather than their
 /// bytes — is bound here like any other, contributing its kind fact and that clause. So is
-/// `handler`, the embedded kind `hook` templates: its six handler-level clauses are its
+/// `handler`, the embedded kind `hook` templates: its handler-level clauses are its
 /// own, and `hookDefaultContract` spreads them, so the byte-compare below covers the new
-/// kind row, those six rows under it, and `hook`'s new `templates` column.
+/// kind row, those rows under it, and `hook`'s new `templates` column.
 pub(crate) const MEMBERLESS_BUILTIN_PROGRAM: &str = r#"
 import { dial, dialDefaultContract, harness, requirement, requirementDefaultContract } from "@dtmd/temper";
 import {

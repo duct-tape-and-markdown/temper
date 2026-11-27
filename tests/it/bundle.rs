@@ -1,6 +1,6 @@
 //! Acceptance for `temper bundle`.
 //!
-//! Proves the three properties the entry names:
+//! Proves the properties a bundle owes:
 //!
 //! - **plugin tree** — one run over an imported surface produces the operate-the-gate
 //!   skill and the `SessionStart` hook in its own `hooks.json`, and carries no
@@ -119,8 +119,7 @@ fn the_skill_teaches_custom_kind_layout_authoring_as_mechanics() {
 
 #[test]
 fn shipped_strings_teach_install_not_the_retired_import_verb() {
-    // The CLI has no Import subcommand (Install/Check/Emit/Schema/Guard/Bundle/
-    // Explain) — `install` is the single on-ramp. No shipped bundle string may
+    // The CLI has no Import subcommand — `install` is the single on-ramp. No shipped bundle string may
     // still teach the retired `import` verb, and the skill's on-ramp bullet must
     // name `temper install`.
     let surface = imported_surface("install-verb");

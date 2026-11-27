@@ -3,7 +3,7 @@
 //! later feature's composition seam surfaces as a snapshot diff at ship time. This
 //! is the base each feature entry that adds a composable surface extends.
 //!
-//! The one harness composes the four compositions the corpus names, each a shipped
+//! The one harness composes the compositions the corpus names, each a shipped
 //! feature:
 //!
 //! 1. a composed layout body over a templated host — a `spec` document graining
@@ -44,7 +44,7 @@ use crate::module_closure::{is_vendored_sdk, without_module_rows};
 /// External facts cited at the point of claim: `skill`/`rule`/`hook`/
 /// `installed-plugin` loci and field schemas are the Claude Code harness's, carried
 /// by the built-in kinds themselves (`@dtmd/temper/claude-code`, each `cite`d in
-/// `sdk/src/builtins.ts`); the six-noun composition surface (layout regions,
+/// `sdk/src/builtins.ts`); the composition surface (layout regions,
 /// nested-file templates, embedded edges, admission, the local commitment class,
 /// manifest residue) is temper's own model (`specs/model/`), not an external fact.
 const GAUNTLET_PROGRAM: &str = r#"

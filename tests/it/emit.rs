@@ -1,10 +1,10 @@
 //! `temper emit` — the seam's compile.
 //!
-//! Three tiers:
+//! The tiers:
 //!
 //! - **the compiler**, `drift::emit`, driven directly over hand-built [`drift::Payload`]
 //!   values — no `node` involved — proving the properties the entry names: every
-//!   projection and the whole five-family lock compile from the payload alone;
+//!   projection and the whole lock compile from the payload alone;
 //!   double-emit (a second compile of the same payload) reproduces every byte;
 //!   a hand-edited projection is overwritten, never merged (drift routed to the
 //!   source); `--dry-run` reports outcomes but writes nothing; an unknown kind or
@@ -218,8 +218,8 @@ fn a_freshly_emitted_frontmatter_projection_carries_its_note_with_no_install_run
 }
 
 #[test]
-fn emit_writes_all_five_declaration_families_the_payload_carries() {
-    let (_harness, into) = workspace("five-families");
+fn emit_writes_every_declaration_family_the_payload_carries() {
+    let (_harness, into) = workspace("families");
     let mut payload = basic_payload(vec![common::rule_member(
         "rust",
         Some(&["src/**/*.rs"]),

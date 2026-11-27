@@ -88,10 +88,10 @@ const NEWLY_DOCUMENTED_SETTINGS: &str = r#"{
   }
 }"#;
 
-/// A `.claude/settings.json` whose four hooks all key under documented events and each
+/// A `.claude/settings.json` whose hooks all key under documented events and each
 /// break their handler's own documented schema: a `command` handler with nothing to run,
 /// an `http` handler with nowhere to POST, a handler naming a `type` outside the
-/// documented five, and one naming no `type` at all — the common-fields table marks it
+/// documented set, and one naming no `type` at all — the common-fields table marks it
 /// required and gives it no default (code.claude.com/docs/en/hooks, "Hook handler
 /// fields"/"Common fields", retrieved 2026-09-25).
 const BROKEN_HANDLER_SETTINGS: &str = r#"{
@@ -693,7 +693,7 @@ fn the_handler_default_contract_fires_on_a_handler_breaking_its_kinds_documented
         "exactly the http handler missing its `url` fires, got: {findings:#?}"
     );
 
-    // A `type` outside the documented five fires the enum — and no guard, since no guard
+    // A `type` outside the documented set fires the enum — and no guard, since no guard
     // ranges over a value the allowlist refuses.
     let bad_type = common::findings_for(&findings, "handler.enum.type");
     assert_eq!(
@@ -723,7 +723,7 @@ fn the_handler_default_contract_fires_on_a_handler_breaking_its_kinds_documented
         "the absent `type` adds nothing to the enum's count, got: {findings:#?}"
     );
 
-    // And nothing fires under `hook`: the six handler-level clauses have one binding now,
+    // And nothing fires under `hook`: the handler-level clauses have one binding now,
     // and it is not the group's.
     assert!(
         common::findings_for(&findings, "hook.required.type").is_empty()
@@ -731,7 +731,7 @@ fn the_handler_default_contract_fires_on_a_handler_breaking_its_kinds_documented
         "no handler-level clause is left bound to `hook`, got: {findings:#?}"
     );
 
-    // The lifecycle-event clause stays silent: all three key under documented events, so
+    // The lifecycle-event clause stays silent: every hook keys under a documented event, so
     // the handler half fires on its own evidence and not on the event half's.
     assert!(
         common::findings_for(&findings, "hook.enum.event").is_empty(),

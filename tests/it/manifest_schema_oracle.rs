@@ -30,7 +30,7 @@ const SCHEMA: &str = include_str!("../fixtures/plugin-manifest/schema.json");
 /// Every rule the published schema states that the shipped clauses do not carry. Each
 /// widening shrinks this list; re-stating it is how the shrink becomes a reviewable diff.
 ///
-/// The shape of what is here: fifteen `type` rules over fields no clause types at all;
+/// The shape of what is here: `type` rules over fields no clause types at all;
 /// the vendored schema's top-level `themes`/`monitors` unions, which the shipped floor
 /// forbids at that level rather than types; and
 /// `homepage`'s `format`, which names no widening — a URI check is not on the books.
@@ -233,8 +233,8 @@ fn the_lag_behind_the_published_schema_is_the_named_expected_set() {
 #[test]
 fn the_shipped_clauses_carry_the_rules_the_schema_and_the_vocabulary_agree_on() {
     // The other side of the diff: the lag is a real subtraction from a real intersection,
-    // not the whole schema going uncovered because the read is wired wrong. Seven of the
-    // ten are the component-path unions, each covered by declaring the property's whole
+    // not the whole schema going uncovered because the read is wired wrong. Most of
+    // them are the component-path unions, each covered by declaring the property's whole
     // documented set.
     let covered: BTreeSet<String> = schema_rules()
         .intersection(&covered_rules())

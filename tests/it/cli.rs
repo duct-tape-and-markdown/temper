@@ -515,28 +515,43 @@ fn schema_rejects_an_unknown_kind() {
     );
 }
 
-#[test]
-fn the_cli_surface_is_check_emit_install_bundle_schema_guard_explain() {
-    // The collapsed surface: five nouns
-    // plus `guard`, plus `explain` — the one read verb (EXPLAIN-UNIFY) — landed once its
-    // fork-gate (`explain-target-disambiguation`) resolved. `--help` lists exactly
-    // these; the migration-era verbs, and `init`/`lift` (retired into `install`,
-    // `CODEC-RETIRE`), are gone.
+/// The subcommands `temper --help`'s "Commands:" section lists, clap's own `help` aside —
+/// read off the binary, so a sweep over every verb never spells the set by hand.
+fn listed_subcommands() -> Vec<String> {
     let help = Command::new(BIN).arg("--help").output().unwrap();
     assert!(help.status.success(), "temper --help must exit zero");
     let stdout = String::from_utf8(help.stdout).unwrap();
-    // The "Commands:" section lists each surviving noun (a leading-whitespace entry, so a
-    // retired verb merely *mentioned* in a description does not count as present).
-    for command in [
-        "check", "emit", "install", "bundle", "schema", "guard", "explain",
-    ] {
-        assert!(
-            stdout
-                .lines()
-                .any(|line| line.trim_start().starts_with(command)),
-            "temper --help must list `{command}`, got:\n{stdout}"
-        );
-    }
+    let listed: Vec<String> = stdout
+        .lines()
+        .skip_while(|line| *line != "Commands:")
+        .skip(1)
+        .take_while(|line| !line.trim().is_empty())
+        .filter_map(|line| line.split_whitespace().next())
+        .filter(|name| *name != "help")
+        .map(str::to_string)
+        .collect();
+    assert!(
+        !listed.is_empty(),
+        "temper --help carries a populated Commands section, got:\n{stdout}"
+    );
+    listed
+}
+
+#[test]
+fn the_cli_surface_is_exactly_the_shipped_verbs() {
+    // The collapsed surface: the nouns plus `guard`, `tap`, and `explain` — the one read
+    // verb (EXPLAIN-UNIFY). `--help` lists exactly these; the migration-era verbs, and
+    // `init`/`lift` (retired into `install`, `CODEC-RETIRE`), are gone.
+    let mut listed = listed_subcommands();
+    listed.sort();
+    let mut expected = [
+        "check", "emit", "install", "bundle", "schema", "guard", "tap", "explain",
+    ];
+    expected.sort_unstable();
+    assert_eq!(
+        listed, expected,
+        "temper --help must list exactly the shipped verbs"
+    );
 
     // Every retired verb is rejected as an unknown subcommand — the surface no longer
     // carries `init`/`import`/`diff`/`session-start`/`why`/`requirements`/`impact`/`context`,
@@ -1021,11 +1036,9 @@ fn help_text_speaks_the_current_enforcement_vocabulary_and_layout() {
     // path (the layout recut under CITE-RETAG). `guard --help` must name all
     // three live modes.
     let mut all_help = String::new();
-    for command in [
-        "check", "schema", "emit", "guard", "install", "bundle", "explain",
-    ] {
+    for command in listed_subcommands() {
         let out = Command::new(BIN)
-            .arg(command)
+            .arg(&command)
             .arg("--help")
             .output()
             .unwrap();
