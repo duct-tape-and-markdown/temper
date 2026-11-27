@@ -1,0 +1,43 @@
+{
+  "tag": "LOCUS-DECLARED-HELP-NAMES-THE-EXCLUSION",
+  "gate": {
+    "kind": "open"
+  },
+  "dependsOnForks": [],
+  "kind": "work",
+  "files": {
+    "new": [],
+    "edit": [
+      {
+        "path": "src/drift.rs",
+        "description": "undeclared-locus finding: a built-in's remedy also names an exclusion through the kind's relocation"
+      },
+      {
+        "path": "src/install.rs",
+        "description": "guard's undeclared-locus messages, same remedy"
+      },
+      {
+        "path": "tests/it/install.rs",
+        "description": "guard remedy wording"
+      },
+      {
+        "path": "tests/it/memory_gate.rs",
+        "description": "check remedy wording at a built-in locus"
+      }
+    ],
+    "retire": []
+  },
+  "summary": "`root.locus-declared` help names both answers at a built-in's locus: declare the member, or exclude its tree through the kind's relocation",
+  "per": {
+    "path": "specs/builtins.md",
+    "section": "Built-ins \u2014 what ships"
+  },
+  "acceptance": "check's and guard's undeclared-locus help at a built-in kind's locus names relocation exclusion beside declaring the member; cargo test green",
+  "tests": [
+    "an undeclared document at a built-in locus names exclusion through relocation in its help",
+    "guard's undeclared-locus refusal names exclusion through relocation"
+  ],
+  "pins": [],
+  "laneTests": [],
+  "notes": "Inbox finding: fixture trees under tests/ and examples/ drew the finding once rule claimed nested rules; the dogfood answered with relocate(rule, { exclude }). Custom kinds keep their `local` remedy."
+}

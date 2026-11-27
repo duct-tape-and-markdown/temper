@@ -1,7 +1,8 @@
 {
   "tag": "LOAD-MOMENT-IS-A-REGISTRATION-FACT",
   "gate": {
-    "kind": "open"
+    "kind": "parked",
+    "reason": "human lands the resolved diff with a .temper/lock.toml re-emit in one chore(harness)+build pair; a same-stamp stale lock is dogfood-only (releases stamp apart), so no src change answers it"
   },
   "dependsOnForks": [],
   "kind": "work",
@@ -83,5 +84,5 @@
   ],
   "pins": [],
   "laneTests": [],
-  "notes": "0115 + 9194fcde probe (skill paths gate the listing, not the body). Seam change: kind.ts/declarations.ts, read.rs, builtin_lock.toml together; every channel match is named per PROTOCOL rule 3. Parked once on the dogfood lock's stale built-in rows; 0117 rules that a stale read, not a fence widening. Prior diff: /tmp/load-moment-is-a-registration-fact.patch, if present."
+  "notes": "0115 + 9194fcde probe (skill paths gate the listing, not the body). Seam change: kind.ts/declarations.ts, read.rs, builtin_lock.toml together; every channel match named per PROTOCOL rule 3. 0117's stale reading shipped; the residual wall is two unreleased engines sharing one stamp, which only this repo's lock meets. Prior diff: /tmp/load-moment-is-a-registration-fact.patch, if present."
 }
