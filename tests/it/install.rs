@@ -6020,3 +6020,41 @@ fn represented_install_refuses_a_discovered_skill_named_like_the_patterns_refere
     );
     assert!(!temper_dir.join("harness.ts").exists());
 }
+
+#[test]
+fn guard_raises_the_rejected_collection_finding_for_a_pending_manifest_write_of_the_wrong_json_type()
+ {
+    // `"mcpServers": []` parses, so nothing refuses it as unparseable, and it carries no
+    // member to judge — the guard must still hold it as `check` would: Claude Code rejects
+    // the collection and none of its servers registers.
+    for (mode, expect_code, expect_in_band) in [
+        ("block", Some(2), true),
+        ("warn", Some(0), true),
+        ("note", Some(0), false),
+    ] {
+        let root = common::tmpdir(&format!("guard-manifest-rejected-collection-{mode}"));
+        common::GuardLock::declaring(mode).write(&root);
+
+        let (code, stderr) = common::run_guard(
+            &root,
+            &common::guard_write_payload_with_content(".mcp.json", r#"{"mcpServers":[]}"#),
+        );
+        assert_eq!(code, expect_code, "`{mode}` decides the write: {stderr}");
+        assert_eq!(
+            stderr.contains("manifest.rejected-collection"),
+            expect_in_band,
+            "`{mode}` in-band surfacing mismatch: {stderr}"
+        );
+        if expect_in_band {
+            assert!(
+                stderr.contains("`mcpServers` is an array, not an object"),
+                "the finding is check's own wording: {stderr}"
+            );
+            assert_eq!(
+                stderr.matches("manifest.rejected-collection").count(),
+                1,
+                "one finding per rejected collection: {stderr}"
+            );
+        }
+    }
+}

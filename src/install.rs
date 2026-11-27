@@ -2748,6 +2748,8 @@ fn manifest_member_findings(
     // three times.
     let mut reported_unparseable: std::collections::BTreeSet<&HarnessRelativePath> =
         std::collections::BTreeSet::new();
+    let mut reported_rejected: std::collections::BTreeSet<(&HarnessRelativePath, String)> =
+        std::collections::BTreeSet::new();
     for manifest in matched {
         // A pending write whose reconstructed bytes are not a manifest is refused here
         // rather than deferred: the deferral assumed a later placement would catch it, and
@@ -2770,6 +2772,20 @@ fn manifest_member_findings(
                 continue;
             }
         };
+
+        // Addresses sharing one collection key (the settings `hooks` events) each see the
+        // same rejection; it is one finding per file and key, as `check` reports it.
+        for rejected in &parsed.rejected_collections {
+            if reported_rejected.insert((&manifest.path, rejected.key.clone())) {
+                findings.push((
+                    ManifestSubject::Kind(manifest.kind.name.clone()),
+                    crate::compose::rejected_collection_finding(
+                        Path::new(&*manifest.path),
+                        rejected,
+                    ),
+                ));
+            }
+        }
 
         // Check that all lock-declared members are present in the pending write.
         let present_keys: std::collections::BTreeSet<_> =

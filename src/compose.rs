@@ -1355,7 +1355,7 @@ fn manifest_units(
 
 /// The finding a declared collection draws when its value is not the object the runtime
 /// requires: its registrations never load, and the value stays in the file's residue.
-fn rejected_collection_finding(
+pub(crate) fn rejected_collection_finding(
     source_path: &Path,
     rejected: &json_manifest::RejectedCollection,
 ) -> crate::check::Diagnostic {
