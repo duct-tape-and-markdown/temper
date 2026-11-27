@@ -2,11 +2,11 @@
  * The harness reference — temper's operate skill as a value a harness declares. Listed in
  * `harness({ members })` it is an ordinary `skill` member named `temper`; at emit its
  * description and body render from the program's own declarations: the product's
- * mechanics, then one index line per kind in play and per contracted domain, and a
- * description naming those domains so every session starts knowing which are taken.
- * Each kind and domain the index names gets its topic flat beside `SKILL.md`, a
+ * mechanics, then one index line per kind in play and per contracted requirement, and a
+ * description naming those requirements so every session starts knowing which are taken.
+ * Each kind and requirement the index names gets its topic flat beside `SKILL.md`, a
  * `supporting-doc`: `kind-<k>.md` carries the kind's counsel, locus, fields, edges in and
- * out with their intent, the clauses bound over it and its domains; `domain-<r>.md` the
+ * out with their intent, the clauses bound over it and its requirements; `requirement-<r>.md` the
  * requirement's prose, what holds it, and its owners. A kind topic names no member but
  * the `tool` topic's commands, so it grows with declarations, never with documents.
  *
@@ -127,7 +127,7 @@ Never paper over a gap. If the contract and the artifact disagree and you are un
 which is wrong, surface it rather than guessing which way to bend.
 `;
 
-/** The trigger every reference description opens with, before its domains. */
+/** The trigger every reference description opens with, before its requirements. */
 const TRIGGER =
   "Use when operating the temper gate on this harness — running `temper emit` or `temper check`, " +
   "reading a temper finding, deciding whether to fix a member or challenge its contract — " +
@@ -136,8 +136,8 @@ const TRIGGER =
 /**
  * Declare the harness reference: a `skill` member named {@link REFERENCE_NAME} whose
  * description and body `emit` renders from the harness listing it. `description`
- * hydrates the description's trigger; `satisfies` lets it fill a domain — and so list
- * itself as that domain's owner.
+ * hydrates the description's trigger; `satisfies` lets it fill a requirement — and so list
+ * itself as that requirement's owner.
  *
  * # Throws
  * If `description` is blank — a skill's description is how a session finds it.
@@ -176,9 +176,9 @@ function committedView(harness: Harness): Harness {
 }
 
 /**
- * What holds a requirement's behavior, as its domain topic states it — a declared
+ * What holds a requirement's behavior, as its requirement topic states it — a declared
  * verifier, or that it is unheld. The two read distinctly: a review names the reader
- * whose judgment holds the domain, while unheld names that nothing judges it.
+ * whose judgment holds the requirement, while unheld names that nothing judges it.
  */
 function heldBy(verifier: Verifier | undefined): string {
   switch (verifier?.species) {
@@ -193,23 +193,23 @@ function heldBy(verifier: Verifier | undefined): string {
   }
 }
 
-/** The body of a domain's topic — its prose, what holds it, and the members that own it. */
-function domainTopic(requirement: ContractedRequirement): string {
+/** The body of a requirement's topic — its prose, what holds it, and the members that own it. */
+function requirementTopic(requirement: ContractedRequirement): string {
   const owners =
     requirement.satisfiers.length === 0
       ? "No member fills it yet."
       : requirement.satisfiers.map((owner) => `- \`${owner.address}\``).join("\n");
   return [
-    `# The \`${requirement.name}\` domain`,
+    `# The \`${requirement.name}\` requirement`,
     requirement.prose,
     `## Verifier\n\n${heldBy(requirement.verifier)}`,
     `## Owners\n\n${owners}`,
   ].join("\n\n");
 }
 
-/** The topic file name a domain's index line links to — without its `.md`, the doc's identity. */
-function domainTopicName(name: string): string {
-  return `domain-${name}`;
+/** The topic file name a requirement's index line links to — without its `.md`, the doc's identity. */
+function requirementTopicName(name: string): string {
+  return `requirement-${name}`;
 }
 
 /** The topic file name a kind's index line links to — without its `.md`, the doc's identity. */
@@ -326,14 +326,14 @@ function kindTopic(
       : clauses.length === 0
         ? "The program binds it an empty contract — no clause holds its members."
         : clauses.map(clauseLine).join("\n");
-  const domains = requirements.flatMap((requirement) => {
+  const owned = requirements.flatMap((requirement) => {
     const declared = requirement.kind === facts.name;
     const filled = requirement.satisfiers.some((satisfier) => satisfier.kind === facts.name);
     if (!declared && !filled) return [];
     const how = [declared ? "declared over this kind" : "", filled ? "a member of this kind fills it" : ""]
       .filter((part) => part !== "")
       .join("; ");
-    const topic = domainTopicName(requirement.name);
+    const topic = requirementTopicName(requirement.name);
     return [linked`- \`${requirement.name}\` (${how}) — read [${topic}.md](${link(topic)}).`];
   });
   return joined([
@@ -344,7 +344,7 @@ function kindTopic(
     ...(edges.length === 0 ? [] : [`## Edges\n\n${edges.join("\n\n")}`]),
     ...(commands.length === 0 ? [] : [`## Commands\n\n${commands.join("\n")}`]),
     `## Clauses\n\n${contract}`,
-    ...(domains.length === 0 ? [] : [joined(["## Domains\n", ...domains], "\n")]),
+    ...(owned.length === 0 ? [] : [joined(["## Requirements\n", ...owned], "\n")]),
   ]);
 }
 
@@ -359,7 +359,7 @@ type TopicLink = (topic: string) => Mentionable;
 
 /**
  * The rendered reference over `harness`: its description — `trigger`, then the contracted
- * domains — its body, and its topics, one per kind in play, then one per contracted domain.
+ * requirements — its body, and its topics, one per kind in play, then one per contracted requirement.
  */
 export function renderReference(
   harness: Harness,
@@ -374,24 +374,24 @@ export function renderReference(
   const inPlay = kindsInPlay(view);
   const kinds = inPlay.filter(committed).sort((a, b) => compareStrings(a.name, b.name));
   const requirements = contractedRequirements(view);
-  const domains = requirements.map((requirement) => requirement.name);
+  const names = requirements.map((requirement) => requirement.name);
   const kindLines = kinds.map(
     ({ name }) => linked`- When you add or change a \`${name}\` member, read [${kindTopicName(name)}.md](${link(kindTopicName(name))}).`,
   );
-  const domainLines = domains.map(
+  const requirementLines = names.map(
     (name) =>
-      linked`- When you fill, change, or move the \`${name}\` domain, read [${domainTopicName(name)}.md](${link(domainTopicName(name))}).`,
+      linked`- When you fill, change, or move the \`${name}\` requirement, read [${requirementTopicName(name)}.md](${link(requirementTopicName(name))}).`,
   );
   const index = joined([
     "## This harness",
     "Read the topic file for what you are about to change before changing it: it carries " +
       "what this harness declares there and why.",
     ...(kindLines.length === 0 ? [] : [joined(["### Kinds\n", ...kindLines], "\n")]),
-    ...(domainLines.length === 0 ? [] : [joined(["### Domains\n", ...domainLines], "\n")]),
+    ...(requirementLines.length === 0 ? [] : [joined(["### Requirements\n", ...requirementLines], "\n")]),
   ]);
-  const named = domains.map((name) => `\`${name}\``).join(", ");
+  const named = names.map((name) => `\`${name}\``).join(", ");
   const description =
-    domains.length === 0 ? trigger : `${trigger} Its contracted requirements: ${named}.`;
+    names.length === 0 ? trigger : `${trigger} Its contracted requirements: ${named}.`;
   return {
     description,
     body: linkedText(joined([MECHANICS, index, ""], "\n")),
@@ -401,8 +401,8 @@ export function renderReference(
         body: linkedText(joined([kindTopic(facts, view, inPlay, requirements, link), ""], "\n")),
       })),
       ...requirements.map((requirement) => ({
-        name: domainTopicName(requirement.name),
-        body: linkedText(joined([domainTopic(requirement), ""], "\n")),
+        name: requirementTopicName(requirement.name),
+        body: linkedText(joined([requirementTopic(requirement), ""], "\n")),
       })),
     ],
   };
@@ -411,7 +411,7 @@ export function renderReference(
 /**
  * `harness` with every declared reference rendered from it — the one view emit compiles,
  * so the projection and the declaration rows agree. Each rendered reference brings its
- * kind and domain topics as `supporting-doc` members hosted by it. A harness carrying none comes
+ * kind and requirement topics as `supporting-doc` members hosted by it. A harness carrying none comes
  * back as is.
  */
 export function withReference(harness: Harness): Harness {

@@ -14,7 +14,7 @@ Each member is its own document, at:
 
 The program binds no clauses over it — any default contract the kind ships is what holds it.
 
-## Domains
+## Requirements
 
-- `conduct` (a member of this kind fills it) — read [domain-conduct.md](domain-conduct.md).
-- `standards` (a member of this kind fills it) — read [domain-standards.md](domain-standards.md).
+- `conduct` (a member of this kind fills it) — read [requirement-conduct.md](requirement-conduct.md).
+- `standards` (a member of this kind fills it) — read [requirement-standards.md](requirement-standards.md).

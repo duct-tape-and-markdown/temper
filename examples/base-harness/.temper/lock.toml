@@ -75,8 +75,8 @@ emit_hash = "56f40527068b867a2ab87e93bb88f4a596b971352c3ddbcdfad1c4aeaee6ad5c"
 [[skill]]
 name = "temper"
 source_path = ".claude/skills/temper/SKILL.md"
-source_hash = "1348c437214f3bfd4686b5e6ccd34dd244a54eb8f3a10709123848c0afc16921"
-emit_hash = "1348c437214f3bfd4686b5e6ccd34dd244a54eb8f3a10709123848c0afc16921"
+source_hash = "b7064b2cad6a5aa7363f85304349b5e97c5b035f808908a3550d39348c9449e0"
+emit_hash = "b7064b2cad6a5aa7363f85304349b5e97c5b035f808908a3550d39348c9449e0"
 
 [[skill]]
 name = "verify-summary"
@@ -89,48 +89,6 @@ name = "per-change-doc-duty"
 source_path = "docs/decisions/superseded/per-change-doc-duty.md"
 source_hash = "201c36bf5fb0506fdaab8ac33c90645ec302f1391db2621dc34acd5a15fe3af3"
 emit_hash = "201c36bf5fb0506fdaab8ac33c90645ec302f1391db2621dc34acd5a15fe3af3"
-
-[[supporting-doc]]
-name = "domain-conduct"
-host = "skill:temper"
-source_path = ".claude/skills/temper/domain-conduct.md"
-source_hash = "40f6876bb981e37e1e7e65c8bd7f96389543a6bb296299684740d1a85e9ab497"
-emit_hash = "40f6876bb981e37e1e7e65c8bd7f96389543a6bb296299684740d1a85e9ab497"
-
-[[supporting-doc]]
-name = "domain-documented-spine"
-host = "skill:temper"
-source_path = ".claude/skills/temper/domain-documented-spine.md"
-source_hash = "31ba86c3ef870d49057f821df4c3c00ec97a4541b102a3a3f38a7d1ea76d5680"
-emit_hash = "31ba86c3ef870d49057f821df4c3c00ec97a4541b102a3a3f38a7d1ea76d5680"
-
-[[supporting-doc]]
-name = "domain-governance"
-host = "skill:temper"
-source_path = ".claude/skills/temper/domain-governance.md"
-source_hash = "951e6966390b56a9f15ef3a3a4b02c5f5198adf0ed0ef50fd038723ece66c37b"
-emit_hash = "951e6966390b56a9f15ef3a3a4b02c5f5198adf0ed0ef50fd038723ece66c37b"
-
-[[supporting-doc]]
-name = "domain-operations"
-host = "skill:temper"
-source_path = ".claude/skills/temper/domain-operations.md"
-source_hash = "dad579fd7b63626f1f76d93eae91fc9fa29f24171b7751d1d08868b2d065ff7e"
-emit_hash = "dad579fd7b63626f1f76d93eae91fc9fa29f24171b7751d1d08868b2d065ff7e"
-
-[[supporting-doc]]
-name = "domain-orientation"
-host = "skill:temper"
-source_path = ".claude/skills/temper/domain-orientation.md"
-source_hash = "4441db64705018bc24e369970784b1aa99a72c69322db3f7920a8c64034f7cb1"
-emit_hash = "4441db64705018bc24e369970784b1aa99a72c69322db3f7920a8c64034f7cb1"
-
-[[supporting-doc]]
-name = "domain-standards"
-host = "skill:temper"
-source_path = ".claude/skills/temper/domain-standards.md"
-source_hash = "587e15649fdc969c35b04c4581070b2a894ae45bc9e8918d5c9091826062fadf"
-emit_hash = "587e15649fdc969c35b04c4581070b2a894ae45bc9e8918d5c9091826062fadf"
 
 [[supporting-doc]]
 name = "kind-alternative"
@@ -185,15 +143,15 @@ emit_hash = "c5f388b888317bbfa62a95e701182b377a8d01ef4f9bad4ddb5b6de56e542df8"
 name = "kind-memory"
 host = "skill:temper"
 source_path = ".claude/skills/temper/kind-memory.md"
-source_hash = "f693882e371e6ca4e45e8e4952297b684a3fdd82e0da566b7627f62fb7ea6dd0"
-emit_hash = "f693882e371e6ca4e45e8e4952297b684a3fdd82e0da566b7627f62fb7ea6dd0"
+source_hash = "be7b128bfe382feb5df65921ee19ed5605ab9b205b81f66dde8fc1018f6a6b21"
+emit_hash = "be7b128bfe382feb5df65921ee19ed5605ab9b205b81f66dde8fc1018f6a6b21"
 
 [[supporting-doc]]
 name = "kind-rule"
 host = "skill:temper"
 source_path = ".claude/skills/temper/kind-rule.md"
-source_hash = "6b494e2b10d752d86e760da48f9385777996aa25108a6e34a32622641fc0e268"
-emit_hash = "6b494e2b10d752d86e760da48f9385777996aa25108a6e34a32622641fc0e268"
+source_hash = "d479de68383956997a2b9c0d32bcffffa68cdb9775ef397222b49577018aba72"
+emit_hash = "d479de68383956997a2b9c0d32bcffffa68cdb9775ef397222b49577018aba72"
 
 [[supporting-doc]]
 name = "kind-settings"
@@ -206,8 +164,8 @@ emit_hash = "93bd569bc8c078f7cb7f52b48c30c30dbb18c43bc0bc1e42a79f1aa0a006916c"
 name = "kind-skill"
 host = "skill:temper"
 source_path = ".claude/skills/temper/kind-skill.md"
-source_hash = "4ba31046e2487e2b5636878d5781b7caa6e1e4edd4b26131f39be5470aea7c43"
-emit_hash = "4ba31046e2487e2b5636878d5781b7caa6e1e4edd4b26131f39be5470aea7c43"
+source_hash = "c67693b95f885d36fc8be3c8bc7cb463f8a6e1b1ccfec452a34c3ba7d26afcc1"
+emit_hash = "c67693b95f885d36fc8be3c8bc7cb463f8a6e1b1ccfec452a34c3ba7d26afcc1"
 
 [[supporting-doc]]
 name = "kind-step"
@@ -227,8 +185,8 @@ emit_hash = "e024283e5644f77a03483241785ade243678bda74b74f053079cf559ccc42530"
 name = "kind-system"
 host = "skill:temper"
 source_path = ".claude/skills/temper/kind-system.md"
-source_hash = "da07358aee55afbd555edc58e115f5d88c0bc3db02da9c946ed2836f3b850931"
-emit_hash = "da07358aee55afbd555edc58e115f5d88c0bc3db02da9c946ed2836f3b850931"
+source_hash = "90b009363d79ed5ca13db032e2c3c3a0f5ccc660db2b40007816bd9fa0888020"
+emit_hash = "90b009363d79ed5ca13db032e2c3c3a0f5ccc660db2b40007816bd9fa0888020"
 
 [[supporting-doc]]
 name = "kind-tool"
@@ -236,6 +194,48 @@ host = "skill:temper"
 source_path = ".claude/skills/temper/kind-tool.md"
 source_hash = "43770996dd9c0c1f610b4c7a4e4092a94d3f776e0ed72cd12a76f99b65c291e3"
 emit_hash = "43770996dd9c0c1f610b4c7a4e4092a94d3f776e0ed72cd12a76f99b65c291e3"
+
+[[supporting-doc]]
+name = "requirement-conduct"
+host = "skill:temper"
+source_path = ".claude/skills/temper/requirement-conduct.md"
+source_hash = "1da85a1a440e04235858efbf1c8035680a8b98af386bfb3546c21038f48f73e9"
+emit_hash = "1da85a1a440e04235858efbf1c8035680a8b98af386bfb3546c21038f48f73e9"
+
+[[supporting-doc]]
+name = "requirement-documented-spine"
+host = "skill:temper"
+source_path = ".claude/skills/temper/requirement-documented-spine.md"
+source_hash = "a11e51e3d40ecb8933f2934d5d2dc5b712d00afc4a4a3a07ac33e5a543ac71ed"
+emit_hash = "a11e51e3d40ecb8933f2934d5d2dc5b712d00afc4a4a3a07ac33e5a543ac71ed"
+
+[[supporting-doc]]
+name = "requirement-governance"
+host = "skill:temper"
+source_path = ".claude/skills/temper/requirement-governance.md"
+source_hash = "9c9633ba49197076b299b38e408edadb19f919adf73ce8095eace75167708e1f"
+emit_hash = "9c9633ba49197076b299b38e408edadb19f919adf73ce8095eace75167708e1f"
+
+[[supporting-doc]]
+name = "requirement-operations"
+host = "skill:temper"
+source_path = ".claude/skills/temper/requirement-operations.md"
+source_hash = "39a8f1df7122e9bfc0b33990d2b082fbf765829750fa1c7ba05824df9dc30d4d"
+emit_hash = "39a8f1df7122e9bfc0b33990d2b082fbf765829750fa1c7ba05824df9dc30d4d"
+
+[[supporting-doc]]
+name = "requirement-orientation"
+host = "skill:temper"
+source_path = ".claude/skills/temper/requirement-orientation.md"
+source_hash = "009c9d4640a37dba855bdcc6047deff8d27e4b0f92f47b737ef50fb8e1511ebb"
+emit_hash = "009c9d4640a37dba855bdcc6047deff8d27e4b0f92f47b737ef50fb8e1511ebb"
+
+[[supporting-doc]]
+name = "requirement-standards"
+host = "skill:temper"
+source_path = ".claude/skills/temper/requirement-standards.md"
+source_hash = "d9ca673c38b6df87d1697ff2f3f0c0e6aa23dcf2e4e6113e54743b064ee0327b"
+emit_hash = "d9ca673c38b6df87d1697ff2f3f0c0e6aa23dcf2e4e6113e54743b064ee0327b"
 
 [[system]]
 name = "renderer"
@@ -732,30 +732,6 @@ target = "system:renderer"
 
 [[declaration.mention]]
 member = "skill:temper"
-target = "skill:temper/supporting-doc/domain-conduct"
-
-[[declaration.mention]]
-member = "skill:temper"
-target = "skill:temper/supporting-doc/domain-documented-spine"
-
-[[declaration.mention]]
-member = "skill:temper"
-target = "skill:temper/supporting-doc/domain-governance"
-
-[[declaration.mention]]
-member = "skill:temper"
-target = "skill:temper/supporting-doc/domain-operations"
-
-[[declaration.mention]]
-member = "skill:temper"
-target = "skill:temper/supporting-doc/domain-orientation"
-
-[[declaration.mention]]
-member = "skill:temper"
-target = "skill:temper/supporting-doc/domain-standards"
-
-[[declaration.mention]]
-member = "skill:temper"
 target = "skill:temper/supporting-doc/kind-alternative"
 
 [[declaration.mention]]
@@ -815,28 +791,52 @@ member = "skill:temper"
 target = "skill:temper/supporting-doc/kind-tool"
 
 [[declaration.mention]]
+member = "skill:temper"
+target = "skill:temper/supporting-doc/requirement-conduct"
+
+[[declaration.mention]]
+member = "skill:temper"
+target = "skill:temper/supporting-doc/requirement-documented-spine"
+
+[[declaration.mention]]
+member = "skill:temper"
+target = "skill:temper/supporting-doc/requirement-governance"
+
+[[declaration.mention]]
+member = "skill:temper"
+target = "skill:temper/supporting-doc/requirement-operations"
+
+[[declaration.mention]]
+member = "skill:temper"
+target = "skill:temper/supporting-doc/requirement-orientation"
+
+[[declaration.mention]]
+member = "skill:temper"
+target = "skill:temper/supporting-doc/requirement-standards"
+
+[[declaration.mention]]
 member = "skill:temper/supporting-doc/kind-memory"
-target = "skill:temper/supporting-doc/domain-orientation"
+target = "skill:temper/supporting-doc/requirement-orientation"
 
 [[declaration.mention]]
 member = "skill:temper/supporting-doc/kind-rule"
-target = "skill:temper/supporting-doc/domain-conduct"
+target = "skill:temper/supporting-doc/requirement-conduct"
 
 [[declaration.mention]]
 member = "skill:temper/supporting-doc/kind-rule"
-target = "skill:temper/supporting-doc/domain-standards"
+target = "skill:temper/supporting-doc/requirement-standards"
 
 [[declaration.mention]]
 member = "skill:temper/supporting-doc/kind-skill"
-target = "skill:temper/supporting-doc/domain-governance"
+target = "skill:temper/supporting-doc/requirement-governance"
 
 [[declaration.mention]]
 member = "skill:temper/supporting-doc/kind-skill"
-target = "skill:temper/supporting-doc/domain-operations"
+target = "skill:temper/supporting-doc/requirement-operations"
 
 [[declaration.mention]]
 member = "skill:temper/supporting-doc/kind-system"
-target = "skill:temper/supporting-doc/domain-documented-spine"
+target = "skill:temper/supporting-doc/requirement-documented-spine"
 
 [[declaration.runs]]
 member = "root"

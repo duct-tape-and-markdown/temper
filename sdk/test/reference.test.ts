@@ -29,7 +29,7 @@ function referenceOf(result: ReturnType<typeof emit>) {
   return member;
 }
 
-test("declared reference emits its SKILL.md with the mechanics and one index line per kind and per domain", () => {
+test("declared reference emits its SKILL.md with the mechanics and one index line per kind and per requirement", () => {
   const result = emit(declared(reference()));
   const skillMember = referenceOf(result);
   const body = skillMember.body;
@@ -43,10 +43,10 @@ test("declared reference emits its SKILL.md with the mechanics and one index lin
     "- When you add or change a `rule` member, read [kind-rule.md](kind-rule.md).",
     "- When you add or change a `skill` member, read [kind-skill.md](kind-skill.md).",
   ]);
-  const domainLines = lines.filter((line) => line.includes("](domain-"));
-  assert.deepEqual(domainLines, [
-    "- When you fill, change, or move the `conventions` domain, read [domain-conventions.md](domain-conventions.md).",
-    "- When you fill, change, or move the `release-procedure` domain, read [domain-release-procedure.md](domain-release-procedure.md).",
+  const requirementLines = lines.filter((line) => line.includes("](requirement-"));
+  assert.deepEqual(requirementLines, [
+    "- When you fill, change, or move the `conventions` requirement, read [requirement-conventions.md](requirement-conventions.md).",
+    "- When you fill, change, or move the `release-procedure` requirement, read [requirement-release-procedure.md](requirement-release-procedure.md).",
   ]);
   // The body is the method and its index — no member is listed.
   assert.doesNotMatch(body, /\brust\b/);
@@ -59,7 +59,7 @@ test("declared reference description names the contracted requirements", () => {
   assert.match(description as string, /Its contracted requirements: `conventions`, `release-procedure`\.$/);
 });
 
-test("declared reference may declare satisfies and so own its domain", () => {
+test("declared reference may declare satisfies and so own its requirement", () => {
   const program = harness({
     members: [reference({ satisfies: ["gate-operation"] })],
     require: { "gate-operation": requirement({ prose: "How to operate the gate." }) },
@@ -69,7 +69,7 @@ test("declared reference may declare satisfies and so own its domain", () => {
     result.declarations.satisfies.map((row) => [row.member, row.requirement]),
     [["skill:temper", "gate-operation"]],
   );
-  assert.match(referenceOf(result).body, /\[domain-gate-operation\.md\]/);
+  assert.match(referenceOf(result).body, /\[requirement-gate-operation\.md\]/);
 });
 
 test("declared reference renders only committed declarations", () => {
@@ -94,14 +94,14 @@ test("a harness without the reference projects no temper skill", () => {
   );
 });
 
-function domainTopicOf(result: ReturnType<typeof emit>, name: string) {
-  const topic = result.members.find((m) => m.kind === "supporting-doc" && m.name === `domain-${name}`);
-  assert.ok(topic, `the reference carries a domain-${name}.md topic`);
+function requirementTopicOf(result: ReturnType<typeof emit>, name: string) {
+  const topic = result.members.find((m) => m.kind === "supporting-doc" && m.name === `requirement-${name}`);
+  assert.ok(topic, `the reference carries a requirement-${name}.md topic`);
   assert.equal(topic.host, "skill:temper");
   return topic.body;
 }
 
-test("declared reference renders one domain topic per requirement: prose, verifier, owners", () => {
+test("declared reference renders one requirement topic per requirement: prose, verifier, owners", () => {
   const program = harness({
     members: [
       reference({ satisfies: ["gate-operation"] }),
@@ -118,9 +118,9 @@ test("declared reference renders one domain topic per requirement: prose, verifi
   const result = emit(program);
 
   assert.equal(
-    domainTopicOf(result, "release-procedure"),
+    requirementTopicOf(result, "release-procedure"),
     [
-      "# The `release-procedure` domain",
+      "# The `release-procedure` requirement",
       "",
       "How a release is cut.",
       "",
@@ -134,26 +134,38 @@ test("declared reference renders one domain topic per requirement: prose, verifi
       "",
     ].join("\n"),
   );
-  const unheld = domainTopicOf(result, "gate-operation");
+  const unheld = requirementTopicOf(result, "gate-operation");
   assert.match(unheld, /^How to operate the gate\.$/m);
   assert.match(unheld, /It is unheld — no verifier is declared/);
   assert.doesNotMatch(unheld, /held by review/);
   assert.match(unheld, /^- `skill:temper`$/m);
 });
 
-test("a domain topic names that no member fills an unfilled domain", () => {
+test("a requirement topic names that no member fills an unfilled requirement", () => {
   const result = emit(declared(reference()));
-  assert.match(domainTopicOf(result, "conventions"), /## Owners\n\nNo member fills it yet\.\n$/);
+  assert.match(requirementTopicOf(result, "conventions"), /## Owners\n\nNo member fills it yet\.\n$/);
 });
 
-test("the reference's domain topics are only its committed domains", () => {
+test("a contracted requirement's reference topic is titled and named as a requirement, never a domain", () => {
+  const result = emit(declared(reference()));
+  const body = referenceOf(result).body;
+  assert.match(body, /^### Requirements$/m);
+  assert.match(requirementTopicOf(result, "conventions"), /^# The `conventions` requirement$/m);
+  const topics = result.members.filter((m) => m.kind === "supporting-doc");
+  for (const rendered of [body, ...topics.map((m) => m.body)]) {
+    assert.doesNotMatch(rendered, /domain/i);
+  }
+  for (const topic of topics) assert.doesNotMatch(topic.name, /domain/);
+});
+
+test("the reference's requirement topics are only its committed requirements", () => {
   const program = harness({
     members: [
       reference(),
       settingsLocal({ name: "settings.local", requires: { "machine-only": requirement({ prose: "One machine's slot." }) } }),
     ],
   });
-  const topics = emit(program).members.filter((m) => m.kind === "supporting-doc" && m.name.startsWith("domain-"));
+  const topics = emit(program).members.filter((m) => m.kind === "supporting-doc" && m.name.startsWith("requirement-"));
   assert.deepEqual(topics, []);
 });
 
@@ -164,7 +176,7 @@ function kindTopicOf(result: ReturnType<typeof emit>, name: string) {
   return topic.body;
 }
 
-test("declared reference renders one kind topic per kind: counsel, locus, fields, edges with intent, clauses, domains — and no member", () => {
+test("declared reference renders one kind topic per kind: counsel, locus, fields, edges with intent, clauses, requirements — and no member", () => {
   const standard = kind<{ readonly title?: string; readonly owner?: string }>({
     name: "standard",
     locus: { kind: "at", root: "standards", glob: "*.md" },
@@ -224,9 +236,9 @@ test("declared reference renders one kind topic per kind: counsel, locus, fields
       "",
       "- `required` on `title` (required): Every standard is titled.",
       "",
-      "## Domains",
+      "## Requirements",
       "",
-      "- `code-standards` (declared over this kind; a member of this kind fills it) — read [domain-code-standards.md](domain-code-standards.md).",
+      "- `code-standards` (declared over this kind; a member of this kind fills it) — read [requirement-code-standards.md](requirement-code-standards.md).",
       "",
     ].join("\n"),
   );
@@ -263,7 +275,7 @@ test("a kind topic states an unbound kind and an uncounselled edge plainly", () 
   assert.match(body, /### Out\n\n- `next` → `page`: no intent declared\./);
   assert.match(kindTopicOf(result, "page"), /### In\n\n- `linked`\.`next` → here: no intent declared\./);
   assert.match(body, /## Clauses\n\nThe program binds no clauses over it/);
-  assert.doesNotMatch(body, /## Domains/);
+  assert.doesNotMatch(body, /## Requirements/);
 });
 
 test("the reference's kind topics are only its committed kinds", () => {
@@ -290,12 +302,12 @@ test("every reference topic is reached by a typed mention, never a hand-typed li
       `no mention row reaches ${topic.name}: the supporting-doc degree floor would fire on it`,
     );
   }
-  // A kind topic's domain links are mentions too, from the topic to its sibling.
+  // A kind topic's requirement links are mentions too, from the topic to its sibling.
   assert.ok(
     result.declarations.mentions.some(
       (row) =>
         row.member.startsWith("skill:temper/supporting-doc/kind-") &&
-        row.target.startsWith("skill:temper/supporting-doc/domain-"),
+        row.target.startsWith("skill:temper/supporting-doc/requirement-"),
     ),
   );
 });

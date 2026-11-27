@@ -1,8 +1,8 @@
 <!-- temper: managed projection — a direct edit here is drift; edit the owning .temper/ module or document and re-run temper emit, never this generated file. -->
 
-# The `operations` domain
+# The `conduct` requirement
 
-doing work to this project is a stated procedure — build, verify, diagnose live as invocable skills, never as chat folklore
+how any agent behaves here — epistemics, gap handling, escalation — is declared, portable, and free of project facts
 
 ## Verifier
 
@@ -10,4 +10,4 @@ It is unheld — no verifier is declared, so nothing judges its behavior.
 
 ## Owners
 
-- `skill:verify-summary`
+- `rule:conduct`

@@ -1,8 +1,8 @@
 <!-- temper: managed projection — a direct edit here is drift; edit the owning .temper/ module or document and re-run temper emit, never this generated file. -->
 
-# The `conduct` domain
+# The `orientation` requirement
 
-how any agent behaves here — epistemics, gap handling, escalation — is declared, portable, and free of project facts
+what this project is and where truth lives is stated ambiently — the map every session loads
 
 ## Verifier
 
@@ -10,4 +10,4 @@ It is unheld — no verifier is declared, so nothing judges its behavior.
 
 ## Owners
 
-- `rule:conduct`
+- `memory:CLAUDE`

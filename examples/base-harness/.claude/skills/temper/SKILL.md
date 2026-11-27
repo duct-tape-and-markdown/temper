@@ -89,11 +89,11 @@ Read the topic file for what you are about to change before changing it: it carr
 - When you add or change a `system` member, read [kind-system.md](kind-system.md).
 - When you add or change a `tool` member, read [kind-tool.md](kind-tool.md).
 
-### Domains
+### Requirements
 
-- When you fill, change, or move the `conduct` domain, read [domain-conduct.md](domain-conduct.md).
-- When you fill, change, or move the `documented-spine` domain, read [domain-documented-spine.md](domain-documented-spine.md).
-- When you fill, change, or move the `governance` domain, read [domain-governance.md](domain-governance.md).
-- When you fill, change, or move the `operations` domain, read [domain-operations.md](domain-operations.md).
-- When you fill, change, or move the `orientation` domain, read [domain-orientation.md](domain-orientation.md).
-- When you fill, change, or move the `standards` domain, read [domain-standards.md](domain-standards.md).
+- When you fill, change, or move the `conduct` requirement, read [requirement-conduct.md](requirement-conduct.md).
+- When you fill, change, or move the `documented-spine` requirement, read [requirement-documented-spine.md](requirement-documented-spine.md).
+- When you fill, change, or move the `governance` requirement, read [requirement-governance.md](requirement-governance.md).
+- When you fill, change, or move the `operations` requirement, read [requirement-operations.md](requirement-operations.md).
+- When you fill, change, or move the `orientation` requirement, read [requirement-orientation.md](requirement-orientation.md).
+- When you fill, change, or move the `standards` requirement, read [requirement-standards.md](requirement-standards.md).

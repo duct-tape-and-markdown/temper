@@ -15,6 +15,6 @@ Each member is its own document, at:
 - `unique-name` (required)
 - `extent` (advisory): a system doc is navigational, not exhaustive — past ~120 rendered lines, promote a section to a flow or split the system. Measured render-side, off the projected artifact rather than the source body.
 
-## Domains
+## Requirements
 
-- `documented-spine` (declared over this kind; a member of this kind fills it) — read [domain-documented-spine.md](domain-documented-spine.md).
+- `documented-spine` (declared over this kind; a member of this kind fills it) — read [requirement-documented-spine.md](requirement-documented-spine.md).

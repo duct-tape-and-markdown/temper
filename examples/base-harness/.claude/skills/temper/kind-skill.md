@@ -30,7 +30,7 @@ Each member is its own document, at:
 - `glob-valid` on `paths` (required): The optional `paths` scope gates every invocation channel until a file tool (read, edit, write) touches a path its globs match; each entry is a glob (brace expansion supported). An unparseable pattern — an unclosed `[`, say — is invalid under globset and silently matches nothing, so the gate never opens and the skill never registers, with no error surfaced. Fix the pattern or drop the field.
 - `mention-reachable` on `paths` (advisory): A mention of a gated member is actionable only where that member can be invoked. A `paths` gate removes its member from every invocation channel until a file tool (read, edit, write) touches a matching path, and invoking a gated member from outside its gate hard-errors (`Unknown skill`) — the harness then tells the user it doesn't exist. So a skill that loads where its target cannot be invoked hands Claude an obligation it cannot act on. Two remedies: scope this skill's `paths` to the target's gate, or ungate the target. Advisory because containment is judged over sample paths each glob here matches, not decided, so a verdict can be wrong; retune or drop this clause in your own contract when it is. The judgment is over the gates, not over how they open: only a file tool (read, edit, write) opens a path gate — a shell read of a matching path, or a search tool's, opens none — so a session that works inside the gate through the shell alone loads neither member, and nothing static can see that.
 
-## Domains
+## Requirements
 
-- `governance` (a member of this kind fills it) — read [domain-governance.md](domain-governance.md).
-- `operations` (declared over this kind; a member of this kind fills it) — read [domain-operations.md](domain-operations.md).
+- `governance` (a member of this kind fills it) — read [requirement-governance.md](requirement-governance.md).
+- `operations` (declared over this kind; a member of this kind fills it) — read [requirement-operations.md](requirement-operations.md).

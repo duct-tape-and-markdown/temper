@@ -15,6 +15,6 @@ Each member is its own document, at:
 
 The program binds no clauses over it — any default contract the kind ships is what holds it.
 
-## Domains
+## Requirements
 
-- `orientation` (a member of this kind fills it) — read [domain-orientation.md](domain-orientation.md).
+- `orientation` (a member of this kind fills it) — read [requirement-orientation.md](requirement-orientation.md).
