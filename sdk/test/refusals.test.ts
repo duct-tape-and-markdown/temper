@@ -22,7 +22,7 @@ import ts from "typescript";
 import type { ResolvedEmbeddedMemberValue } from "../src/index.js";
 import { blocks, embeddedMemberValue, file, harness, kind, text } from "../src/index.js";
 import { emit } from "../src/emit.js";
-import { hook, memory, rule, skill } from "../src/claude-code.js";
+import { gateHook, hook, memory, rule, skill } from "../src/claude-code.js";
 
 /** An embedded-locus kind named `decision` — host-free; the corpus's `admit` names its hosts. */
 function decisionKind() {
@@ -872,6 +872,32 @@ test("a hook's lifecycle event spelled as `name` names `event`", () => {
     `import { gateHook } from "../src/claude-code.js";\n` + `gateHook({ name: "SessionStart", event: "SessionStart" });\n`,
     "a gate hook's lifecycle event is its `event`: write `gateHook({ event, matcher })`",
   );
+});
+
+test("an untypechecked `hook({ name })` or `gateHook({ name })` refuses naming `event`, never a raw TypeError", () => {
+  // A program run before `tsc` ever sees it never meets the Remedy slot, so the
+  // constructor throws the Remedy's own words in its place.
+  const cases: readonly [() => unknown, string][] = [
+    [
+      () => hook({ name: "PreToolUse", matcher: "Write", hooks: [{ type: "command", command: "true" }] } as never),
+      "a hook's lifecycle event is its `event`: write `hook({ event, matcher, hooks })`",
+    ],
+    [
+      () => gateHook({ name: "SessionStart" } as never),
+      "a gate hook's lifecycle event is its `event`: write `gateHook({ event, matcher })`",
+    ],
+  ];
+  for (const [construct, remedy] of cases) {
+    let thrown: unknown;
+    try {
+      construct();
+    } catch (error) {
+      thrown = error;
+    }
+    assert.ok(thrown instanceof Error, `\`${remedy}\` did not refuse`);
+    assert.ok(!(thrown instanceof TypeError), `refused with a TypeError: ${thrown.message}`);
+    assert.ok(thrown.message.includes(remedy), `the refusal does not carry the Remedy's words: ${thrown.message}`);
+  }
 });
 
 test("the retired gate command constants name gateHook", () => {

@@ -1024,11 +1024,13 @@ const hookGroup: KindDefinition<Hook> = kind<Hook>({
  * happens here, once, rather than at every reader of a hook's address.
  *
  * # Throws
- * If the matcher carries a `/` — the separator the member-address grammar cuts an
+ * If `name` is handed without `event` ({@link HOOK_NAME_REMEDY}) — the moved spelling an
+ * untypechecked program can still pass. If the matcher carries a `/` — the separator the member-address grammar cuts an
  * address at, which in a name truncates the member and re-seats every handler beneath it
  * ({@link isNameQualifier}).
  */
 function hookMember(init: HookInit): Member {
+  refuseAuthoredName("hook", init, HOOK_NAME_REMEDY);
   const { event, ...group } = init;
   if (group.matcher !== undefined && !isNameQualifier(group.matcher)) {
     throw new Error(
@@ -1041,6 +1043,24 @@ function hookMember(init: HookInit): Member {
   return hookGroup({ ...group, name: hookMemberName(event, group.matcher) });
 }
 
+/** The words `hook({ name })` fails with — at `tsc` through {@link HookInit}'s
+ * {@link Remedy} slot, and at runtime through {@link refuseAuthoredName}: one spelling. */
+const HOOK_NAME_REMEDY = "a hook's lifecycle event is its `event`: write `hook({ event, matcher, hooks })`";
+
+/** The words `gateHook({ name })` fails with, as {@link HOOK_NAME_REMEDY} is `hook`'s. */
+const GATE_HOOK_NAME_REMEDY = "a gate hook's lifecycle event is its `event`: write `gateHook({ event, matcher })`";
+
+/**
+ * Refuses an init carrying the moved `name` and no `event` — the spelling the
+ * {@link Remedy} slot fails at `tsc`, met at runtime by a program nothing typechecked, so
+ * it throws the Remedy's own words rather than reading through an absent event.
+ */
+function refuseAuthoredName(constructor: string, init: { readonly event?: unknown; readonly name?: unknown }, remedy: string): void {
+  if (init.name !== undefined && init.event === undefined) {
+    throw new Error(`${constructor} \`${String(init.name)}\`: ${remedy}.`);
+  }
+}
+
 /**
  * What `hook(...)` takes: a matcher group's init keyed by its lifecycle `event` in place
  * of a `name` — the member's name is composed from the event and matcher, never authored
@@ -1051,7 +1071,7 @@ export type HookInit = Omit<MemberInit<Hook>, "name"> & {
   /** The lifecycle event the group registers under — the `hooks.<Event>` key
    * (code.claude.com/docs/en/hooks, retrieved 2026-09-25). */
   readonly event: string;
-  readonly name?: Remedy<"a hook's lifecycle event is its `event`: write `hook({ event, matcher, hooks })`">;
+  readonly name?: Remedy<typeof HOOK_NAME_REMEDY>;
   readonly type?: Remedy<"`type` moved to a handler: write `hooks: [{ type, command }]`">;
   readonly command?: Remedy<"`command` moved to a handler: write `hooks: [{ type, command }]`, or use `gateHook()` for a temper gate">;
   readonly timeout?: Remedy<"`timeout` moved to a handler: write `hooks: [{ type, command, timeout }]`">;
@@ -1081,7 +1101,7 @@ export type GateHookEvent = "SessionStart" | "PreToolUse" | "PostToolUse";
 export interface GateHookInit {
   /** The lifecycle event the group registers under, as on {@link hook}. */
   readonly event: GateHookEvent;
-  readonly name?: Remedy<"a gate hook's lifecycle event is its `event`: write `gateHook({ event, matcher })`">;
+  readonly name?: Remedy<typeof GATE_HOOK_NAME_REMEDY>;
   /** The tool-name filter the group binds, as on {@link Hook}; absent on `SessionStart`. */
   readonly matcher?: string;
   /** The {@link tool} the hook runs as temper — a composed `tool(...)` member. */
@@ -1121,9 +1141,11 @@ const gateHookTools = new WeakMap<Member, Member | null>();
  * and a tap hook at the same event and matcher joins it as a further handler.
  *
  * # Throws
- * If `tool` is not a `tool(...)` member, or the matcher carries a `/` ({@link hook}).
+ * If `name` is handed without `event` ({@link GATE_HOOK_NAME_REMEDY}), `tool` is not a
+ * `tool(...)` member, or the matcher carries a `/` ({@link hook}).
  */
 export function gateHook(init: GateHookInit): Member {
+  refuseAuthoredName("gateHook", init, GATE_HOOK_NAME_REMEDY);
   if (init.tool !== undefined && init.tool.kind !== toolKind.key) {
     throw new Error(
       `gate hook \`${init.event}\`: \`tool\` names what the hook runs — pass a \`tool(...)\` ` +
