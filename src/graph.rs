@@ -722,9 +722,10 @@ fn edge_host(from: &Node, embedded_hosts: &BTreeMap<Node, Node>) -> Option<Node>
 /// that field carrying a non-empty value — never the target's kind, and never a
 /// `paths-match` registration lookup: a gate is a field a kind *documents*, and a kind
 /// may gate while declaring no `paths-match` channel at all (a skill's `paths` is
-/// exactly that — it gates every channel and adds no registration entry,
-/// `sdk/src/builtins.ts`). Reading the registration set instead would select rules and
-/// never skills, so the rule→skill mention this check exists for could never fire.
+/// exactly that — it gates every channel and registers `paths-listing`, not
+/// `paths-match`, `sdk/src/builtins.ts`). Reading the `paths-match` set instead would
+/// select rules and never skills, so the rule→skill mention this check exists for could
+/// never fire.
 ///
 /// Two diagnoses, one invariant (`specs/decisions/0028-…`): a **scoped** source whose
 /// scope globs are not contained in the target's gate, and an **unscoped** source
@@ -1458,12 +1459,12 @@ fn dead_channel_set(
 
 /// Whether one declared registration **channel** is **provably dead** on its own, and
 /// why — `Some(reason)` names the dead channel for the finding, `None` leaves it live.
-/// Only three channels the spec makes decidable can die here: a blank
-/// `description-trigger` field, a `paths-match` field whose *present* globs match no
-/// file (an absent/blank `paths` field is unconditional loading, never dead), and an
-/// `enablement` entry the harness is documented not to load. `always`/`user-invoked`
-/// (unconditionally live), `event`, and `connection`/`registry` (no repo-decidable
-/// criterion) never do.
+/// Only four channels the spec makes decidable can die here: a blank
+/// `description-trigger` field, a `paths-match` or `paths-listing` field whose *present*
+/// globs match no file (an absent/blank `paths` field is unconditional, never dead), and
+/// an `enablement` entry the harness is documented not to load. `always`/`user-invoked`
+/// (unconditionally live), `on-read-beneath` (the member is itself a file beneath its
+/// home), `event`, and `connection`/`registry` (no repo-decidable criterion) never do.
 pub(crate) fn dead_registration(
     registration: &Registration,
     member: &Features,
@@ -1471,6 +1472,7 @@ pub(crate) fn dead_registration(
 ) -> Option<String> {
     match registration {
         Registration::Always
+        | Registration::OnReadBeneath
         | Registration::UserInvoked
         | Registration::Event { .. }
         | Registration::Connection
@@ -1494,10 +1496,9 @@ pub(crate) fn dead_registration(
         Registration::DescriptionTrigger { field } => field_is_blank(member, field).then(|| {
             format!("its `{field}` description-trigger field is blank, so the harness has nothing to load")
  }),
-        Registration::PathsMatch { field } => {
-            // An absent/blank field is unconditional loading, not a dead edge:
- // only a *present* glob set that
-            // matches nothing is provably dead.
+        Registration::PathsMatch { field } | Registration::PathsListing { field } => {
+            // An absent/blank field is unconditional loading (or listing), not a dead
+            // edge: only a *present* glob set that matches nothing is provably dead.
             let globs = declared_globs(member, field);
             // A glob `globset` cannot compile is treated as matching, so the gate never
             // cries wolf on a `paths-match` pattern it failed to understand.
@@ -1506,8 +1507,13 @@ pub(crate) fn dead_registration(
                     crate::glob::compile_glob(glob)
                         .is_none_or(|matcher| repo_files.iter().any(|file| matcher.is_match(file)))
                 });
+            let effect = if matches!(registration, Registration::PathsListing { .. }) {
+                "lists it"
+            } else {
+                "activates it"
+            };
             dead.then(|| {
-                format!("its `{field}` globs match no file in the repository, so the harness activates it never")
+                format!("its `{field}` globs match no file in the repository, so the harness {effect} never")
  })
  }
  }

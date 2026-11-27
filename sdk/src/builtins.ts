@@ -131,19 +131,19 @@ export interface Skill {
    */
   readonly "user-invocable"?: boolean;
   /**
-   * The optional path scope — a channel gate, not a channel of its own. A
-   * present list removes the skill from *every* invocation channel — the `/`
-   * listing, model invocation, and description-trigger invocation — until a
-   * file tool (read, edit, write) touches a matching path; an absent one
-   * leaves all channels live. A shell read of the same path, or a search
-   * tool's, opens no path gate, so a session that works inside the gate
-   * through the shell alone never loads the skill. Distinct from a rule's
-   * `paths`, which registers the path-match as the rule's channel: here the
-   * field gates the skill's existing channels rather than being one, so it
-   * adds no `paths-match` registration entry
-   * (code.claude.com/docs/en/skills, retrieved 2026-07-15; verified against
-   * 2.1.210; shell and search reads open no path gate, probed on Claude Code
-   * 2.1.281, 2026-09-24).
+   * The optional path scope — the skill's `paths-listing` channel. A present
+   * list removes the skill from *every* invocation channel — the `/` listing,
+   * model invocation, and description-trigger invocation — until a file tool
+   * (read, edit, write) touches a matching path, and the read joins it to the
+   * listing; an absent one lists it from session start. A shell read of the
+   * same path, or a search tool's, opens no path gate, so a session that works
+   * inside the gate through the shell alone never loads the skill. Distinct
+   * from a rule's `paths`, which registers `paths-match` — the rule's body
+   * loads on the read; here the read registers the listing, and the body still
+   * loads only on invocation (code.claude.com/docs/en/skills, retrieved
+   * 2026-07-15; verified against 2.1.210; shell and search reads open no path
+   * gate, probed on Claude Code 2.1.281, 2026-09-24; the listing, not the
+   * body, is what the gate holds, probed on Claude Code 2.1.332, 2026-11-26).
    */
   readonly paths?: readonly string[];
   readonly prose?: Prose;
@@ -184,7 +184,8 @@ export const supportingDoc: KindDefinition<SupportingDoc> = kind<SupportingDoc>(
  * `skill` — `**\/.claude/skills/<name>/SKILL.md`, a directory unit, YAML frontmatter
  * carrying `name` then `description`; registers on both documented invocation
  * channels — user-invoked (`/name`) and description-trigger — modulated per
- * member by the `disable-model-invocation`/`user-invocable` fields
+ * member by the `disable-model-invocation`/`user-invocable` fields, and on
+ * `paths-listing(paths)`, the read of a match that joins a scoped skill to the listing
  * (code.claude.com/docs/en/skills, agentskills.io/specification, retrieved
  * 2026-07-15).
  *
@@ -211,7 +212,11 @@ export const skill: KindDefinition<Skill> = kind<Skill>({
   format: "yaml-frontmatter",
   leniency: ["malformed-yaml"],
   unitShape: "directory",
-  registration: [{ via: "user-invoked" }, { via: "description-trigger", field: "description" }],
+  registration: [
+    { via: "user-invoked" },
+    { via: "description-trigger", field: "description" },
+    { via: "paths-listing", field: "paths" },
+  ],
   identityField: "name",
   templates: [{ kind: supportingDoc, path: "*.md" }],
   cite: "https://code.claude.com/docs/en/skills (retrieved 2026-11-25)",
@@ -506,6 +511,11 @@ export interface Memory {
  * files of its own", so a `CLAUDE.md` above it never shuts it. Reading it directly
  * "requires Claude Code v2.1.277 or later" (same source). An `AGENTS.md` a `CLAUDE.md`
  * shadows is still a member, and an `@AGENTS.md` import still loads it.
+ *
+ * It registers `on-read-beneath`: the root's memory loads at launch, and a
+ * subdirectory's loads "only when Claude reads a file there" (same source, "How
+ * CLAUDE.md files load", retrieved 2026-11-24), so the load moment is read off the
+ * member's placement — one fact `explain` and the advisories share (decision 0115).
  */
 export const memory: KindDefinition<Memory> = kind<Memory>({
   name: "memory",
@@ -524,7 +534,7 @@ export const memory: KindDefinition<Memory> = kind<Memory>({
     ],
   },
   unitShape: "file",
-  registration: [{ via: "always" }],
+  registration: [{ via: "on-read-beneath" }],
   guidance:
     "a `paths:` frontmatter block belongs on a `.claude/rules/*.md` file, not on `CLAUDE.md` — the memory docs document `paths` only for rules, so a rules-style header on `CLAUDE.md` is dead configuration. Split a large file with `@path` imports (resolved relative to the importing file, absolute allowed, recursion capped at four hops; wrap a path in backticks to mention it without importing). If the repo already ships an `AGENTS.md` for other agents, don't duplicate it — create a `CLAUDE.md` that `@AGENTS.md`-imports it (or symlink, except on Windows where the import is the recommended bridge). Mind the loading asymmetry: every ancestor `CLAUDE.md` loads in full at launch, while files in subdirectories load only when Claude reads a file there — so a rule that must always hold belongs above the working directory, not below it. Personal, un-shared notes go in `CLAUDE.local.md` (gitignored), appended after `CLAUDE.md` at its level.",
 });

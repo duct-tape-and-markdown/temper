@@ -3008,7 +3008,7 @@ fn explain_on_a_member_states_what_loads_it_and_when() {
 
     let memory = common::explain_in(&harness, "AGENTS");
     assert!(
-        memory.contains("`always`: loaded at launch, while its absence gate is open."),
+        memory.contains("`on-read-beneath`: loaded at launch, while its absence gate is open."),
         "the memory file names its channel and launch moment: {memory}"
     );
     assert!(
@@ -3026,6 +3026,77 @@ fn explain_on_a_member_states_what_loads_it_and_when() {
     assert!(
         shut.contains("Its launch gate is shut: `CLAUDE.md` sits in the working directory"),
         "a shut gate names its closer: {shut}"
+    );
+}
+
+#[test]
+fn explain_states_a_subdirectory_memory_loads_on_a_read_beneath_its_directory() {
+    // The memory kind's `on-read-beneath` channel reads the load moment off placement:
+    // the root's `CLAUDE.md` at launch, a subdirectory's — at either documented
+    // location — on the first read beneath its directory.
+    let harness = common::scaffold("explain-subdirectory-memory");
+    common::write_sibling(&harness, "CLAUDE.md", "# Root\n");
+    common::write_sibling(&harness, "apps/web/CLAUDE.md", "# Web\n");
+    common::write_sibling(&harness, "apps/api/.claude/CLAUDE.md", "# Api\n");
+
+    let root = common::explain_in(&harness, "CLAUDE");
+    assert!(
+        root.contains("`on-read-beneath`: loaded at launch"),
+        "the root memory loads at launch: {root}"
+    );
+
+    let web = common::explain_in(&harness, "apps:web:CLAUDE");
+    assert!(
+        web.contains(
+            "`on-read-beneath`: loaded on demand, the first time Claude reads a file beneath `apps/web/`."
+        ),
+        "a subdirectory memory loads on a read beneath its directory: {web}"
+    );
+    assert!(
+        !web.contains("loaded at launch"),
+        "a subdirectory memory never claims a launch load: {web}"
+    );
+
+    let api = common::explain_in(&harness, "apps:api:.claude:CLAUDE");
+    assert!(
+        api.contains("the first time Claude reads a file beneath `apps/api/`."),
+        "a `.claude/` placement folds into the directory holding it: {api}"
+    );
+}
+
+#[test]
+fn explain_states_a_skill_with_paths_joins_the_listing_on_a_read_of_a_match() {
+    // A skill's own `paths` register its listing, not its body: the read of a match
+    // joins it to the listing, and until then its description is not listed.
+    let harness = common::scaffold("explain-paths-listed-skill");
+    common::write_skill(
+        &harness,
+        "scoped",
+        "---\nname: scoped\ndescription: Use when editing the web app.\npaths:\n  - apps/web/**\n---\n# scoped\n\nBody.\n",
+    );
+    common::write_sibling(&harness, "apps/web/index.ts", "export {};\n");
+    common::write_skill(&harness, "open", &common::clean_skill("open"));
+
+    let scoped = common::explain_in(&harness, "scoped");
+    assert!(
+        scoped.contains(
+            "`paths-listing(paths)`: it joins the listing when Claude reads a file matching `apps/web/**`"
+        ),
+        "a paths-bearing skill lists on a read of a match: {scoped}"
+    );
+    assert!(
+        scoped.contains(
+            "`description-trigger(description)`: its `description` is listed once its `paths` open"
+        ),
+        "its description channel defers to the paths listing: {scoped}"
+    );
+
+    let open = common::explain_in(&harness, "open");
+    assert!(
+        open.contains(
+            "`paths-listing(paths)`: it declares no `paths`, so it is listed from session start."
+        ),
+        "a skill without paths is listed from session start: {open}"
     );
 }
 

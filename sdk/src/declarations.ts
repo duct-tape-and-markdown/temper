@@ -322,6 +322,10 @@ function registrationLabel(registration: Registration): string {
       return `description-trigger(${registration.field})`;
     case "paths-match":
       return `paths-match(${registration.field})`;
+    case "on-read-beneath":
+      return "on-read-beneath";
+    case "paths-listing":
+      return `paths-listing(${registration.field})`;
     case "event":
       return `event(${registration.field})`;
     case "connection":

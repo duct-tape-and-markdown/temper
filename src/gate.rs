@@ -248,6 +248,43 @@ pub(crate) fn absence_gate_states(
     states
 }
 
+/// The [home](kind::member_home) of every member whose kind registers
+/// [`OnReadBeneath`](kind::Registration::OnReadBeneath), harness-relative and `/`-joined
+/// — the empty string for the harness root. The placement that channel's load moment
+/// reads, paired with the discovered units exactly as [`absence_gate_states`] pairs them.
+pub(crate) fn read_beneath_homes(
+    harness_root: &Path,
+    overlaid_builtin_kinds: &BTreeMap<String, CustomKind>,
+    builtin: &BTreeMap<String, compose::KindUnitsAndFeatures>,
+    custom: &[(CustomKind, compose::KindUnitsAndFeatures)],
+) -> BTreeMap<graph::Node, String> {
+    let builtin_pairs = overlaid_builtin_kinds
+        .iter()
+        .filter_map(|(name, kind)| builtin.get(name).map(|uaf| (kind, uaf)));
+    let custom_pairs = custom.iter().map(|(kind, uaf)| (kind, uaf));
+    let mut homes = BTreeMap::new();
+    for (kind, uaf) in builtin_pairs.chain(custom_pairs).filter(|(kind, _)| {
+        kind.registration
+            .contains(&kind::Registration::OnReadBeneath)
+    }) {
+        for unit in &uaf.units {
+            let Some(source_path) = crate::path::relativize_against_root(
+                &unit.source_path.to_string_lossy(),
+                harness_root,
+            ) else {
+                continue;
+            };
+            if let Some(home) = kind::member_home(&source_path) {
+                homes.insert(
+                    (kind.name.clone(), unit.id.clone()),
+                    crate::path::HarnessRelativePath::from_path(home).to_string(),
+                );
+            }
+        }
+    }
+    homes
+}
+
 /// One site walk over every discovered kind, collecting each admitted member into its
 /// content class's population ([`site_class`] is the sole admission predicate).
 fn committed_member_sites(

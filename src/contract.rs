@@ -513,8 +513,8 @@ pub enum Predicate {
     /// of [`Predicate::GlobValid`]'s one field. The **trigger is the target's declared
     /// gate field carrying a non-empty value**, never its kind or its registration set:
     /// a gate is a field a kind documents, and a kind may gate without declaring a
-    /// `paths-match` registration channel (a skill's `paths` is exactly that —
-    /// `sdk/src/builtins.ts`).
+    /// `paths-match` registration channel (a skill's `paths` is exactly that — it
+    /// registers `paths-listing` instead, `sdk/src/builtins.ts`).
     ///
     /// **Declared leniency:** containment is judged over sample paths each scope glob
     /// matches, not decided, so a verdict can be wrong — which is why a clause naming it

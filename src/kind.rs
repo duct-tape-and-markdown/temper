@@ -492,6 +492,22 @@ pub enum Registration {
         /// The declared frontmatter field carrying the registration glob.
         field: String,
     },
+    /// `on-read-beneath` — the member loads the first time Claude reads a file beneath its
+    /// [`home`](member_home): the root's at launch, a subdirectory's on demand (a
+    /// subdirectory's `CLAUDE.md`). Carries no field — placement is the criterion — and,
+    /// like [`Always`](Registration::Always), is never provably dead: the member is itself
+    /// a file beneath its home.
+    OnReadBeneath,
+    /// `paths-listing(field)` — the member joins the invocation listing the first time a
+    /// file tool reads a file the named glob field matches; an absent or blank field lists
+    /// it from session start (a skill's own `paths`). Unlike
+    /// [`PathsMatch`](Registration::PathsMatch) the read opens the listing, never the body,
+    /// which still loads only on invocation; a present glob set matching no file is dead
+    /// on the same terms.
+    PathsListing {
+        /// The declared frontmatter field carrying the listing glob.
+        field: String,
+    },
     /// `event(field)` — the member executes at a named lifecycle event (carried for the
     /// future `hook` kind). The field names the declared lifecycle-event field.
     Event {
@@ -636,10 +652,7 @@ impl CustomKind {
             .absence_gates
             .iter()
             .find(|gate| &gate.template == template)?;
-        let mut home = Path::new(harness_relative).parent()?;
-        if home.file_name().is_some_and(|name| name == ".claude") {
-            home = home.parent()?;
-        }
+        let home = member_home(harness_relative)?;
         let scope = if home.as_os_str().is_empty() {
             AbsenceGateScope::Launch
         } else {
@@ -1470,6 +1483,20 @@ pub struct AbsenceGate {
     pub absent: Vec<String>,
 }
 
+/// A member's **home** — the directory whose reads load it: its own directory, a
+/// `.claude/` folder folded into the directory holding it, so `.claude/CLAUDE.md` and
+/// `CLAUDE.md` share the harness root's (the empty path). [`None`] for a path with no
+/// parent. The one placement reading both the [absence gate](CustomKind::absence_gate)
+/// scope and the [`OnReadBeneath`](Registration::OnReadBeneath) channel take.
+#[must_use]
+pub fn member_home(harness_relative: &str) -> Option<&Path> {
+    let mut home = Path::new(harness_relative).parent()?;
+    if home.file_name().is_some_and(|name| name == ".claude") {
+        home = home.parent()?;
+    }
+    Some(home)
+}
+
 /// Which of a template's two **absence gates** a member sits behind — read off its
 /// position, never declared: the runtime loads a document homed at the working directory
 /// at launch, and one homed in a subdirectory on demand, when a file there is read.
@@ -1814,13 +1841,14 @@ fn layout_region_from_row(
 }
 
 /// Parse one [`KindFactRow::registration`] wire label into its typed [`Registration`]
-/// channel — the closed vocabulary's compact wire form (`always`/`user-invoked`, or a
-/// [`call_label`] call for the four field-carrying variants). `None` for a bare
+/// channel — the closed vocabulary's compact wire form (a bare name for the field-less
+/// variants, or a [`call_label`] call for the five field-carrying ones). `None` for a bare
 /// unrecognized name or a malformed `(field)` suffix. The row carries one label per
 /// declared channel; the caller folds each label of the set through this.
 fn registration_from_label(label: &str) -> Option<Registration> {
     match label {
         "always" => return Some(Registration::Always),
+        "on-read-beneath" => return Some(Registration::OnReadBeneath),
         "user-invoked" => return Some(Registration::UserInvoked),
         "connection" => return Some(Registration::Connection),
         "registry" => return Some(Registration::Registry),
@@ -1832,6 +1860,7 @@ fn registration_from_label(label: &str) -> Option<Registration> {
         "description-trigger" => Some(Registration::DescriptionTrigger { field }),
         "enablement" => Some(Registration::Enablement { field }),
         "paths-match" => Some(Registration::PathsMatch { field }),
+        "paths-listing" => Some(Registration::PathsListing { field }),
         "event" => Some(Registration::Event { field }),
         _ => None,
     }
@@ -2236,6 +2265,16 @@ mod tests {
             Some(Registration::Enablement {
                 field: field("enabled")
             })
+        );
+        assert_eq!(
+            registration_from_label("paths-listing(paths)"),
+            Some(Registration::PathsListing {
+                field: field("paths")
+            })
+        );
+        assert_eq!(
+            registration_from_label("on-read-beneath"),
+            Some(Registration::OnReadBeneath)
         );
         assert_eq!(
             registration_from_label("paths-match(paths)"),

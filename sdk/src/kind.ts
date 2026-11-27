@@ -78,6 +78,26 @@ export type Registration =
   | { readonly via: "user-invoked" }
   | { readonly via: "description-trigger"; readonly field: string }
   | { readonly via: "paths-match"; readonly field: string }
+  /**
+   * The member loads the first time Claude reads a file beneath its **home** — its own
+   * directory, a `.claude/` folder folded into the directory holding it. A member homed
+   * at the harness root (the working directory) is beneath it already, so it loads at
+   * launch; one homed in a subdirectory loads on demand. A subdirectory's `CLAUDE.md`
+   * "load[s] only when Claude reads a file there" (code.claude.com/docs/en/memory,
+   * "How CLAUDE.md files load", retrieved 2026-11-24). Never provably dead: the member
+   * is itself a file beneath its home. Carries no field — placement is the criterion.
+   */
+  | { readonly via: "on-read-beneath" }
+  /**
+   * The member joins the invocation listing the first time a file tool reads a file
+   * the named glob field matches; an absent or blank field lists it from session start.
+   * A skill's own `paths` gate its listing, not its body (probed on Claude Code 2.1.332,
+   * 2026-11-26, decision 0111; code.claude.com/docs/en/skills, retrieved 2026-07-15).
+   * Distinct from `paths-match`, which loads the member's body on the read: here the
+   * read opens the listing, and the body still loads only on invocation. A present
+   * glob set matching no file is dead, as `paths-match`'s is.
+   */
+  | { readonly via: "paths-listing"; readonly field: string }
   | { readonly via: "event"; readonly field: string }
   | { readonly via: "connection" }
   | { readonly via: "enablement"; readonly field: string }

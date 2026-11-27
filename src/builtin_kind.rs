@@ -511,13 +511,17 @@ mod tests {
                 path: Some("*.md".to_string()),
             }]
         );
-        // Registers on both documented invocation channels — a set, not a scalar.
+        // Registers on both documented invocation channels — a set, not a scalar — and on
+        // the read of a `paths` match that joins a scoped skill to the listing.
         assert_eq!(
             skill.registration,
             vec![
                 Registration::UserInvoked,
                 Registration::DescriptionTrigger {
                     field: "description".to_string()
+                },
+                Registration::PathsListing {
+                    field: "paths".to_string()
                 },
             ]
         );

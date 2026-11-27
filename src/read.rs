@@ -2501,6 +2501,7 @@ fn load_strand(
     registrations: &BTreeMap<&str, Vec<Registration>>,
     listings: &BTreeMap<&str, ListingArgs>,
     gates: &BTreeMap<graph::Node, AbsenceGateState>,
+    homes: &BTreeMap<graph::Node, String>,
     repo_files: &[String],
 ) -> String {
     let mut out = String::new();
@@ -2513,7 +2514,9 @@ fn load_strand(
             out,
             "`{name}` ({kind}) — what loads it, when, and what it costs:"
         );
-        let gate = gates.get(&(kind.to_string(), name.to_string()));
+        let node = (kind.to_string(), name.to_string());
+        let gate = gates.get(&node);
+        let home = homes.get(&node).map(String::as_str);
         match registrations
             .get(kind)
             .filter(|channels| !channels.is_empty())
@@ -2529,7 +2532,14 @@ fn load_strand(
                     let _ = writeln!(
                         out,
                         "  • {}",
-                        narrate_channel(channel, member, repo_files, gate, listing)
+                        narrate_channel(
+                            channel,
+                            channels,
+                            member,
+                            repo_files,
+                            Placement { gate, home },
+                            listing
+                        )
                     );
                 }
             }
@@ -2693,18 +2703,47 @@ fn built_in_agent_line(member: &Features) -> Option<String> {
     })
 }
 
+/// Where a member sits, as its load moment reads it: the absence gate its template
+/// carries, if any, and its [home](crate::kind::member_home) where its kind registers
+/// [`OnReadBeneath`](Registration::OnReadBeneath).
+#[derive(Clone, Copy)]
+struct Placement<'a> {
+    gate: Option<&'a AbsenceGateState>,
+    home: Option<&'a str>,
+}
+
+/// The globs a member's glob field carries — empty where the field is absent or blank.
+fn member_globs(member: &Features, field: &str) -> Vec<String> {
+    member
+        .field(field)
+        .map(|value| graph::extract_globs(&value))
+        .unwrap_or_default()
+}
+
+/// The globs spelled for a sentence: each backticked, comma-joined.
+fn spell_globs(globs: &[String]) -> String {
+    globs
+        .iter()
+        .map(|glob| format!("`{glob}`"))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
 /// One registration channel's sentence: the channel, and when it loads the member — or
-/// why it never does, in the reach judge's words.
+/// why it never does, in the reach judge's words. `channels` is the kind's whole set, so
+/// a listing channel can say when a sibling `paths-listing` channel holds it back.
 fn narrate_channel(
     channel: &Registration,
+    channels: &[Registration],
     member: &Features,
     repo_files: &[String],
-    gate: Option<&AbsenceGateState>,
+    placement: Placement<'_>,
     listing: Option<(&Vec<String>, usize, Option<&str>)>,
 ) -> String {
     if let Some(reason) = graph::dead_registration(channel, member, repo_files) {
         return format!("{}: dead — {reason}.", channel_label(channel));
     }
+    let Placement { gate, home } = placement;
     let label = channel_label(channel);
     match channel {
         Registration::Always => match gate {
@@ -2718,6 +2757,30 @@ fn narrate_channel(
             Some(_) => format!("{label}: loaded at launch, while its absence gate is open."),
             None => format!("{label}: loaded at launch, unconditionally."),
         },
+        Registration::OnReadBeneath => match home {
+            Some(home) if !home.is_empty() => format!(
+                "{label}: loaded on demand, the first time Claude reads a file beneath `{home}/`."
+            ),
+            _ => {
+                let condition = if gate.is_some() {
+                    "while its absence gate is open"
+                } else {
+                    "since every read is beneath the working directory it sits in"
+                };
+                format!("{label}: loaded at launch, {condition}.")
+            }
+        },
+        Registration::PathsListing { field } => {
+            let globs = member_globs(member, field);
+            if globs.is_empty() {
+                format!("{label}: it declares no `{field}`, so it is listed from session start.")
+            } else {
+                format!(
+                    "{label}: it joins the listing when Claude reads a file matching {}; until then nothing can invoke it, and its body still loads only on invocation.",
+                    spell_globs(&globs)
+                )
+            }
+        }
         Registration::UserInvoked => {
             format!("{label}: its body loads when it is invoked by name.")
         }
@@ -2732,16 +2795,27 @@ fn narrate_channel(
                 Some(marker) => format!(
                     "{label}: withheld — its `{marker}` is `true`, so its `{field}` is never listed and Claude cannot invoke it on its own."
                 ),
-                None => format!(
-                    "{label}: its `{field}` is listed from session start, and its body loads when Claude matches a request to it."
-                ),
+                None => {
+                    let gated_by = channels.iter().find_map(|sibling| match sibling {
+                        Registration::PathsListing { field: gate }
+                            if !member_globs(member, gate).is_empty() =>
+                        {
+                            Some(gate)
+                        }
+                        _ => None,
+                    });
+                    let moment = gated_by.map_or_else(
+                        || "from session start".to_string(),
+                        |gate| format!("once its `{gate}` open"),
+                    );
+                    format!(
+                        "{label}: its `{field}` is listed {moment}, and its body loads when Claude matches a request to it."
+                    )
+                }
             }
         }
         Registration::PathsMatch { field } => {
-            let globs = member
-                .field(field)
-                .map(|value| graph::extract_globs(&value))
-                .unwrap_or_default();
+            let globs = member_globs(member, field);
             if globs.is_empty() {
                 format!(
                     "{label}: it declares no `{field}`, so it loads at launch, unconditionally."
@@ -2749,11 +2823,7 @@ fn narrate_channel(
             } else {
                 format!(
                     "{label}: loaded when Claude reads a file matching {}.",
-                    globs
-                        .iter()
-                        .map(|glob| format!("`{glob}`"))
-                        .collect::<Vec<_>>()
-                        .join(", ")
+                    spell_globs(&globs)
                 )
             }
         }
@@ -2783,6 +2853,8 @@ fn channel_label(channel: &Registration) -> String {
         Registration::UserInvoked => "`user-invoked`".to_string(),
         Registration::DescriptionTrigger { field } => format!("`description-trigger({field})`"),
         Registration::PathsMatch { field } => format!("`paths-match({field})`"),
+        Registration::OnReadBeneath => "`on-read-beneath`".to_string(),
+        Registration::PathsListing { field } => format!("`paths-listing({field})`"),
         Registration::Event { field } => format!("`event({field})`"),
         Registration::Connection => "`connection`".to_string(),
         Registration::Enablement { field } => format!("`enablement({field})`"),
@@ -2974,6 +3046,12 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
         &custom_units_and_features,
     );
     let gated = crate::gate::shut_gates(&gate_states, &overlaid_builtin_kinds);
+    let homes = crate::gate::read_beneath_homes(
+        Path::new("."),
+        &overlaid_builtin_kinds,
+        &builtin_units_and_features,
+        &custom_units_and_features,
+    );
     // The built-in defs, for the corpus-wide fact per kind the classing needs: which
     // kinds seed the directive traversal. The edge set this narrates
     // widens with the traversal — a reached rule's own outbound `@import` shows — because
@@ -3060,6 +3138,7 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
             &registrations,
             &listings,
             &gate_states,
+            &homes,
             &repo_files,
         );
         if !load.is_empty() {

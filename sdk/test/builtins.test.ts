@@ -1273,10 +1273,11 @@ test("a tool states exactly one non-blank variant", () => {
   );
 });
 
-test("skill/command register on both documented invocation channels; agent/rule/memory carry a singleton set", () => {
+test("skill/command register on both documented invocation channels, skill on its paths listing too; agent/rule/memory carry a singleton set", () => {
   assert.deepEqual(skill.facts.registration, [
     { via: "user-invoked" },
     { via: "description-trigger", field: "description" },
+    { via: "paths-listing", field: "paths" },
   ]);
   assert.deepEqual(command.facts.registration, [
     { via: "user-invoked" },
@@ -1284,7 +1285,7 @@ test("skill/command register on both documented invocation channels; agent/rule/
   ]);
   assert.deepEqual(agent.facts.registration, [{ via: "description-trigger", field: "description" }]);
   assert.deepEqual(rule.facts.registration, [{ via: "paths-match", field: "paths" }]);
-  assert.deepEqual(memory.facts.registration, [{ via: "always" }]);
+  assert.deepEqual(memory.facts.registration, [{ via: "on-read-beneath" }]);
 });
 
 test("the six builtin kinds carry their promoted authoring notes as guidance facts", () => {
@@ -1388,12 +1389,13 @@ test("disable-model-invocation/user-invocable/paths are ordinary declared fields
     ["user-invocable", false],
     ["paths", ["src/**"]],
   ]);
-  // paths gates the existing invocation channels, so it adds no registration
-  // channel of its own — unlike a rule's paths-match.
-  assert.deepEqual(
-    skill.facts.registration,
-    [{ via: "user-invoked" }, { via: "description-trigger", field: "description" }],
-  );
+  // paths registers the skill's listing on a read of a match — `paths-listing`, never
+  // a rule's `paths-match`, which loads the body on the read.
+  assert.deepEqual(skill.facts.registration, [
+    { via: "user-invoked" },
+    { via: "description-trigger", field: "description" },
+    { via: "paths-listing", field: "paths" },
+  ]);
 });
 
 test("embeddedMemberValue's leaves are typed against the passed KindDefinition's own field schema", () => {
