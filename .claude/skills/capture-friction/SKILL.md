@@ -24,7 +24,7 @@ channel is gitignored; the inbox slice routes each note.
 ## Structural debt — a build note, `.flume/plan/notes/<TAG>.md`
 
 A second implementation of one job, a hand-roll a sanctioned crate covers,
-scaffolding copied once more (`specs/process/engineering.md`) — debt you
+scaffolding copied once more (the engineering playbook, "One job, one home") — debt you
 touched but could not fix in your entry's scope. Consolidation inside your
 own entry's surface needs no note. A build tick writes only the note its own
 tag names; outside a build tick, the same finding is an inbox record,
