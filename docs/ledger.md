@@ -63,6 +63,9 @@ hard.
   posture migration has landed (0122, `268237a3`): engineering and
   architecture are the `engineering` playbook in `.temper/`, the sweep's
   posture pages are its topics, and the loop runs on flume 0.24.0.
+  The loop then hibernated, with an empty queue (11-27 23:15). The first
+  sweep against the playbook shipped 11 entries. Flume issues: #30 ruled,
+  #31 closed as a misreport, #32 (derive cursor across a merge) open.
 - **First focus: a consolidation pass.** +14.5k net in a day and a half is
   more growth than its features explain. Weigh it against `engineering.md`
   before new surface lands.
