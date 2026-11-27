@@ -93,22 +93,21 @@ guidance = "keep a handler's `type` among `command`/`http`/`mcp_tool`/`prompt`/`
 name = "memory"
 locus_root = "."
 locus_glob = ["**/CLAUDE.md", "**/AGENTS.md"]
-exclude = [".claude/agents", ".claude/commands", ".claude/output-styles", ".claude/rules", ".claude/skills"]
+exclude = [".claude/agents", ".claude/commands", ".claude/output-styles", ".claude/skills"]
 absence_gate = [{ template = "**/AGENTS.md", absent = ["CLAUDE.md", ".claude/CLAUDE.md", "CLAUDE.local.md"] }]
 unit_shape = "file"
 registration = ["always"]
 guidance = "a `paths:` frontmatter block belongs on a `.claude/rules/*.md` file, not on `CLAUDE.md` — the memory docs document `paths` only for rules, so a rules-style header on `CLAUDE.md` is dead configuration. Split a large file with `@path` imports (resolved relative to the importing file, absolute allowed, recursion capped at four hops; wrap a path in backticks to mention it without importing). If the repo already ships an `AGENTS.md` for other agents, don't duplicate it — create a `CLAUDE.md` that `@AGENTS.md`-imports it (or symlink, except on Windows where the import is the recommended bridge). Mind the loading asymmetry: every ancestor `CLAUDE.md` loads in full at launch, while files in subdirectories load only when Claude reads a file there — so a rule that must always hold belongs above the working directory, not below it. Personal, un-shared notes go in `CLAUDE.local.md` (gitignored), appended after `CLAUDE.md` at its level."
-ceded = [{ to = "output-style", pattern = "**/.claude/output-styles/*.md" }, { to = "skill", pattern = "**/.claude/skills/*/**" }]
+ceded = [{ to = "output-style", pattern = "**/.claude/output-styles/*.md" }, { to = "rule", pattern = "**/.claude/rules/**/*.md" }, { to = "skill", pattern = "**/.claude/skills/*/**" }]
 
 [[declaration.kind]]
 name = "rule"
-locus_root = ".claude/rules"
-locus_glob = ["**/*.md"]
+locus_root = "."
+locus_glob = ["**/.claude/rules/**/*.md"]
+exclude = ["tests/fixtures", "examples/demo"]
 format = "yaml-frontmatter"
 unit_shape = "file"
 registration = ["paths-match(paths)"]
-guidance = "a rule reaches context on one of two schedules: with no `paths` frontmatter it loads at launch, beside `CLAUDE.md`; with `paths` it loads the first time Read, Write or Edit touches a matching file, once per session. So keep a rule to facts Claude should hold whenever the rule is loaded — concrete enough to verify ('use 2-space indentation', not 'format code properly'). If an entry is a multi-step procedure or only matters occasionally, it belongs in a skill, whose body loads only when invoked, rather than a rule, which loads whole once its scope opens. Prefer path-scoped rules when one convention governs scattered paths; prefer per-directory CLAUDE.md when directory owners maintain their own. Treat rules like code: prune them when behavior drifts, and test a change by watching whether Claude's behavior actually shifts."
-cite = "https://code.claude.com/docs/en/memory (retrieved 2026-11-25); path-rule load timing observed on Claude Code 2.1.332"
 ceded = [{ to = "skill", pattern = "**/.claude/skills/*/**" }]
 
 [[declaration.kind]]
@@ -176,6 +175,18 @@ predicate = "import-backed"
 severity = "advisory"
 guidance = "This member's `@path` import names no member and no repository file. Claude Code expands an import into context beside the file that carries it, resolving a relative path against that file rather than the working directory, so a path that reaches nothing loads nothing, silently. Fix the path relative to the importing file — a trailing `.` reads as part of it — or set the text off in backticks if it was never meant as an import. Advisory because the importing file still loads; dial this label to `required` — or re-declare the clause — once a dead import should fail CI."
 cite = "https://code.claude.com/docs/en/memory#import-additional-files (retrieved 2026-11-26)"
+
+[[declaration.clause]]
+id = "root.listing.description+when_to_use"
+predicate = "listing"
+field = "description+when_to_use"
+severity = "advisory"
+guidance = "Every model-invocable skill's and command's `description` and `when_to_use` ride every request in one listing, under a character budget that scales at 1% of the context window, with a fallback of 8,000 characters — the figure this clause judges. Each entry counts up to the 1,536-character cap the listing cuts it at. Over the budget, Claude Code keeps every name but drops descriptions starting with the ones you invoke least, so those skills and commands lose the keywords Claude matches a request against. One with `disable-model-invocation: true` is not listed and is not counted. Trim descriptions to the key use case first, set rarely-used ones to `disable-model-invocation: true` or to `name-only` in `skillOverrides`, or raise the budget with `skillListingBudgetFraction` (or `SLASH_COMMAND_TOOL_CHAR_BUDGET`) and retune this clause's bound to match. Counted over this harness's own skills and commands only: plugin, bundled and personal skills share the same listing, so the real headroom is smaller."
+cite = "https://code.claude.com/docs/en/skills#skill-descriptions-are-cut-short; https://code.claude.com/docs/en/env-vars (SLASH_COMMAND_TOOL_CHAR_BUDGET); https://code.claude.com/docs/en/settings-reference#skilllistingmaxdescchars (retrieved 2026-11-26)"
+fields = ["description", "when_to_use"]
+gate = "disable-model-invocation"
+bound = { max = 8000, entry = 1536 }
+values = ["skill", "command"]
 
 [[declaration.requirement]]
 name = "context-arrives"
@@ -293,7 +304,7 @@ import_hash = "0e90f1db10305fd9bbc64aa5b02adae6ec0d2d6f3a63d8b9a6286acace8b6fa2"
 [[declaration.module]]
 member = "root"
 source_path = ".temper/kinds.ts"
-import_hash = "7862c5d59f0fa59298d5e080ecf43c2ce78e980f4d935c9cb3462296d7c04f21"
+import_hash = "e8c64cb207963de919266c883c4f2b8c98fc0040b2220b6844a2c1dfecd4e7d2"
 
 [[declaration.module]]
 member = "root"
@@ -308,27 +319,27 @@ import_hash = "038edfa3535d7fbb0a3994189a9c08544b194da8b6d1db10a78a0aa77cc95623"
 [[declaration.module]]
 member = "root"
 source_path = ".temper/rules/collaboration.ts"
-import_hash = "c0e7a01745ac987647674cd58e4df7045c89a3407d71edf2a7cb5d572e92d9d0"
+import_hash = "64c083e3a41093dc920854900defc7e449fb84aa59db4254afe5bc3714dd860f"
 
 [[declaration.module]]
 member = "root"
 source_path = ".temper/rules/public-prose.ts"
-import_hash = "b4deb9577306fa3f00bf79ca6434c8bf822a424221894f741bfde51a53107649"
+import_hash = "1ce6e469dd9e06dc16146a1c9a129958b2ed17d20f6569f29bbd5b38395ca9d3"
 
 [[declaration.module]]
 member = "root"
 source_path = ".temper/rules/release.ts"
-import_hash = "7e14a32717e3179e897f69da0fc19c86d6cd60a07a6ea345a3e347d5d656795a"
+import_hash = "2a67fcd84a4ff11f6d597346c0c1f4377ad013f3cf1fc5b1ce4dcf1a645ec6dc"
 
 [[declaration.module]]
 member = "root"
 source_path = ".temper/rules/rust.ts"
-import_hash = "1005a62faaed4cea59e14957033e719f5e223756af52d47c571a17c6fa2df2c0"
+import_hash = "90ec48943ef14e98eb2abea3f6f204e219ae87298d0eb5d45ca421d1a16d6fae"
 
 [[declaration.module]]
 member = "root"
 source_path = ".temper/rules/sdk.ts"
-import_hash = "4356541e8ec5157dacbc1cc711935acb4465dfc335ef666432acc9a8140aa824"
+import_hash = "baffb71f25b95db57b8bcb41b70fdb2abe77c9b893314aa50437cf7d6089f3a9"
 
 [[declaration.module]]
 member = "root"
