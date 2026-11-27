@@ -1,10 +1,7 @@
 {
   "tag": "PLAYBOOK-SHAPE",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "RULE-CLAIMS-NESTED-CLAUDE-RULES"
-    ]
+    "kind": "open"
   },
   "dependsOnForks": [],
   "kind": "work",

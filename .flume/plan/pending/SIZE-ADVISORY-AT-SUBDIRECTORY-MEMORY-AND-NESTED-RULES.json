@@ -3,10 +3,11 @@
   "gate": {
     "kind": "blockedBy",
     "tags": [
-      "RULE-CLAIMS-NESTED-CLAUDE-RULES",
       "LOAD-MOMENT-IS-A-REGISTRATION-FACT"
     ]
   },
+  "dependsOnForks": [],
+  "kind": "work",
   "files": {
     "new": [],
     "edit": [
@@ -22,7 +23,8 @@
         "path": "tests/it/context_cost.rs",
         "description": "subdirectory memory and nested rule past the limit"
       }
-    ]
+    ],
+    "retire": []
   },
   "summary": "A subdirectory `CLAUDE.md` and a subdirectory's own rule past the per-file limit draw the size advisory, as an on-demand root rule does",
   "per": {
@@ -37,5 +39,6 @@
   "pins": [
     "a root memory past the per-file limit draws no size advisory"
   ],
+  "laneTests": [],
   "notes": "0115. CLAUDE.local.md and imported files wait on question non-member-files-the-runtime-cuts."
 }
