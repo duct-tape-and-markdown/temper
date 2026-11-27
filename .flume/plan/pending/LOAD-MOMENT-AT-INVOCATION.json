@@ -1,0 +1,23 @@
+{
+  "tag": "LOAD-MOMENT-AT-INVOCATION",
+  "gate": { "kind": "open" },
+  "files": {
+    "edit": [
+      { "path": "src/gate.rs", "description": "channel_load_moment: an invoking channel (user-invoked, description-trigger, paths-listing) loads the body on demand, per clause §load moment; the None set narrows to the channels whose content never enters context" },
+      { "path": "tests/it/load_moment_guard.rs", "description": "skill, command and agent fixtures under a loads guard" }
+    ]
+  },
+  "summary": "An invoked skill, command or agent loads on demand, so a loads(on-demand) guard binds its body there instead of staying silent",
+  "per": { "path": "specs/model/contract.md", "section": "clause" },
+  "acceptance": "a `when(loads(\"on-demand\"), …)` clause on the skill, command or agent contract judges every member; one on `launch` judges none",
+  "tests": [
+    "a loads on-demand guard binds its body on an invoked skill",
+    "a loads on-demand guard binds its body on an agent",
+    "a loads on-demand guard binds its body on a command"
+  ],
+  "pins": [
+    "a load moment guard binds its body on a member that loads on demand",
+    "a load moment guard is silent on a member that loads at launch"
+  ],
+  "notes": "Only the body is the load; the description listing stays the listing budget's (0120 amendment). The refusal half of the amendment (a guard on a kind whose content never enters context) waits on question load-moment-refusal-class. imported_file_moment reads these moments too: an unclaimed file a skill's directive arcs reach gains on-demand."
+}
