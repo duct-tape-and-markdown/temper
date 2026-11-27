@@ -5931,11 +5931,17 @@ fn the_pre_edge_names_an_undeclared_named_field_layout_document_by_its_frontmatt
 /// under `warn`. `check`'s nested-file scan honors the host's commitment, so it reaches
 /// every child in the ignored unit.
 fn local_host_child_harness(label: &str) -> PathBuf {
+    local_host_harness(label, "docs/guides/\n", "*.md")
+}
+
+/// A local `guide` host at `docs/guides` with one `operate` unit, its repo ignoring
+/// `gitignore`, and its `spec` child template at `child`.
+fn local_host_harness(label: &str, gitignore: &str, child: &str) -> PathBuf {
     let harness = common::scaffold(label);
     let unit = harness.join("docs/guides/operate");
     fs::create_dir_all(&unit).unwrap();
     fs::write(unit.join("GUIDE.md"), "# Operate\n").unwrap();
-    fs::write(harness.join(".gitignore"), "docs/guides/\n").unwrap();
+    fs::write(harness.join(".gitignore"), gitignore).unwrap();
     let payload = drift::Payload {
         version: drift::SEAM_VERSION,
         declarations: drift::Declarations {
@@ -5945,7 +5951,7 @@ fn local_host_child_harness(label: &str) -> PathBuf {
                     unit_shape: Some("directory".to_string()),
                     templates: vec![drift::TemplateRow {
                         kind: "spec".to_string(),
-                        path: Some("*.md".to_string()),
+                        path: Some(child.to_string()),
                     }],
                     ..common::kind_facts("guide", "docs/guides", "*/GUIDE.md")
                 },
@@ -6168,5 +6174,73 @@ fn guard_leaves_an_edit_outside_every_playbook_area_to_the_other_guards() {
     assert!(
         stderr.contains("temper-managed projection") && !stderr.contains("playbook area"),
         "with its own finding alone: {stderr}"
+    );
+}
+
+#[test]
+fn guard_and_check_agree_on_a_hosted_child_in_an_ignored_subdirectory_of_a_local_host_unit() {
+    let harness = local_host_harness("guard-local-host-ignored-subdir", "build/\n", "**/*.md");
+    let ignored = "docs/guides/operate/build/notes.md";
+    let reached = "docs/guides/operate/notes/stray.md";
+
+    // Pending, before the ignored directory exists: the write would create it ignored.
+    let (code, output) = common::run_guard(
+        &harness,
+        &common::guard_write_payload_with_content(ignored, NESTED_SPEC_DOC),
+    );
+    assert_eq!(code, Some(0), "warn allows the write, got: {output}");
+    assert!(
+        output.is_empty(),
+        "a wildcard never descends the ignored `build/`, got: {output}"
+    );
+
+    fs::create_dir_all(harness.join("docs/guides/operate/build")).unwrap();
+    fs::write(harness.join(ignored), NESTED_SPEC_DOC).unwrap();
+    let (code, output) = common::run_guard(&harness, &common::guard_write_payload(ignored));
+    assert_eq!(code, Some(0), "warn allows the write, got: {output}");
+    assert!(
+        output.is_empty(),
+        "an existing child in the ignored `build/` is no member, got: {output}"
+    );
+    let (findings, _) = common::check_harness(&harness);
+    assert!(
+        !findings.iter().any(|line| line.contains(ignored)),
+        "check discovers no member in the ignored `build/`, got: {findings:#?}"
+    );
+
+    // A child the index reaches is still placed, as check places it.
+    let (code, output) = common::run_guard(
+        &harness,
+        &common::guard_write_payload_with_content(reached, NESTED_SPEC_DOC),
+    );
+    assert_eq!(code, Some(0), "warn allows the write, got: {output}");
+    let in_band = common::guard_in_band(&output, "PreToolUse");
+    fs::create_dir_all(harness.join("docs/guides/operate/notes")).unwrap();
+    fs::write(harness.join(reached), NESTED_SPEC_DOC).unwrap();
+    assert_check_raises_the_guard_s_layout_finding(&harness, &in_band, reached);
+}
+
+#[test]
+fn guard_places_no_memory_local_member_inside_an_ignored_directory_a_wildcard_never_descends() {
+    let harness = common::scaffold("guard-memory-local-ignored-dir");
+    fs::write(harness.join(".gitignore"), "build/\n").unwrap();
+    let pending = "build/CLAUDE.local.md";
+    let (code, output) = common::run_guard(
+        &harness,
+        &common::guard_write_payload_with_content(pending, "# Local\n"),
+    );
+    assert_eq!(code, Some(0), "warn allows the write, got: {output}");
+    assert!(
+        output.is_empty(),
+        "no placement in the ignored `build/`, got: {output}"
+    );
+
+    fs::create_dir_all(harness.join("build")).unwrap();
+    fs::write(harness.join(pending), "# Local\n").unwrap();
+    let (code, output) = common::run_guard(&harness, &common::guard_write_payload(pending));
+    assert_eq!(code, Some(0), "warn allows the write, got: {output}");
+    assert!(
+        output.is_empty(),
+        "no placement in the ignored `build/`, got: {output}"
     );
 }
