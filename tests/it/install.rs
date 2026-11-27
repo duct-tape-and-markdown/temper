@@ -31,7 +31,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use temper::compose::{self, EnforcementMode};
-use temper::drift::{self, ApplyOutcome, ClauseRow, KindFactRow};
+use temper::drift::{self, ApplyOutcome, AreaMode, ClauseRow, KindFactRow};
 use temper::install::{self, InstallOutcome, KindMembers, Represent};
 
 use crate::common;
@@ -6073,4 +6073,81 @@ fn guard_raises_the_rejected_collection_finding_for_a_pending_manifest_write_of_
             );
         }
     }
+}
+
+/// A lock declaring `mode` with the `deploy` rule's projection and one playbook area over
+/// `infra/**` that the rule governs at `area`.
+fn playbook_area_harness(label: &str, mode: &str, area: AreaMode) -> PathBuf {
+    let root = common::tmpdir(label);
+    common::GuardLock::declaring(mode)
+        .member("rule", "deploy", ".claude/rules/deploy.md", "abc", "abc")
+        .area("rule:deploy", &["infra/**"], area)
+        .write(&root);
+    root
+}
+
+#[test]
+fn guard_refuses_an_edit_on_a_refusing_playbook_area_naming_its_rule() {
+    // The area's own mode decides: a `warn` harness still refuses an edit its playbook
+    // declares refused.
+    let root = playbook_area_harness("guard-area-refuse", "warn", AreaMode::Refuse);
+    let (code, stderr) = common::run_guard(&root, &common::guard_write_payload("infra/main.tf"));
+    assert_eq!(code, Some(2), "a refusing area denies the edit: {stderr}");
+    assert!(
+        stderr.contains("`rule:deploy` (`.claude/rules/deploy.md`)"),
+        "the refusal names the rule and where to read it: {stderr}"
+    );
+    assert!(
+        stderr.contains("`infra/**`"),
+        "the refusal names the matched glob: {stderr}"
+    );
+
+    let absolute = root.join("infra/nested/main.tf");
+    let (code, _) = common::run_guard(
+        &root,
+        &common::guard_write_payload(&absolute.to_string_lossy()),
+    );
+    assert_eq!(
+        code,
+        Some(2),
+        "an absolute path into the area is the same edit"
+    );
+}
+
+#[test]
+fn guard_points_an_edit_on_a_pointing_playbook_area_at_its_rule() {
+    let root = playbook_area_harness("guard-area-point", "block", AreaMode::Point);
+    let (code, output) = common::run_guard(&root, &common::guard_write_payload("infra/main.tf"));
+    assert_eq!(code, Some(0), "a pointing area allows the edit: {output}");
+    let in_band = common::guard_in_band(&output, "PreToolUse");
+    assert!(
+        in_band.contains("`rule:deploy` (`.claude/rules/deploy.md`)"),
+        "the pointer names the rule and where to read it: {in_band}"
+    );
+}
+
+#[test]
+fn guard_leaves_an_edit_outside_every_playbook_area_to_the_other_guards() {
+    let root = playbook_area_harness("guard-area-outside", "block", AreaMode::Refuse);
+    let (code, output) = common::run_guard(&root, &common::guard_write_payload("src/lib.rs"));
+    assert_eq!(
+        code,
+        Some(0),
+        "an edit on no area's paths is allowed: {output}"
+    );
+    assert!(output.is_empty(), "and nothing surfaces: {output}");
+
+    let (code, stderr) = common::run_guard(
+        &root,
+        &common::guard_write_payload(".claude/rules/deploy.md"),
+    );
+    assert_eq!(
+        code,
+        Some(2),
+        "the projection guard still decides its own write"
+    );
+    assert!(
+        stderr.contains("temper-managed projection") && !stderr.contains("playbook area"),
+        "with its own finding alone: {stderr}"
+    );
 }

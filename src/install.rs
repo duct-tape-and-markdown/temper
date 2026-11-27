@@ -2295,6 +2295,79 @@ pub fn guard(
     }
 }
 
+/// The playbook area a pending write lands in, decided over `areas` — the lock's
+/// [`drift::AreaRow`]s — or `None` for a write on no area's paths, which leaves the edit to
+/// the other guards. `targets` names where each area's rule is projected, so the finding
+/// points at the file to read; a rule with no projection row is named by address alone.
+///
+/// The area's own mode decides, never the harness's enforcement mode: a playbook declares
+/// whether its area points or refuses, and an area with a glob `globset` cannot compile
+/// matches nothing.
+#[must_use]
+pub fn area_decision(
+    payload: &JsonValue,
+    root: &Path,
+    areas: &[drift::AreaRow],
+    targets: &[drift::EmitOwnedEntry],
+) -> Option<GuardDecision> {
+    let relative = harness_relative(extract_file_path(payload)?, root)?;
+    let (area, glob) = areas.iter().find_map(|area| {
+        area.paths
+            .iter()
+            .find(|glob| crate::glob::compile_glob(glob).is_some_and(|m| m.is_match(&*relative)))
+            .map(|glob| (area, glob))
+    })?;
+    let rule = targets
+        .iter()
+        .find(|target| crate::member_address::address_of(&target.kind, &target.name) == area.rule)
+        .map_or_else(
+            || format!("`{}`", area.rule),
+            |target| format!("`{}` (`{}`)", area.rule, target.path),
+        );
+    Some(match area.mode {
+        drift::AreaMode::Point => GuardDecision {
+            verdict: GuardVerdict::Warn,
+            message: format!(
+                "temper playbook area: `{relative}` matches `{glob}`, an area whose standing facts live in the rule {rule} — read that rule before this edit, if it is not already loaded."
+            ),
+        },
+        drift::AreaMode::Refuse => GuardDecision {
+            verdict: GuardVerdict::Block,
+            message: format!(
+                "temper playbook area: `{relative}` matches `{glob}`, an area that refuses direct edits — the rule {rule} says how changes here are made; read it and follow it rather than editing this path. {}",
+                binding_limit()
+            ),
+        },
+    })
+}
+
+/// `decision` joined with the playbook area's own `area` decision: the firmer verdict
+/// wins, and every message that surfaces is kept, so a write both drifting a projection
+/// and landing in an area hears both findings.
+#[must_use]
+pub fn with_area(decision: GuardDecision, area: Option<GuardDecision>) -> GuardDecision {
+    let Some(area) = area else {
+        return decision;
+    };
+    let rank = |verdict: GuardVerdict| match verdict {
+        GuardVerdict::Allow => 0,
+        GuardVerdict::Note => 1,
+        GuardVerdict::Warn => 2,
+        GuardVerdict::Block => 3,
+    };
+    let verdict = if rank(area.verdict) > rank(decision.verdict) {
+        area.verdict
+    } else {
+        decision.verdict
+    };
+    let message = [decision.message, area.message]
+        .into_iter()
+        .filter(|message| !message.is_empty())
+        .collect::<Vec<_>>()
+        .join("\n\n");
+    GuardDecision { verdict, message }
+}
+
 /// The `tool_input` object a hook payload carries the firing tool's own arguments in —
 /// one home for the field name, read by both judges a pending write faces
 /// ([`extract_file_path`] and [`manifest_write_findings`]), so neither can reach a

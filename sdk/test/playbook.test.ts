@@ -9,7 +9,7 @@ import { test } from "node:test";
 import { clause, harness, maxLen, span, text } from "../src/index.js";
 import { emit } from "../src/emit.js";
 import { agent } from "../src/claude-code.js";
-import { playbook } from "../src/patterns.js";
+import { gateHooks, playbook } from "../src/patterns.js";
 import type { PlaybookInit } from "../src/patterns.js";
 import type { Text } from "../src/index.js";
 
@@ -239,4 +239,45 @@ test("a task refuses a wildcard, a compound command and a blank one", () => {
   assert.throws(() => playbook({ ...base, attachments: { tasks: ["./a.sh && ./b.sh"] } }), /chains commands/);
   assert.throws(() => playbook({ ...base, attachments: { tasks: ["./a.sh | tee log"] } }), /chains commands/);
   assert.throws(() => playbook({ ...base, attachments: { tasks: [" "] } }), /blank/);
+});
+
+/** The `PreToolUse` hook registrations a result carries. */
+function guardHooks(result: Result): Result["registrations"] {
+  return result.registrations.filter((registration) => registration.kind === "hook" && registration.key === "PreToolUse");
+}
+
+test("a guard attachment emits a hook running temper guard and a lock area row", () => {
+  const book = playbook({ ...base, trigger: { paths: ["src/**/*.rs"] }, attachments: { guard: { mode: "refuse" } } });
+  assert.ok(book.guard, "the playbook carries its guard hook");
+  assert.equal(book.members.at(-1), book.guard);
+  const result = emit(harness({ members: [...book.members] }));
+  const hooks = guardHooks(result);
+  assert.equal(hooks.length, 1);
+  assert.equal(hooks[0].fields.find(([key]) => key === "matcher")?.[1], "Write|Edit|MultiEdit");
+  const handlers = hooks[0].fields.find(([key]) => key === "hooks")?.[1];
+  assert.deepEqual(handlers, [{ type: "command" }]);
+  assert.ok(hooks[0].fields.some(([key]) => key === "temper:gate-tool"), "the engine renders the guard's command");
+  assert.deepEqual(result.declarations.areas, [{ rule: "rule:rust-code", paths: ["src/**/*.rs"], mode: "refuse" }]);
+});
+
+test("a nested playbook's guard binds everything beneath its directory", () => {
+  const result = emitted({ ...base, trigger: { nested: "apps/web" }, attachments: { guard: { mode: "point" } } });
+  assert.deepEqual(result.declarations.areas, [{ rule: "rule:apps:web:rust-code", paths: ["apps/web/**"], mode: "point" }]);
+});
+
+test("a guard attachment rides the harness's own gate guard hook, one command per edge", () => {
+  const book = playbook({ ...base, trigger: { paths: ["src/**"] }, attachments: { guard: { mode: "point" } } });
+  const result = emit(harness({ members: [...gateHooks(), ...book.members] }));
+  assert.equal(guardHooks(result).length, 1);
+  assert.equal(result.declarations.areas.length, 1);
+});
+
+test("a playbook with no guard attachment records no area and no hook", () => {
+  const result = emitted({ ...base, trigger: { paths: ["src/**"] } });
+  assert.deepEqual(result.declarations.areas, []);
+  assert.deepEqual(guardHooks(result), []);
+});
+
+test("a guard attachment refuses a playbook with no trigger, since it names no paths", () => {
+  assert.throws(() => playbook({ ...base, attachments: { guard: { mode: "refuse" } } }), /guard attachment .* names none/);
 });

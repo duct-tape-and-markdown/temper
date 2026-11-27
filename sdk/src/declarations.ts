@@ -41,8 +41,10 @@ import {
   tool,
 } from "./builtins.js";
 import { ROOT_ADDRESS, leafAddress, memberAddress, nestedAddress } from "./member-address.js";
+import { playbookArea } from "./playbook.js";
 
 import type {
+  AreaRow,
   AssemblyFactRow,
   ClauseRow,
   CollectionAddressRow,
@@ -1714,6 +1716,15 @@ export function settingsRows(harness: Harness): SettingsRow[] {
     .sort((a, b) => compareStrings(a.key, b.key));
 }
 
+/** The playbook areas a guard attachment binds, one row per guarded playbook, in member
+ * order — what `temper guard` reads an edit's path against. */
+function areaRows(harness: Harness): AreaRow[] {
+  return harness.members.flatMap((member) => {
+    const area = playbookArea(member);
+    return area === undefined ? [] : [{ rule: area.rule, paths: [...area.paths], mode: area.mode }];
+  });
+}
+
 /** Every requirement name a `satisfies` claim may fill — assembly `require` ∪ member `requires`. */
 export function declaredRequirements(harness: Harness): Set<string> {
   const set = new Set<string>();
@@ -1814,6 +1825,7 @@ export function compileDeclarations(
     nested_members: nestedMemberRows(harness, admissions, mentionScope(harness), placements, extents),
     registrations: mergedRegistrationRows(harness),
     settings: settingsRows(harness),
+    areas: areaRows(harness),
   };
 }
 

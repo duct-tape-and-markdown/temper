@@ -228,6 +228,7 @@ fn rich_declarations() -> Declarations {
         nested_members: Vec::new(),
         registrations: Vec::new(),
         settings: Vec::new(),
+        areas: Vec::new(),
     }
 }
 

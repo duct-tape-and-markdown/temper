@@ -1067,6 +1067,7 @@ pub enum LockRowError {
 enum RowError {
     Missing { column: String },
     WrongType { column: String, want: &'static str },
+    Vocabulary { column: String, value: String },
 }
 
 impl RowError {
@@ -1083,6 +1084,13 @@ impl RowError {
         }
     }
 
+    fn vocabulary(column: &str, value: String) -> Self {
+        Self::Vocabulary {
+            column: column.to_string(),
+            value,
+        }
+    }
+
     /// Scope this column problem to `family`, producing the surfaced [`LockRowError`].
     fn at(self, family: &str) -> LockRowError {
         match self {
@@ -1094,6 +1102,11 @@ impl RowError {
                 family: family.to_string(),
                 column,
                 want: want.to_string(),
+            },
+            RowError::Vocabulary { column, value } => LockRowError::Vocabulary {
+                family: family.to_string(),
+                column,
+                value,
             },
         }
     }
@@ -6045,6 +6058,10 @@ pub struct Declarations {
     /// written into this declaration table, so a lock round-trip reads none.
     #[serde(default)]
     pub settings: Vec<SettingsRow>,
+    /// The playbook areas a guard attachment binds — what `temper guard` reads an edit's
+    /// path against, recorded on the lock so the guard needs no program to run.
+    #[serde(default)]
+    pub areas: Vec<AreaRow>,
 }
 
 /// One kind's declaration row — its identity and declared runtime facts.
@@ -6612,6 +6629,42 @@ pub struct RunsRow {
     pub tool: String,
 }
 
+/// One playbook area a guard attachment binds: the globs naming the area's files, the
+/// address of the rule holding its standing facts, and what `temper guard` does with an
+/// edit there.
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq, ts_rs::TS)]
+pub struct AreaRow {
+    /// The address of the area's rule — `rule:<name>`.
+    pub rule: String,
+    /// The area's globs, relative to the harness root.
+    pub paths: Vec<String>,
+    /// Whether the guard points an edit on the area at its rule or refuses it.
+    pub mode: AreaMode,
+}
+
+/// What `temper guard` does with an edit on a playbook area: `point` allows it and sends
+/// the session to the area's rule, `refuse` denies it naming the rule.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, ts_rs::TS)]
+#[serde(rename_all = "lowercase")]
+#[ts(rename_all = "lowercase")]
+pub enum AreaMode {
+    /// Allow the edit and name the rule in-band.
+    Point,
+    /// Deny the edit, naming the rule.
+    Refuse,
+}
+
+impl AreaMode {
+    /// The mode's lock spelling.
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Point => "point",
+            Self::Refuse => "refuse",
+        }
+    }
+}
+
 /// One composed-prose include the SDK declares — the host member's own `kind:name`
 /// address and the include target's path, resolved by the SDK against the stating
 /// module (never the workspace) to an absolute path. A seam-inbound row only: `emit`
@@ -6932,6 +6985,11 @@ impl Declarations {
             "registration",
             self.registrations.iter().map(RegistrationRow::to_table),
         );
+        insert_family(
+            &mut table,
+            AREA_FAMILY,
+            self.areas.iter().map(AreaRow::to_table),
+        );
         if let Some(typecheck) = &self.typecheck {
             table.insert(TYPECHECK_FAMILY, Item::Table(typecheck.to_table()));
         }
@@ -7083,6 +7141,7 @@ pub(crate) fn declarations_from_doc(doc: &DocumentMut) -> Result<Declarations, L
         // Settings residue is seam-inbound only — folded into its manifest's opaque residue
         // at emit, never written into this declaration table, so a lock round-trip reads none.
         settings: Vec::new(),
+        areas: family(table, AREA_FAMILY, AreaRow::from_table)?,
     })
 }
 
@@ -8082,6 +8141,33 @@ impl MentionRow {
         Ok(Self {
             member: req_str(table, "member")?,
             target: req_str(table, "target")?,
+        })
+    }
+}
+
+/// The lock family carrying the playbook areas — `[[declaration.area]]`.
+const AREA_FAMILY: &str = "area";
+
+impl AreaRow {
+    fn to_table(&self) -> Table {
+        let mut table = Table::new();
+        table.insert("rule", value(self.rule.clone()));
+        table.insert("paths", value(string_array(&self.paths)));
+        table.insert("mode", value(self.mode.as_str()));
+        table
+    }
+
+    fn from_table(table: &Table) -> Result<Self, RowError> {
+        let mode = req_str(table, "mode")?;
+        let mode = match mode.as_str() {
+            "point" => AreaMode::Point,
+            "refuse" => AreaMode::Refuse,
+            _ => return Err(RowError::vocabulary("mode", mode)),
+        };
+        Ok(Self {
+            rule: req_str(table, "rule")?,
+            paths: opt_str_array(table, "paths")?.ok_or_else(|| RowError::missing("paths"))?,
+            mode,
         })
     }
 }

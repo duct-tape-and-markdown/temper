@@ -20,9 +20,9 @@ use temper::builtin_kind;
 use temper::check::Diagnostic;
 use temper::compose::{self, EnforcementMode};
 use temper::drift::{
-    self, AssemblyFactRow, ClauseRow, CollectionAddressRow, CountBoundRow, Declarations,
-    DegreeBoundRow, EmitOptions, KindFactRow, LayoutRegionRow, LayoutRow, MentionRow, Payload,
-    PayloadMember, RegistrationRow, RequirementRow, SatisfiesRow,
+    self, AreaMode, AreaRow, AssemblyFactRow, ClauseRow, CollectionAddressRow, CountBoundRow,
+    Declarations, DegreeBoundRow, EmitOptions, KindFactRow, LayoutRegionRow, LayoutRow, MentionRow,
+    Payload, PayloadMember, RegistrationRow, RequirementRow, SatisfiesRow,
 };
 use temper::extract::Features;
 use temper::frontmatter::Member;
@@ -791,6 +791,18 @@ impl GuardLock {
         self
     }
 
+    /// Declare one playbook area a guard attachment binds — its rule's address, its globs
+    /// and its mode.
+    #[must_use]
+    pub fn area(mut self, rule: &str, paths: &[&str], mode: AreaMode) -> Self {
+        self.declarations.areas.push(AreaRow {
+            rule: rule.to_string(),
+            paths: paths.iter().map(ToString::to_string).collect(),
+            mode,
+        });
+        self
+    }
+
     /// Render the lock at `<root>/.temper/lock.toml`, then read the bytes back through
     /// the engine's own reader and assert they lift to exactly what was declared.
     pub fn write(self, root: &Path) {
@@ -880,6 +892,11 @@ impl GuardLock {
                 .iter()
                 .map(registration_table),
         );
+        insert_declaration_family(
+            &mut declaration,
+            "area",
+            self.declarations.areas.iter().map(area_table),
+        );
         doc["declaration"] = Item::Table(declaration);
 
         doc.to_string()
@@ -893,6 +910,22 @@ fn insert_declaration_family(table: &mut Table, family: &str, rows: impl Iterato
     if !tables.is_empty() {
         table[family] = Item::ArrayOfTables(tables);
     }
+}
+
+/// The `rule`/`paths`/`mode` columns of one playbook area.
+fn area_table(row: &AreaRow) -> Table {
+    let mut table = Table::new();
+    table["rule"] = value(row.rule.clone());
+    let mut paths = toml_edit::Array::new();
+    for path in &row.paths {
+        paths.push(path.clone());
+    }
+    table["paths"] = value(paths);
+    table["mode"] = value(match row.mode {
+        AreaMode::Point => "point",
+        AreaMode::Refuse => "refuse",
+    });
+    table
 }
 
 /// The `fact`/`value` columns of one assembly fact — the enforcement mode's whole

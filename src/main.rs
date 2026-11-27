@@ -480,6 +480,12 @@ fn main() -> miette::Result<ExitCode> {
                         &layout,
                     ),
                 };
+            // A playbook area is judged beside the other guards, never in place of them:
+            // an edit outside every area leaves their decision as it stood.
+            let decision = install::with_area(
+                decision,
+                install::area_decision(&payload, &path, &declarations.areas, &targets),
+            );
             Ok(match decision.verdict {
                 install::GuardVerdict::Allow | install::GuardVerdict::Note => ExitCode::SUCCESS,
                 install::GuardVerdict::Warn => {

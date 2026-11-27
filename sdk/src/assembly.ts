@@ -10,7 +10,8 @@
 import type { Input, Member, KindDefinition } from "./kind.js";
 import { clause, engineMatches, fresh, importBacked, listing, locusDeclared, reachable, resolves } from "./contract.js";
 import type { Clause, Requirement, RequirementValue } from "./contract.js";
-import { command, isRequirement, requirementOf, skill } from "./builtins.js";
+import { command, gateHookTool, isRequirement, requirementOf, skill } from "./builtins.js";
+import { memberAddress } from "./member-address.js";
 
 /**
  * One `expect` binding — universal: every member of `kind` owes these clauses.
@@ -131,7 +132,7 @@ export function harness(init: {
   contract?: readonly Clause[];
   typecheck?: Typecheck;
 }): Harness {
-  const { members, require } = assemblyRequirements(init.members, init.require ?? {});
+  const { members, require } = assemblyRequirements(withoutRepeatedGateHooks(init.members), init.require ?? {});
   return {
     members,
     ...(init.typecheck === undefined ? {} : { typecheck: init.typecheck }),
@@ -150,6 +151,32 @@ export function harness(init: {
     // rather than re-derived from a row count downstream (decision 0072).
     contractDeclared: init.contract !== undefined,
   };
+}
+
+/**
+ * `roster` with each repeated gate hook dropped: a gate hook at the address of an earlier
+ * one that runs the same tool and fills the same requirements is the same hook, so the
+ * edge runs one command. A playbook's guard attachment and the harness's own gate hooks
+ * both place the `PreToolUse` guard; any difference between the two is left to the
+ * duplicate-address refusal.
+ */
+function withoutRepeatedGateHooks(roster: readonly Member[]): readonly Member[] {
+  const seen = new Map<string, Member>();
+  return roster.filter((member) => {
+    const tool = gateHookTool(member);
+    if (tool === undefined) return true;
+    const address = memberAddress(member);
+    const held = seen.get(address);
+    if (held === undefined) {
+      seen.set(address, member);
+      return true;
+    }
+    const same =
+      gateHookTool(held) === tool &&
+      held.satisfies.length === member.satisfies.length &&
+      held.satisfies.every((name, at) => member.satisfies[at] === name);
+    return !same;
+  });
 }
 
 /**

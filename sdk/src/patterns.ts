@@ -24,7 +24,7 @@
  */
 
 import type { Typecheck } from "./assembly.js";
-import { gateHook, tool as toolMember } from "./builtins.js";
+import { GUARD_MATCHER, gateHook, tool as toolMember } from "./builtins.js";
 import type { Input, Member } from "./kind.js";
 import type { Playbook } from "./playbook.js";
 import { reference } from "./reference.js";
@@ -38,6 +38,7 @@ export type {
   Playbook,
   PlaybookAttachments,
   PlaybookExecution,
+  PlaybookGuard,
   PlaybookInit,
   PlaybookInvocation,
   PlaybookRenderer,
@@ -48,13 +49,6 @@ export type {
   RouterView,
 } from "./playbook.js";
 export { playbook } from "./playbook.js";
-
-/**
- * The tool-name matcher the guard's `PreToolUse` edge binds — Claude Code's own
- * file-writing tools (`code.claude.com/docs/en/hooks`, retrieved 2026-07-24), the matcher
- * `temper install` places (`src/install.rs`'s `GUARD_MATCHER`).
- */
-const GUARD_MATCHER = "Write|Edit|MultiEdit";
 
 /**
  * The tool-name matcher the guard's `PostToolUse` edge binds: a Bash write carries no file

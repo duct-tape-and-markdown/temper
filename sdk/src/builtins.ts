@@ -1036,6 +1036,13 @@ export interface GateHookInit {
 }
 
 /**
+ * The tool-name matcher the guard's `PreToolUse` edge binds — Claude Code's own
+ * file-writing tools (`code.claude.com/docs/en/hooks`, retrieved 2026-07-24), the matcher
+ * `temper install` places (`src/install.rs`'s `GUARD_MATCHER`).
+ */
+export const GUARD_MATCHER = "Write|Edit|MultiEdit";
+
+/**
  * The key a gate hook's registration row carries the address of the tool it runs under —
  * the engine's `GATE_TOOL_KEY` (`src/drift.rs`), which consumes it at emit and renders the
  * handler's command in its place. Colon-qualified so no typed {@link Hook} field can spell

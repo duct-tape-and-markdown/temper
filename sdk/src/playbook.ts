@@ -12,7 +12,7 @@
  * are offered.
  */
 
-import { rule, skill, supportingDoc } from "./builtins.js";
+import { GUARD_MATCHER, gateHook, rule, skill, supportingDoc } from "./builtins.js";
 import type { Clause, Requirement } from "./contract.js";
 import type { Member } from "./kind.js";
 import { memberAddress, nestedAddress } from "./member-address.js";
@@ -20,6 +20,7 @@ import { bash, capability } from "./needs.js";
 import type { Capability } from "./needs.js";
 import { blocks, joined, linked, linkedText, mentionOf } from "./prose.js";
 import type { Mentionable, Prose, Text } from "./prose.js";
+import type { AreaMode, AreaRow } from "./generated/index.js";
 
 /** Where a not-yet-offered axis is asked for. */
 const REQUEST_AT = "https://github.com/duct-tape-and-markdown/temper/issues";
@@ -115,6 +116,21 @@ export interface PlaybookSatisfies {
 }
 
 /**
+ * The guard attachment: temper's own `guard` reads every pending edit's path against the
+ * area's paths, and `"point"` sends an edit there to the area's rule while `"refuse"`
+ * denies it naming the rule.
+ */
+export interface PlaybookGuard {
+  /** What the guard does with an edit on the area. */
+  readonly mode: AreaMode;
+  /**
+   * The {@link tool} the guard hook runs temper as — the same tool the harness's own gate
+   * hooks run, so the two hooks are one. Absent, the temper package's bin.
+   */
+  readonly tool?: Member;
+}
+
+/**
  * What must always be true of the area, held by the harness rather than by a prose MUST.
  * Permission rule syntax is Claude Code's (code.claude.com/docs/en/permissions, retrieved
  * 2026-11-26).
@@ -140,6 +156,12 @@ export interface PlaybookAttachments {
    * matches one exact command).
    */
   readonly tasks?: readonly string[];
+  /**
+   * The guard hook over the area's paths — a `PreToolUse` gate hook over the file-writing
+   * tools, the same hook the harness's own gates place, so the edge still runs one
+   * command. Needs an area with paths: a paths or a nested trigger.
+   */
+  readonly guard?: PlaybookGuard;
 }
 
 /** What {@link playbook} takes. */
@@ -180,8 +202,39 @@ export interface Playbook {
   readonly rule: Member;
   readonly skill: Member;
   readonly topics: readonly Member[];
-  /** The rule, the skill, then its topics. */
+  /** The guard attachment's hook, when the playbook declares one. */
+  readonly guard?: Member;
+  /** The rule, the skill, its topics, then its guard hook. */
   readonly members: readonly Member[];
+}
+
+/** Each guarded playbook's rule mapped to the area its guard binds — the fact
+ * {@link playbookArea} reads, keyed by the member so the rule's fields stay exactly its
+ * frontmatter. */
+const guardedAreas = new WeakMap<Member, AreaRow>();
+
+/**
+ * The area a guarded playbook's rule records on the lock, or `undefined` for every other
+ * member. The one reader is the declaration erasure (`declarations.ts`).
+ */
+export function playbookArea(member: Member): AreaRow | undefined {
+  return guardedAreas.get(member);
+}
+
+/**
+ * The paths a guard attachment binds: a paths trigger's own globs, or everything beneath a
+ * nested trigger's directory.
+ *
+ * # Throws
+ * If the playbook has no trigger, since an area loaded at launch names no paths to guard.
+ */
+function guardedPaths(name: string, trigger: PlaybookTrigger | undefined): string[] {
+  if (trigger !== undefined && "paths" in trigger) return [...trigger.paths];
+  if (trigger !== undefined) return [`${trigger.nested}/**`];
+  throw new Error(
+    `playbook \`${name}\`: a guard attachment binds the edits on the area's paths, and a playbook ` +
+      "with no trigger names none — give it a `paths` or `nested` trigger, or drop `guard`.",
+  );
 }
 
 /** The default router: a heading, then one line per topic naming its moment and its file. */
@@ -320,7 +373,8 @@ function taskNeeds(name: string, tasks: readonly string[]): Capability[] {
  * # Throws
  * If `execution` or `preloadedBy` is set (not yet offered), if `description` is blank, if
  * there is no topic, if two topics share a name, if a nested directory is no plain
- * relative path, or if a fence path or task command is malformed.
+ * relative path, if a fence path or task command is malformed, or if a guard attachment is
+ * declared on a playbook with no trigger or with a tool that is not a `tool(...)` member.
  */
 export function playbook(init: PlaybookInit): Playbook {
   const { name } = init;
@@ -404,5 +458,11 @@ export function playbook(init: PlaybookInit): Playbook {
     ...(placement.rule === undefined ? {} : { location: placement.rule }),
     prose: blocks(init.facts, pointer({ invocation, skill: mentionOf(routing) })),
   });
-  return { rule: standing, skill: routing, topics, members: [standing, routing, ...topics] };
+  if (attached.guard === undefined) {
+    return { rule: standing, skill: routing, topics, members: [standing, routing, ...topics] };
+  }
+  const { mode, tool } = attached.guard;
+  guardedAreas.set(standing, { rule: memberAddress(standing), paths: guardedPaths(name, trigger), mode });
+  const guard = gateHook({ event: "PreToolUse", matcher: GUARD_MATCHER, ...(tool === undefined ? {} : { tool }) });
+  return { rule: standing, skill: routing, topics, guard, members: [standing, routing, ...topics, guard] };
 }
