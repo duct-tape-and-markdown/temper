@@ -33,3 +33,19 @@ new data set, never a new engine.
 The SDK mirrors the seam: `builtins` + `claude-code` are the provider
 face of the authoring layer, and `generated/` is the machine-written
 ts-rs boundary between the two languages.
+
+## A run reads each input once
+
+An engine run (one verb invocation) holds one owner for each input it
+judges: the tree's file index, a file's bytes, and the parsed lock.
+Every judge, reporter and verb branch reads an input through its owner
+and never from disk. The owner fills an input on first use, and only the
+inputs the run reaches are filled, so a pending-write guard that needs
+only the lock pays only the lock. A run that writes reads its own writes
+back through the same owner, so no judge sees bytes the run has replaced.
+
+The index is built in one place, under the fences every reader of the
+tree shares: the repository's ignore rules, `.git/`, and a nested
+governed root. A kind whose locus claims documents the repository
+ignores reads them under its own locus only. No reader walks the whole
+tree with the ignore rules waived.
