@@ -3068,3 +3068,70 @@ fn explain_on_a_model_invocable_skill_states_its_listing_cost_in_characters() {
         "and its description channel reads as withheld: {quiet}"
     );
 }
+
+#[test]
+fn explain_states_how_a_permission_path_pattern_resolves() {
+    // Each `Read`/`Edit` path pattern in a settings member's permission lists reads with
+    // the anchor it resolves at — one rule per pattern shape — and nothing judges it.
+    let harness = common::scaffold("explain-permission-path-anchors");
+    common::write_sibling(
+        &harness,
+        ".claude/settings.json",
+        r#"{
+  "permissions": {
+    "allow": ["Edit(/src/**)", "Bash(cargo build:*)"],
+    "ask": ["Read(./notes/*.md)"],
+    "deny": ["Read(//etc/secrets/**)", "Read(~/.ssh/**)"]
+  }
+}
+"#,
+    );
+
+    let (green, narration) = common::explain_run_in(&harness, "settings", None);
+    assert!(green, "explain stays a read: {narration}");
+    for line in [
+        "`permissions.allow` rule `Edit(/src/**)`: `Edit` path pattern `/src/**` anchors at the settings source — for project and local settings, the session's primary working directory, not the filesystem root, so it matches `<primary working directory>/src/**`.",
+        "`permissions.ask` rule `Read(./notes/*.md)`: `Read` path pattern `./notes/*.md` anchors at the current directory, so it matches `<cwd>/notes/*.md`.",
+        "`permissions.deny` rule `Read(//etc/secrets/**)`: `Read` path pattern `//etc/secrets/**` anchors at the filesystem root, so it matches `/etc/secrets/**`.",
+        "`permissions.deny` rule `Read(~/.ssh/**)`: `Read` path pattern `~/.ssh/**` anchors at your home directory, so it matches `~/.ssh/**`.",
+    ] {
+        assert!(
+            narration.contains(line),
+            "the settings member states the rule's anchor `{line}`, got:\n{narration}"
+        );
+    }
+    assert!(
+        !narration.contains("Bash(cargo build:*)`:"),
+        "a rule with no path pattern resolves nothing: {narration}"
+    );
+}
+
+#[test]
+fn explain_names_an_agent_that_shares_a_built_in_agents_name() {
+    // An agent named `Explore` overrides the built-in, and `explain` says so; an agent
+    // with its own name carries no such line. Neither is a finding.
+    let harness = common::scaffold("explain-built-in-agent-name");
+    common::write_sibling(
+        &harness,
+        ".claude/agents/Explore.md",
+        "---\nname: Explore\ndescription: Use when exploring the codebase cheaply.\nmodel: haiku\n---\nExplore the codebase.\n",
+    );
+    common::write_sibling(
+        &harness,
+        ".claude/agents/reviewer.md",
+        "---\nname: reviewer\ndescription: Use when reviewing a change.\n---\nReview the change.\n",
+    );
+
+    let explore = common::explain_in(&harness, "Explore");
+    assert!(
+        explore.contains(
+            "Its `name` `Explore` is a built-in agent's name: as a user or project subagent it overrides the built-in `Explore` agent."
+        ),
+        "the agent named `Explore` states it overrides the built-in, got:\n{explore}"
+    );
+    let reviewer = common::explain_in(&harness, "reviewer");
+    assert!(
+        !reviewer.contains("built-in agent's name"),
+        "an agent with its own name shares no built-in's: {reviewer}"
+    );
+}

@@ -48,6 +48,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write;
 use std::path::{Path, PathBuf};
 
+use serde_json::Value as JsonValue;
+
 use crate::admissibility;
 use crate::builtin_kind;
 use crate::compose::{self, Edge, Requirement};
@@ -2542,6 +2544,130 @@ fn load_strand(
     out
 }
 
+/// The built-in subagent names Claude Code ships: `Explore`, `Plan` and `general-purpose`,
+/// plus the helper agents `claude`, `statusline-setup`, `claude-code-guide` and `web-fetch`
+/// (code.claude.com/docs/en/sub-agents, "Built-in subagents", retrieved 2026-11-26).
+const BUILT_IN_AGENTS: &[&str] = &[
+    "Explore",
+    "Plan",
+    "general-purpose",
+    "claude",
+    "statusline-setup",
+    "claude-code-guide",
+    "web-fetch",
+];
+
+/// The permission rule lists whose `Read(...)`/`Edit(...)` path patterns
+/// [`runtime_match_strand`] resolves, in the order the settings document names them.
+const PERMISSION_LISTS: &[&str] = &["allow", "ask", "deny"];
+
+/// `explain`'s **runtime match** strand — the strings the runtime matches against a
+/// target, stated as the runtime resolves them and never judged: each `Read`/`Edit`
+/// permission path pattern of a settings member with the anchor it resolves at, and an
+/// agent whose `name` is a built-in agent's. Whether the rule reaches the file its author
+/// meant, or the agent overrides the built-in its author meant, is the author's intent —
+/// so no clause gates either, and this read only shows what the runtime will match.
+/// Empty for a member that carries neither.
+fn runtime_match_strand(name: &str, by_kind: &BTreeMap<&str, &[Features]>) -> String {
+    let mut out = String::new();
+    for (&kind, members) in by_kind {
+        let Some(member) = members.iter().find(|features| features.id == name) else {
+            continue;
+        };
+        let lines = match kind {
+            "settings" | "settings-local" => permission_path_lines(member),
+            "agent" => built_in_agent_line(member).into_iter().collect(),
+            _ => Vec::new(),
+        };
+        if lines.is_empty() {
+            continue;
+        }
+        let _ = writeln!(
+            out,
+            "`{name}` ({kind}) — what the runtime matches its strings against:"
+        );
+        for line in lines {
+            let _ = writeln!(out, "  • {line}");
+        }
+    }
+    out
+}
+
+/// One sentence per `Read(...)`/`Edit(...)` rule in a settings member's `permissions`
+/// lists, naming the anchor its path pattern resolves at. The four pattern shapes and
+/// the project/local `/path` anchor are the runtime's documented resolution
+/// (code.claude.com/docs/en/permissions, "How path patterns match" and "Where a pattern
+/// anchors", retrieved 2026-11-26): Read and Edit rules are the ones checked against
+/// file paths, and both project and local settings anchor `/path` at the session's
+/// primary working directory.
+fn permission_path_lines(member: &Features) -> Vec<String> {
+    let Some(permissions) = member.fields.get("permissions") else {
+        return Vec::new();
+    };
+    let mut lines = Vec::new();
+    for list in PERMISSION_LISTS {
+        let Some(rules) = permissions.get(*list).and_then(JsonValue::as_array) else {
+            continue;
+        };
+        for rule in rules.iter().filter_map(JsonValue::as_str) {
+            let Some((tool, pattern)) = path_rule(rule) else {
+                continue;
+            };
+            let (anchor, resolved) = resolve_path_pattern(pattern);
+            lines.push(format!(
+                "`permissions.{list}` rule `{rule}`: `{tool}` path pattern `{pattern}` anchors at {anchor}, so it matches `{resolved}`."
+            ));
+        }
+    }
+    lines
+}
+
+/// A `Read(<pattern>)` or `Edit(<pattern>)` rule split into its tool and path pattern;
+/// `None` for any other rule, or a bare tool with no specifier.
+fn path_rule(rule: &str) -> Option<(&str, &str)> {
+    let (tool, rest) = rule.trim().split_once('(')?;
+    let pattern = rest.strip_suffix(')')?;
+    (matches!(tool, "Read" | "Edit") && !pattern.is_empty()).then_some((tool, pattern))
+}
+
+/// A path pattern's anchor, worded, and the pattern as it resolves against that anchor.
+fn resolve_path_pattern(pattern: &str) -> (&'static str, String) {
+    if let Some(rest) = pattern.strip_prefix("//") {
+        ("the filesystem root", format!("/{rest}"))
+    } else if pattern.starts_with("~/") {
+        ("your home directory", pattern.to_string())
+    } else if let Some(rest) = pattern.strip_prefix('/') {
+        (
+            "the settings source — for project and local settings, the session's primary working directory, not the filesystem root",
+            format!("<primary working directory>/{rest}"),
+        )
+    } else {
+        let rest = pattern.strip_prefix("./").unwrap_or(pattern);
+        ("the current directory", format!("<cwd>/{rest}"))
+    }
+}
+
+/// The sentence naming an agent whose `name` is a built-in agent's. The override is the
+/// runtime's documented behavior for `Explore` (code.claude.com/docs/en/sub-agents,
+/// "Built-in subagents", retrieved 2026-11-26: "A user or project subagent named
+/// `Explore` overrides the built-in"); the page states it for no other built-in, so the
+/// others are named as shared and the gap said.
+fn built_in_agent_line(member: &Features) -> Option<String> {
+    let agent = member.fields.get("name")?.as_str()?;
+    let built_in = BUILT_IN_AGENTS
+        .iter()
+        .find(|built_in| **built_in == agent)?;
+    Some(if *built_in == "Explore" {
+        format!(
+            "Its `name` `{agent}` is a built-in agent's name: as a user or project subagent it overrides the built-in `{agent}` agent."
+        )
+    } else {
+        format!(
+            "Its `name` `{agent}` is a built-in agent's name: it shares the name of the built-in `{agent}` agent (Claude Code documents the override for `Explore` alone)."
+        )
+    })
+}
+
 /// One registration channel's sentence: the channel, and when it loads the member — or
 /// why it never does, in the reach judge's words.
 fn narrate_channel(
@@ -2907,6 +3033,11 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
         if !load.is_empty() {
             narration.push('\n');
             narration.push_str(&load);
+        }
+        let matches = runtime_match_strand(name, &by_kind);
+        if !matches.is_empty() {
+            narration.push('\n');
+            narration.push_str(&matches);
         }
         let version = crate::tool::version_strand(&declarations.nested_members, &workspace, name)?;
         if !version.is_empty() {
