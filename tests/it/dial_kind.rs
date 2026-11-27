@@ -11,7 +11,7 @@
 //! The dial is temper's own kind. Most cases get its dial from adopting temper at all.
 //! A lock can relocate the dial's `governs` via a `[[declaration.kind]]` row; the dial
 //! at the relocated locus is honored instead of silently falling back to the embedded
-//! default. `tests/local_locus.rs` owns the locus class the dial rides; these cases
+//! default. `tests/it/local_locus.rs` owns the locus class the dial rides; these cases
 //! own what the dial does with it.
 
 use std::fs;

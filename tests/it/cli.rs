@@ -3,10 +3,8 @@
 //! Spawns the built `temper` binary via `CARGO_BIN_EXE_temper` and drives `temper
 //! check --harness <path>` — the one-shot wedge that lints a raw harness directly off
 //! disk, no on-ramp step — asserting the exit semantics: zero on a clean skill,
-//! non-zero once a `required`-severity contract clause is violated. The `init`/`lift`
-//! on-ramp verbs retired with the `[[member]]` manifest codec (`CODEC-RETIRE`); `install`
-//! is the on-ramp going forward, not yet
-//! shipped. A `--deny-advisories` case pins the strict policy.
+//! non-zero once a `required`-severity contract clause is violated. A
+//! `--deny-advisories` case pins the strict policy.
 //!
 //! These checks live here (not in a `src` unit test) precisely because the exit
 //! code is observable only across a real process boundary — `process::ExitCode`
@@ -35,7 +33,7 @@ description: Use when coordinating agents across axes; not for single-axis work.
 Drive the team through the playbook.\n";
 
 /// A skill that violates `required` clauses: the uppercase `name` is outside
-/// `[a-z0-9-]` (the `allowed-chars` clause) and no longer equals its directory
+/// `[a-z0-9-]` (the `allowed-chars` clause) and does not equal its directory
 /// (the `name-matches-dir` clause). Both are required ⇒ a non-zero exit.
 const ERROR_SKILL: &str = "---\n\
 name: Coordinate\n\
@@ -84,8 +82,8 @@ alwaysApply: true\n\
 \n\
 This frontmatter loads nothing in Claude Code.\n";
 
-/// Write a one-rule harness at `<root>/.claude/rules/<name>.md` — the location
-/// `init` scans for the rule kind.
+/// Write a one-rule harness at `<root>/.claude/rules/<name>.md` — the rule kind's
+/// locus.
 fn write_rule_harness(root: &Path, name: &str, rule_md: &str) {
     let dir = root.join(".claude").join("rules");
     fs::create_dir_all(&dir).unwrap();
@@ -539,9 +537,8 @@ fn listed_subcommands() -> Vec<String> {
 
 #[test]
 fn the_cli_surface_is_exactly_the_shipped_verbs() {
-    // The collapsed surface: the nouns plus `guard`, `tap`, and `explain` — the one read
-    // verb (EXPLAIN-UNIFY). `--help` lists exactly these; the migration-era verbs, and
-    // `init`/`lift` (retired into `install`, `CODEC-RETIRE`), are gone.
+    // The surface: the nouns plus `guard`, `tap`, and `explain` — the one read verb.
+    // `--help` lists exactly these.
     let mut listed = listed_subcommands();
     listed.sort();
     let mut expected = [
@@ -553,10 +550,7 @@ fn the_cli_surface_is_exactly_the_shipped_verbs() {
         "temper --help must list exactly the shipped verbs"
     );
 
-    // Every retired verb is rejected as an unknown subcommand — the surface no longer
-    // carries `init`/`import`/`diff`/`session-start`/`why`/`requirements`/`impact`/`context`,
-    // `init` retired into `install` (`CODEC-RETIRE`), the rest collapsed into `explain`
-    // at EXPLAIN-UNIFY.
+    // Every verb outside that surface is rejected as an unknown subcommand.
     for retired in [
         "init",
         "import",
@@ -986,7 +980,7 @@ fn guard_rejects_a_corrupt_lock_loud_and_defaults_only_on_a_missing_one() {
     // The guard reads its enforcement mode off the harness's lock. A corrupt lock —
     // unparseable TOML, or a present `mode` fact outside the closed `{note, warn,
     // block}` vocabulary — must reject loud, never silently degrade a declared `block`
-    // to the default `warn` (LOCK-READ-SWALLOW-LOUD). A genuinely absent lock still
+    // to the default `warn`. A genuinely absent lock still
     // guards at the documented default `warn` (allow, exit 0).
     let payload = common::guard_write_payload(".claude/rules/rust.md");
 
@@ -1030,11 +1024,9 @@ fn guard_rejects_a_corrupt_lock_loud_and_defaults_only_on_a_missing_one() {
 
 #[test]
 fn help_text_speaks_the_current_enforcement_vocabulary_and_layout() {
-    // HELP-TEXT-RECUT: no user-facing help/about string may still speak the
-    // retired `shared`/`surface` enforcement-mode pair (EnforcementMode recut to
-    // {note, warn, block}), and none may cite a retired `specs/architecture/*`
-    // path (the layout recut under CITE-RETAG). `guard --help` must name all
-    // three live modes.
+    // No user-facing help/about string may speak a `shared`/`surface` enforcement
+    // mode (the vocabulary is {note, warn, block}) or cite a `specs/architecture/*`
+    // path. `guard --help` must name all three modes.
     let mut all_help = String::new();
     for command in listed_subcommands() {
         let out = Command::new(BIN)

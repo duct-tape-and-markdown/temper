@@ -26,7 +26,7 @@ Drive the team through the playbook.\n";
 
 /// Run `temper check <args...>` from `root`, returning `(github-format finding lines,
 /// exit success)` — the machine format used elsewhere in this suite
-/// (`tests/coverage_note.rs`) so a rule id is asserted exactly rather than scraped out of
+/// (`tests/it/coverage_note.rs`) so a rule id is asserted exactly rather than scraped out of
 /// miette's graphical rendering.
 fn check_in(root: &Path, args: &[&str]) -> (Vec<String>, bool) {
     let run = common::check_in(root, args, Some("github"));

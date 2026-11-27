@@ -192,7 +192,7 @@ fn a_settings_file_with_no_enabled_plugins_surfaces_no_member_and_no_finding() {
 
 #[test]
 fn the_embedded_builtin_lock_carries_the_installed_plugin_kind_and_no_clause() {
-    // The embedded side of the built-in lock (`tests/builtin_lock_frozen.rs` pins its
+    // The embedded side of the built-in lock (`tests/it/builtin_lock_frozen.rs` pins its
     // byte-equality with the SDK module's own memberless emit).
     let declarations = builtin_lock::declarations();
 

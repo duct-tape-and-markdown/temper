@@ -1,6 +1,6 @@
 //! The `--frozen` lane for temper's own std-lib:
 //! re-derive the built-in lock from `@dtmd/temper/claude-code` — a real `node`
-//! subprocess running the built SDK, exactly as `tests/emit.rs` drives the seam — and
+//! subprocess running the built SDK, exactly as `tests/it/emit.rs` drives the seam — and
 //! byte-compare its declaration rows against the embedded `src/builtin_lock.toml`.
 //!
 //! A memberless harness binds every built-in kind to every built-in default contract via

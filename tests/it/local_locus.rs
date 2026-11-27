@@ -21,7 +21,7 @@
 //!
 //! The fixture kind is a `knob` — a lock-declared kind of the suite's own, never the
 //! shipped `dial`, so these cases falsify the *class* rather than one kind's use of it
-//! (`tests/dial_kind.rs` owns the dial's own face). It sits at `.claude/local/*.md` where
+//! (`tests/it/dial_kind.rs` owns the dial's own face). It sits at `.claude/local/*.md` where
 //! the locus is not what a case is about, and under the workspace where it is. Its rows
 //! and document live in `common` — `check_cost.rs` reads them too.
 
@@ -181,7 +181,7 @@ fn check_derives_a_local_members_rows_at_read_time_under_the_declared_kind() {
 fn explain_narrates_a_local_members_captured_prose_region() {
     // A local member's captured spans reach no lock, so the read that derives its
     // collection and fill rows is the only one that will ever hold them. The prose strand
-    // a committed layout host gets off its lock rows (`tests/layout_kind.rs`) is the
+    // a committed layout host gets off its lock rows (`tests/it/layout_kind.rs`) is the
     // strand this face has to get off that read — one narration over the two faces.
     let harness = scaffold(
         "local-explain-prose",

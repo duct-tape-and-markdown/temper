@@ -2245,7 +2245,7 @@ mod embedded_edge_source_scope {
 /// Library-level fixture proof of the `reachable` predicate: the pure machinery over
 /// constructed `Features`, judged under the **root member's** own `reachable` clause —
 /// the one channel both the severity a finding gates at and the guidance it teaches
-/// through arrive on. The gate-level suite (`tests/root_contract.rs`) composes that
+/// through arrive on. The gate-level suite (`tests/it/root_contract.rs`) composes that
 /// clause off the lock, so the direct-call suite and the gate agree on who declares it.
 mod reachability {
     use std::collections::BTreeMap;
@@ -2587,7 +2587,7 @@ mod reachability {
     fn a_member_live_on_any_channel_of_its_set_is_reachable() {
         // The skill's declared registration is a two-channel set: a dead
         // description-trigger (blank field) and `user-invoked`, which carries no field
-        // and so never dies (REGISTRATION-CHANNELS). Live on one channel is live overall
+        // and so never dies. Live on one channel is live overall
         // — user invocation and description trigger are channels, not rivals — so
         // nothing fires even though the description-trigger channel alone would.
         let skills = [member(

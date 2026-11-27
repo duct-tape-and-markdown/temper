@@ -811,7 +811,7 @@ fn the_hook_kind_checks_its_segment_while_the_container_governs_the_whole_file()
 
 #[test]
 fn the_embedded_builtin_lock_carries_the_hook_kind_and_its_event_clause() {
-    // The embedded side of the built-in lock (`tests/builtin_lock_frozen.rs` pins its
+    // The embedded side of the built-in lock (`tests/it/builtin_lock_frozen.rs` pins its
     // byte-equality with the SDK module's own memberless emit): the hook kind fact and
     // its one enum clause are present, so SDK-less checking ships the same hook contract.
     let declarations = builtin_lock::declarations();
@@ -992,10 +992,9 @@ fn two_groups_on_one_event_wearing_one_matcher_refuse_loud_naming_the_address_an
 
 #[test]
 fn three_groups_on_one_event_with_distinct_matchers_compose_clean() {
-    // The twin, and the reason the refusal keys on the name rather than the event: the
-    // 09-03 event-keyed refusal was built, failed this repo's own self-host gate on exactly
-    // this harness, and was reverted. Distinct matchers are distinct groups to Claude Code
-    // and distinct members here, so three rows under one event are legal.
+    // The twin, and the reason the refusal keys on the name rather than the event:
+    // distinct matchers are distinct groups to Claude Code and distinct members here, so
+    // three rows under one event are legal.
     let harness = common::tmpdir("hook-distinct-matchers");
     write_settings(&harness, DISTINCT_MATCHER_SETTINGS);
 
@@ -1020,7 +1019,7 @@ fn three_groups_on_one_event_with_distinct_matchers_compose_clean() {
     );
     assert!(
         ok,
-        "the legal harness the 09-03 revert proved must be admitted stays green, got: {findings:#?}"
+        "three distinct matchers under one event are a legal harness and stay green, got: {findings:#?}"
     );
 }
 

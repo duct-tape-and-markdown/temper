@@ -356,7 +356,7 @@ fn an_authored_empty_root_contract_composes_no_clauses_where_silence_composes_th
 fn a_harness_declaring_no_root_reachable_clause_asks_the_graph_nothing() {
     // `reachable` is opt-in exactly as `degree` and `mention-reachable` are: the same
     // dead registration is silent where no root clause binds. The cost half of that
-    // claim — the closure itself never walking — is pinned in `tests/check_cost.rs`.
+    // claim — the closure itself never walking — is pinned in `tests/it/check_cost.rs`.
     //
     // What opts in is the *clause*, not the root selection's existence, so the lock here
     // declares a root contract of its own naming some other predicate. An empty

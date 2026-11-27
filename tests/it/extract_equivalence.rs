@@ -137,7 +137,7 @@ fn a_fenced_primitive_over_a_body_with_no_fence_yields_none() {
 }
 
 /// A `field` primitive **retains** its frontmatter value as parsed — nesting whole, so
-/// the clause that addresses into it has something to walk (`tests/field_addressing.rs`
+/// the clause that addresses into it has something to walk (`tests/it/field_addressing.rs`
 /// judges that face). An absent key is **absent, never errored**, exactly as an unset
 /// optional field is.
 #[test]

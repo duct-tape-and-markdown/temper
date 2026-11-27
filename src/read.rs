@@ -19,8 +19,7 @@
 //! data `check` already computes — the opt-in `satisfies` bindings [`crate::coverage`]
 //! gates, and, for the edge walk, the **gate's own resolved edge set**
 //! ([`crate::graph::resolved_edges`], relationships over extracted features), never a
-//! private re-derivation (READ-EDGE-UNIFY: one source of truth, so `why`'s edge
-//! narration cannot disagree with `graph::check`).
+//! private re-derivation, so `why`'s edge narration cannot disagree with `graph::check`.
 //! None adds engine semantics and none ever gates: `explain` returns narration, and
 //! `main` prints it and exits zero on every input, ambiguous or unknown targets included
 //! (the read family is not the gate; a reporting verb whose exit code CI trusts is
@@ -41,7 +40,7 @@
 //! narrates whole. So a custom member filling a requirement is no longer silently
 //! absent from either verb; the roster the read family narrates agrees with the gate.
 //! Edge narration already ranges over every kind (it reads the gate's resolved edge
-//! set, READ-EDGE-UNIFY), so only the `satisfies` walk widens here.
+//! set), so only the `satisfies` walk widens here.
 
 use std::cell::Cell;
 use std::collections::{BTreeMap, BTreeSet};
@@ -2336,8 +2335,8 @@ fn requirement_detail(
 /// custom listing (`members`) is unioned with `by_kind` — the same opt-in join the
 /// roster's own selection is built on — so a satisfier `check` counts toward coverage
 /// is never missing here just because the custom listing lags `by_kind` (a `required`
-/// requirement with a satisfier locked on disk narrating as unfilled was exactly that
-/// drift, REQUIREMENT-GATE). A `(kind, id)` the custom listing already carries (with
+/// requirement with a satisfier locked on disk narrating as unfilled is that
+/// drift). A `(kind, id)` the custom listing already carries (with
 /// its rationale) is not duplicated from `by_kind`, whose decidable `Features::satisfies`
 /// carries none.
 ///
@@ -3206,7 +3205,7 @@ mod impact_tests {
     //! directive and reachability strands especially, which need an *importer* kind
     //! (a custom kind composing a `directives` primitive and a registration) the built-in
     //! skill/rule fixtures the e2e drives don't carry. The requirement strands are also
-    //! e2e-proven in `tests/read_verbs.rs`.
+    //! e2e-proven in `tests/it/read_verbs.rs`.
 
     use super::*;
     use crate::extract::EmbeddedMember;

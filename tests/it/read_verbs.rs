@@ -1,13 +1,10 @@
 //! Proofs over the unified read verb, `explain`: target-species resolution (member / requirement / leaf
 //! address), the member-vs-requirement collision error, the qualified-prefix escape
 //! hatch, and coverage disclosure — plus the surviving library-level default-contract-binding
-//! proofs over `why` (READ-FLOOR-BINDING-DEFAULT), one of the four traversals `explain`
-//! re-homes.
+//! proofs over `why`, one of the traversals `explain` composes.
 //!
-//! The four read *CLI verbs* (`why`/`requirements`/`impact`/`context`) retired at
-//! CLI-COLLAPSE; `explain <target>` is their sole CLI spelling as of EXPLAIN-UNIFY. The
-//! traversal *engine* survives untouched ([`temper::read`]) for `explain` to reuse, so
-//! this file exercises the read library directly; only the lock-untouched pin spawns
+//! The traversal engine ([`temper::read`]) is a library `explain` reuses, so this file
+//! exercises the read library directly; only the lock-untouched pin spawns
 //! the binary, since what it proves is what the verbs do to disk.
 
 use std::collections::BTreeMap;
@@ -55,10 +52,8 @@ fn req(name: &str, required: bool) -> Requirement {
 /// Call `read::explain` over the given custom members (`why`/`requirements`'s own
 /// member listing), and the given by-kind corpus + roster (`impact`/`context`'s
 /// corpus, and the species-resolution existence check) — every scenario below only
-/// needs those to drive target-species resolution. Kept in sync like `main.rs`'s own
-/// `explain` wiring keeps its custom-member listing and by-kind corpus in sync (both
-/// read off the same surface directory there); here the caller threads matching ids
-/// into both by hand.
+/// needs those to drive target-species resolution. The two must agree, so the caller
+/// threads matching ids into both by hand.
 fn explain(
     custom: &[CustomMember],
     by_kind: &BTreeMap<&str, &[Features]>,
@@ -493,8 +488,7 @@ fn an_unrecognized_target_is_a_clean_read_naming_no_namespace() {
     );
 }
 
-/// Default-contract-binding narration over the read family's public `why` API
-/// (READ-FLOOR-BINDING-DEFAULT): a default contract is named for its kind — never a
+/// Default-contract-binding narration over the read family's public `why` API: a default contract is named for its kind — never a
 /// `<kind>.<source>` package, and never every non-rule kind defaulting to the skill
 /// default contract. A memory member is threaded as a custom member the way a
 /// built-in reaches the read family. Skills/rules keep their own default contracts —
@@ -707,7 +701,7 @@ fn an_absent_log_with_declared_telemetry_narrates_the_absence_against_the_declar
 }
 
 /// `why`'s edge narration route-resolves mentions against the same corpus the gate's
-/// `route_mentions` does (READ-EDGE-UNIFY): a mention to a discovered member narrates as a
+/// `route_mentions` does: a mention to a discovered member narrates as a
 /// resolved edge, a mention to an absent target as a dangling mention — never folded into
 /// the resolved set as though it pointed at a real member.
 mod mention_narration {

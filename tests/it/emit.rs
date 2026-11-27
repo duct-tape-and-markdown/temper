@@ -2356,8 +2356,7 @@ fn embedded(host: &str, key: &str) -> NestedMemberRow {
 fn a_re_read_dropping_a_whole_declared_layer_refuses_unless_teardown_is_spelled() {
     // A harness whose committed lock declares an embedded-member layer under a host,
     // re-emitted from a source that now mines zero members for it: the whole layer
-    // would vanish silently (the pre-0018 harness's ~57 embedded members gone on
-    // re-emit). That drop refuses at the cliff (decision 0024), the finding stated,
+    // would vanish silently. That drop refuses at the cliff (decision 0024), the finding stated,
     // unless the author spells the teardown.
     let (_harness, into) = workspace("layer-drop");
 
@@ -2640,8 +2639,7 @@ fn a_lock_with_composed_prose_includes_emitted_from_a_foreign_cwd_is_harness_rel
     // Extends the foreign-cwd test to cover the one row family the prior test proves nothing
     // about: composed-prose includes. A member's include row carries an absolute source_path
     // resolved by the SDK; emit must spell it harness-relative in the lock, regardless of
-    // the cwd. Before the fix, a foreign-cwd invocation would silently bake the raw absolute
-    // path instead, degrading downstream to an unowned-file finding.
+    // the cwd; a raw absolute path baked in degrades downstream to an unowned-file finding.
     let at_root = common::tmpdir("include-cwd-rows-at-root");
     let from_parent = common::tmpdir("include-cwd-rows-from-parent");
     fs::create_dir_all(at_root.join(".temper")).unwrap();
@@ -3595,7 +3593,7 @@ fn two_filtered_degree_bounds_on_one_kind_emit_and_check_under_their_own_address
 /// `dry_run` is off, so a dry run reports projections alone and reproduces not one of
 /// the lock's rows — labels, `extent`/`unit`, layout source rows and rendered-line
 /// columns all rode uncompared. The copy's lock byte-compares against the committed
-/// one instead: `tests/builtin_lock_frozen.rs`'s currency shape, applied to the one
+/// one instead: `tests/it/builtin_lock_frozen.rs`'s currency shape, applied to the one
 /// other lock this repo commits.
 #[test]
 fn emit_program_runs_the_shipped_example_harness() {

@@ -2441,7 +2441,7 @@ fn addressed(
 /// chooses — it only translates what the author declared.
 ///
 /// `pub` so a test asserting a judge reported at its clause's declared weight
-/// (`tests/layout_prose_import.rs`) maps through the one translation, never a second
+/// (`tests/it/layout_prose_import.rs`) maps through the one translation, never a second
 /// copy that could drift. Every in-tree judge reaches it through
 /// [`check::Diagnostic::from_clause`]; only [`member_findings`], whose weight may come
 /// off the violation rather than the clause, still calls it directly.

@@ -71,10 +71,10 @@ fn check_two_step(harness: &Path) -> Vec<String> {
 #[test]
 fn the_two_step_check_path_backs_a_real_repo_root_import() {
     let harness = common::tmpdir("two-step-backed");
-    // The TWO-STEP path (import to `.temper/`, then gate the bare workspace relative
-    // to the harness root): a CLAUDE.md `@import`ing a real repo-root sibling. Before a
-    // past fix, the harness root resolved to the EMPTY path, so `repo_file_set` walked
-    // nothing and EVERY real import read unbacked. The backing set is the whole repo,
+    // The two-step path (import to `.temper/`, then gate the bare workspace relative
+    // to the harness root): a CLAUDE.md `@import`ing a real repo-root sibling. A harness
+    // root resolved to the empty path would walk nothing and read every real import
+    // unbacked. The backing set is the whole repo,
     // so the resolving edge must fire no finding.
     common::write_skill(&harness, "coordinate", CLEAN_SKILL);
     write_sibling(&harness, "docs/ledger.md", "# Ledger\n\nShared state.\n");
@@ -108,9 +108,8 @@ fn the_two_step_check_path_backs_a_real_repo_root_import() {
 fn an_unbacked_at_import_in_a_claude_md_fires_one_unbacked_pointer_finding() {
     let harness = common::tmpdir("unbacked-import");
     // A clean skill so the run is not empty, and a CLAUDE.md importing a path that backs
-    // no member and no repo file — an unbacked pointer. Before the collection generalized
-    // over every kind (DIRECTIVE-MEMBERS-ALL-KINDS), the hardcoded skill/rule pair never
-    // reached the memory member's directives, so this drew no finding (exit 0).
+    // no member and no repo file — an unbacked pointer the memory member's directives
+    // must reach.
     common::write_skill(&harness, "coordinate", CLEAN_SKILL);
     write_claude_md_importing(&harness, "@docs/missing.md");
 
@@ -155,7 +154,7 @@ fn a_claude_md_import_resolving_to_a_member_fires_no_unbacked_finding() {
 #[test]
 fn an_unbacked_at_import_fires_a_non_gating_advisory_with_zero_config() {
     let harness = common::tmpdir("floor-unbacked-import");
-    // The FLOOR-tier wedge (WEDGE-FACT-FLOOR): a discovered CLAUDE.md carrying an unbacked
+    // The floor-tier wedge: a discovered CLAUDE.md carrying an unbacked
     // `@import`. Directive classing runs on the floor, so the unbacked pointer surfaces
     // with zero config authored anywhere. It is a non-gating advisory: the pure fact is
     // stated, never escalated.
@@ -270,7 +269,7 @@ fn the_memory_dispatch_leaves_skill_findings_unchanged() {
 
     let findings = check_harness(&harness).0;
 
-    // The skill finding still fires, exactly as before the gate generalized.
+    // The skill finding still fires beside it.
     let allowed_chars = common::findings_for(&findings, "skill.allowed-chars.name");
     assert_eq!(
         allowed_chars.len(),

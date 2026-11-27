@@ -4,7 +4,7 @@
 //! — never a hand-written mirror. This
 //! test loads it through the same embedded path the shipped `check` uses
 //! ([`temper::builtin::contract`]) and pins the exact decidable clause vector it
-//! carries, mirroring `tests/contract_template.rs` for the skill built-in.
+//! carries, mirroring `tests/it/contract_template.rs` for the skill built-in.
 //!
 //! The floor is named for its kind, `rule` — not a `<kind>.<source>` package — and
 //! its clauses carry `source` citations and `guidance`, the full four channels a

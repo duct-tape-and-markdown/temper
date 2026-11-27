@@ -270,7 +270,7 @@ fn a_program_declaring_only_servers_leaves_the_containers_document_undeclared() 
 
 #[test]
 fn the_embedded_builtin_lock_carries_the_mcp_server_kind_and_its_type_clause() {
-    // The embedded side of the built-in lock (`tests/builtin_lock_frozen.rs` pins its
+    // The embedded side of the built-in lock (`tests/it/builtin_lock_frozen.rs` pins its
     // byte-equality with the SDK module's own memberless emit): the mcp-server kind fact
     // and its one enum clause are present, so SDK-less checking ships the same contract.
     let declarations = builtin_lock::declarations();

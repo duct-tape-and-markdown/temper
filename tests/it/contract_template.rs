@@ -237,8 +237,7 @@ fn the_shipped_built_in_packages_are_admissible() {
 
 // ---- the each-grain `kind` predicate `requirement.kind` sources -------------
 //
-// SATISFIER-KIND-CLAUSE: one new predicate
-// in the closed vocabulary expressing "this satisfier is of the declared kind K" —
+// One predicate in the closed vocabulary expressing "this satisfier is of the declared kind K" —
 // the each-grain clause a typed requirement's `kind` facet sources instead of
 // narrowing the candidate set.
 
@@ -322,7 +321,7 @@ fn a_named_kind_clause_is_admissible_on_a_kinds_own_contract_and_an_empty_one_is
 // observed while rendering and lowered into the member's own declaration row.
 
 /// A member carrying the edges `placements` names, each paired with whether its format
-/// placed it — the `Features` shape `main`'s embedded-member lift builds off a
+/// placed it — the `Features` shape `compose`'s embedded-member lift builds off a
 /// `nested_member` row's `placed_edges` column. The carried set is what the value fills,
 /// so an edge field its kind declares but the value leaves unfilled never appears here.
 fn cited(placements: &[(&str, bool)]) -> Features {

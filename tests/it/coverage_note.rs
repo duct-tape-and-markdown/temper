@@ -42,10 +42,8 @@ Drive the team through the playbook.\n"
 }
 
 /// The `widget` kind's fact row — a locked custom kind the coverage note's built-in set
-/// carries no row for, so the gate discovers it only by reading the lock
-/// (`COVERAGE-KIND-AWARE`). `widget` stands in for the not-yet-shipped custom kind here:
-/// `agent` no longer fits (AGENT-KIND graduated it to a real built-in), mirroring
-/// `command`'s own earlier graduation off this fixture.
+/// carries no row for, so the gate discovers it only by reading the lock. `widget` is a
+/// name no built-in carries.
 ///
 /// The locus is the kind's own `.claude/widgets/*.json`, never `.claude/settings.json`:
 /// that file is the built-in `settings` kind's, and a second document kind claiming it
@@ -114,8 +112,8 @@ fn the_note_reports_exactly_the_disclosure_and_the_unclaimed_entry() {
 #[test]
 fn a_corrupt_lock_rejects_loud_while_a_missing_one_degrades_to_the_built_in_kinds() {
     // A corrupt lock must reject loud when read — a corrupt lock silently reading as "no
-    // kinds declared" would drop the locked-kind suppression (LOCK-READ-SWALLOW-LOUD).
-    // The governing kind set now comes from the caller's own read, so a corrupt lock fails
+    // kinds declared" would drop the locked-kind suppression.
+    // The governing kind set comes from the caller's own read, so a corrupt lock fails
     // at read time, before check runs; a missing one leaves the caller holding the
     // built-in kinds alone, and the scan still runs over them.
     let empty_kinds: BTreeMap<String, CustomKind> = BTreeMap::new();
@@ -428,14 +426,12 @@ fn a_declared_and_emitted_member_reports_neither_the_finding_nor_an_undeclared_c
     );
 }
 
-/// A provenance row carrying the pre-0024 `./` spelling declares the document discovered
+/// A provenance row carrying a `./`-prefixed spelling declares the document discovered
 /// bare at its governed locus. The two sides of the join reach it by different roads — a
 /// row is read off the lock, a site is derived from disk — and each arrives through
 /// [`temper::path::HarnessRelativePath`]'s own door, so an older engine's `./x` row meets
-/// the bare `x` site as one key. Left to a call-site re-spell, the tolerance lived beside
-/// the join instead of in the column's type, and the row read as naming nothing: the
-/// declared, emitted member would be flagged a stranger at its own locus and counted
-/// undeclared.
+/// the bare `x` site as one key; otherwise the row reads as naming nothing and the
+/// declared, emitted member is flagged a stranger at its own locus.
 #[test]
 fn a_dot_slash_spelled_provenance_row_declares_the_member_discovered_bare() {
     let harness = common::tmpdir("dot-slash-row-locus-member");

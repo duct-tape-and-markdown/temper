@@ -53,9 +53,7 @@ fn run_parent() -> &'static Path {
 }
 
 /// A fresh, empty temp directory under this run's parent ([`run_parent`]), uniquely
-/// named via the sanctioned `tempfile` crate — replaces the hand-rolled
-/// counter+pid+label naming scheme every caller carried before this consolidation.
-/// Persisted with `.keep()`: like the hand-rolled scheme it replaces, nothing here
+/// named via the sanctioned `tempfile` crate. Persisted with `.keep()`: nothing here
 /// auto-deletes, since callers hand the path across process boundaries (a built
 /// binary, a vendored `node` subprocess) that outlive the `TempDir` guard's scope.
 pub fn tmpdir(label: &str) -> PathBuf {
@@ -571,8 +569,7 @@ pub fn check_harness(harness: &Path) -> (Vec<String>, bool) {
 /// concatenated. The combined stream is the contract, not a convenience: `explain`
 /// narrates to stdout but refuses to stderr, so a stdout-only reader watching for a
 /// string's *absence* reads a refusal as agreement. Every `explain` run over the real
-/// binary reaches the verb here — the four private copies this replaced disagreed on
-/// exactly that, two of them stdout-only.
+/// binary reaches the verb here.
 pub fn explain_in(root: &Path, target: &str) -> String {
     explain_in_on_path(root, target, None)
 }
@@ -599,9 +596,8 @@ pub fn explain_run_in(root: &Path, target: &str, path: Option<&Path>) -> (bool, 
 }
 
 /// Run `temper guard <root>` from inside `root` with `payload` on stdin, returning the
-/// exit code and the guard's combined output. Mirrors the existing `check_*` family: the
-/// one home for guard driver scaffolding, consolidating what install.rs and cli.rs were
-/// re-implementing independently. Its `.`-argument twin is [`run_guard_from_root`]: the
+/// exit code and the guard's combined output — the one home for guard driver
+/// scaffolding, as the `check_*` family is for check. Its `.`-argument twin is [`run_guard_from_root`]: the
 /// two differ in exactly one variable, how the root is spelled.
 pub fn run_guard(root: &Path, payload: &str) -> (Option<i32>, String) {
     run_guard_spawned_in(root, root.as_os_str(), payload)
@@ -1336,8 +1332,7 @@ pub fn tap_record(version: u32, event: TapEvent, identity: &str) -> TapRecord {
 }
 
 /// Snapshot every file under `dir` as a sorted map of relative path -> bytes,
-/// via the sanctioned `walkdir` crate — replaces the hand-rolled `fs::read_dir`
-/// stack walk every caller carried before this consolidation.
+/// via the sanctioned `walkdir` crate.
 pub fn tree_bytes(dir: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
     walkdir::WalkDir::new(dir)
         .into_iter()

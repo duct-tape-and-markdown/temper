@@ -5,7 +5,7 @@
 //! facets — assembly facts, and the member→requirement `satisfies` family) beside the
 //! existing provenance + emit-fingerprint rows, and the drift/gate side reads it back
 //! through [`temper::drift::read_declarations`]. These tests drive `emit` directly over
-//! hand-built [`Payload`]s — a golden-lock fixture (`tests/emit.rs`'s pattern), no
+//! hand-built [`Payload`]s — a golden-lock fixture (`tests/it/emit.rs`'s pattern), no
 //! scratch import — asserting the family is present and populated, that a double emit is
 //! byte-stable — the round-trip emit pins — and that a bare payload (no requirements,
 //! no satisfies) still round-trips.
@@ -34,7 +34,7 @@ use temper::kind::{
 use temper::layout::{Layout, LayoutRegion};
 
 /// A host kind declaring both nesting layers a template can name: the embedded
-/// `decision` child kind (the shape [`tests/nested_member.rs`]'s `decision_kind` declares
+/// `decision` child kind (the shape [`tests/it/nested_member.rs`]'s `decision_kind` declares
 /// live), and a file child — the `note` kind at a path pattern relative to the host's own
 /// unit.
 fn spec_kind_facts_with_template() -> KindFactRow {
@@ -242,7 +242,7 @@ fn golden_payload(declarations: Declarations) -> Payload {
 }
 
 /// Compile `payload`'s projections and its whole lock into a fresh `<harness>/.temper`
-/// pair (`tests/emit.rs`'s `workspace` pattern) — the golden-lock fixture standing in for
+/// pair (`tests/it/emit.rs`'s `workspace` pattern) — the golden-lock fixture standing in for
 /// `import::run`, the retired scratch-copy producer.
 fn emitted(label: &str, payload: &Payload) -> (PathBuf, PathBuf) {
     let harness = common::tmpdir(&format!("{label}-src"));
@@ -487,7 +487,7 @@ fn a_requirements_prose_reaches_explains_narration_through_the_engine() {
 }
 
 /// A `ClauseRow` carrying the node-set/edge-scope predicates' arguments
-/// (`REQUIREMENT-CLAUSES-ALGEBRA`) round-trips through `to_table`/`from_table` byte-stably
+/// round-trips through `to_table`/`from_table` byte-stably
 /// — the same law-5 double-emit guarantee `a_double_emit_is_byte_stable` pins for the rest
 /// of the declaration-row family.
 #[test]
@@ -735,7 +735,7 @@ fn a_reached_from_clause_row_round_trips_its_roots_and_via_set() {
 /// seam's vocabulary. This is a hand-built compiler-tier test of the lock's own row round-trip
 /// (emit/read_declarations). For the SDK-agreement claim — verifying the real SDK writes and
 /// the engine reads both ends identically — see
-/// `tests/builtin_lock_frozen.rs::the_sdk_derived_installed_plugin_kind_round_trips_through_the_engine_reader`.
+/// `tests/it/builtin_lock_frozen.rs::the_sdk_derived_installed_plugin_kind_round_trips_through_the_engine_reader`.
 #[test]
 fn a_mention_reachable_clause_row_round_trips_both_field_ends() {
     let mut declarations = rich_declarations();
@@ -849,7 +849,7 @@ fn a_root_clause_row_round_trips_with_its_kind_column_absent() {
 }
 
 /// A kind's own floor clause row round-trips its **node-scope predicate argument**
-/// (`LOCK-CLAUSE-PREDICATE-ARGS`) — `min-len`/`max-len`/`extent`'s bound,
+/// — `min-len`/`max-len`/`extent`'s bound,
 /// `allowed-chars`'s charset, `forbidden-keys`'s keys, `deny`'s values — not just
 /// identity+severity, so a floor `Contract` is reconstructable from the rows alone.
 #[test]
@@ -925,7 +925,7 @@ fn a_floor_clause_row_round_trips_its_node_scope_predicate_argument() {
 
 /// The `range` (f64 bounds) and `section-contains` (heading+marker) clause rows
 /// round-trip their arguments through `to_table`/`from_table` byte-stably — the
-/// column homes `PREDICATE-CONSTRUCTORS` adds beside the existing node-scope args
+/// column homes beside the node-scope args
 /// (`a_floor_clause_row_round_trips_its_node_scope_predicate_argument`).
 #[test]
 fn a_range_and_section_clause_row_round_trip_the_lock() {
@@ -986,8 +986,7 @@ fn a_range_and_section_clause_row_round_trip_the_lock() {
 }
 
 /// The `require-sections` (heading-list) clause row round-trips its arguments through
-/// `to_table`/`from_table` byte-stably — the column homes the `PREDICATE-CONSTRUCTORS`
-/// entry adds alongside the existing node-scope args.
+/// `to_table`/`from_table` byte-stably — its column homes sit beside the node-scope args.
 #[test]
 fn a_require_sections_clause_row_round_trips_the_lock() {
     let mut declarations = rich_declarations();
@@ -1034,7 +1033,7 @@ fn a_require_sections_clause_row_round_trips_the_lock() {
 }
 
 /// The SDK-authorable predicates lift from their lock rows into the typed
-/// `Predicate` the engine evaluates (`PREDICATE-CONSTRUCTORS`): the row an SDK
+/// `Predicate` the engine evaluates: the row an SDK
 /// constructor emits decodes through `predicate_from_row`, and the lifted
 /// `section-contains` fires on a violating member — author → row → `Predicate` →
 /// finding.
@@ -1719,11 +1718,11 @@ fn a_templates_element_outside_both_spellings_still_refuses_loud() {
 }
 
 /// A kind's `layout`-content fact round-trips the lock via hand-built payload → compiler emit
-/// → lock read-back → engine `CustomKind` (`KIND-CONTENT-FACT`): the declared regions survive
+/// → lock read-back → engine `CustomKind`: the declared regions survive
 /// the lock byte-stably and reach `CustomKind::from_kind_fact_row`'s `content`, while a kind
 /// declaring no content reads as `Content::File` everywhere — the column absent from its row.
 /// For the real SDK-emit agreement claim (live SDK emit → lock kind row → engine CustomKind),
-/// see `tests/emit.rs:emit_program_emits_a_custom_kinds_layout_content_and_fields_shape_end_to_end`.
+/// see `tests/it/emit.rs:emit_program_emits_a_custom_kinds_layout_content_and_fields_shape_end_to_end`.
 #[test]
 fn a_kinds_layout_content_round_trips_the_lock_and_reaches_the_engine_custom_kind() {
     let payload = golden_payload(Declarations {
@@ -1800,7 +1799,7 @@ fn a_kinds_layout_content_round_trips_the_lock_and_reaches_the_engine_custom_kin
 /// across a double emit, while a file-locus body-bearing kind (`rule`) carries neither column —
 /// nothing file-locus or body-bearing regresses.
 /// For the real SDK-emit agreement claim (live SDK emit → lock kind row → engine CustomKind),
-/// see `tests/emit.rs:emit_program_emits_a_custom_kinds_layout_content_and_fields_shape_end_to_end`.
+/// see `tests/it/emit.rs:emit_program_emits_a_custom_kinds_layout_content_and_fields_shape_end_to_end`.
 #[test]
 fn a_kinds_fields_only_shape_and_collection_address_round_trip_the_lock_and_reach_the_engine() {
     let payload = golden_payload(Declarations {
@@ -1966,7 +1965,7 @@ fn mcp_server_kind_facts() -> KindFactRow {
 
 /// A represented manifest's registration members cross the seam into the lock's
 /// declaration rows AND reach the graph the read family builds — a hook/mcp-server member
-/// is governable end to end, not only SDK-erased (MANIFEST-WRITE-SEAM). `emit` writes the
+/// is governable end to end, not only SDK-erased. `emit` writes the
 /// `.mcp.json` whole through the write face; the lock records the member as a declaration
 /// row (identity + address, its fields the projected artifact); and `explain` resolves the
 /// bare server name to the member, narrating it as a node — the read side no longer sees
@@ -2071,7 +2070,7 @@ fn from_kind_fact_row_rejects_an_out_of_vocabulary_shape() {
 }
 
 /// A host member's declared embedded-member value's row — the shape a `blocks()`
-/// value like `tests/nested_member.rs`'s `decision_body` composes: leaves plus one
+/// value like `tests/it/nested_member.rs`'s `decision_body` composes: leaves plus one
 /// collection's entries, authored out of alphabetical order.
 fn nested_member_row() -> NestedMemberRow {
     let leaves = BTreeMap::from([(
@@ -2109,9 +2108,9 @@ fn nested_member_row() -> NestedMemberRow {
 }
 
 /// A declared embedded member's facts round-trip through the lock as
-/// `[[declaration.nested_member]]` rows (`NESTED-MEMBER-LOCK-ROW`), the same way
+/// `[[declaration.nested_member]]` rows, the same way
 /// `a_host_kinds_declared_templates_round_trip_through_the_lock` above proves for the
-/// templates row — additive: the fold-based read side (`tests/nested_member.rs`)
+/// templates row — additive: the fold-based read side (`tests/it/nested_member.rs`)
 /// never reads this family, only `emit`/`read_declarations` round-trip it.
 #[test]
 fn a_declared_embedded_members_facts_round_trip_through_the_lock_as_nested_member_rows() {
@@ -2558,7 +2557,7 @@ target = \"some/path.md\"\n\
 
 #[test]
 fn a_lock_declared_nested_member_row_folds_a_builtin_hosts_embedded_member() {
-    // NESTED-MEMBER-LOCK-ROW / RETIRE-FOLD-MEMBERS: a lock row naming a built-in
+    // A lock row naming a built-in
     // (`rule`) and declaring `templates` legitimately extends that built-in's host
     // with a child kind (`row_relocates_builtin`'s own doc comment already names a
     // declared, non-empty `templates` a legitimate extension, never a collision) —
@@ -2638,7 +2637,7 @@ fn a_harness_with_no_lock_is_gated_by_the_built_in_lock() {
     );
 }
 
-// ---- SATISFIER-KIND-CLAUSE: a requirement row's `kind` sources a clause -------
+// ---- A requirement row's `kind` sources a clause -------
 //
 // Selection: a `RequirementRow`'s `kind` column is a
 // declaration row in the lock, and it now *sources* the shipped each-grain "every
@@ -2691,17 +2690,15 @@ fn a_requirement_rows_kind_sources_the_each_grain_kind_clause() {
     );
 }
 
-// ---- BUILTIN-LOCK-DERIVED: the embedded built-in lock ------------------------
+// ---- The embedded built-in lock ------------------------
 //
 // Decision: the built-in lock is derived
 // from the SDK module, never transcribed: `src/builtin_lock.toml` is the real
 // `[declaration.*]` family a memberless emit of `@dtmd/temper/claude-code`'s built-in
 // kinds and their floors produce, and `temper::builtin` projects each kind's floor
-// `Contract` straight off this lock's clause rows — no hand-written mirror any
-// more. These tests pin that projection against the lock's own rows, proving
-// `temper::builtin::contract` round-trips every row's predicate/field/severity
-// losslessly. `builtin_kind`'s kind facts stay a separate hand-written mirror,
-// untouched here.
+// `Contract` straight off this lock's clause rows. These tests pin that projection
+// against the lock's own rows, proving `temper::builtin::contract` round-trips every
+// row's predicate/field/severity losslessly.
 
 /// The `(predicate, field, gate, severity)` a clause row carries — every column the
 /// projection must round-trip. The `gate` end is `Some` only for a two-field predicate
@@ -2814,7 +2811,7 @@ fn the_embedded_lock_clauses_match_todays_hand_written_floors_per_kind() {
 }
 
 /// A built-in clause row carries its module floor's guidance and cite through the
-/// derived lock (`LOCK-CLAUSE-CHANNELS`): the seam (`sdk/src/declarations.ts`
+/// derived lock: the seam (`sdk/src/declarations.ts`
 /// `clauseRow`) and `drift::ClauseRow` used to drop both channels, stranding the
 /// gate's teaching prose on the wrong side of the erasure. Skill's `extent`
 /// advisory is the worked example: its progressive-disclosure guidance and
@@ -2855,9 +2852,9 @@ fn the_embedded_lock_clause_row_carries_the_floors_guidance_and_cite() {
     assert_eq!(row.cite.as_deref(), Some(expected_cite));
 }
 
-// ---- MENTION-EDGE-LANDS: an authored mention binds the graph -----------------
+// ---- An authored mention binds the graph -----------------
 //
-// contract.md, "edge": a mention is one of four edge loci, and every edge resolves
+// A mention is a rendering claim on a field-declared edge, and every edge resolves
 // into the one enumeration the gate and every read verb share. These prove the whole
 // pipeline past the lock round-trip already proven above: the mention row binds into
 // the reference graph, a `degree` clause can count it, and `explain` narrates its
@@ -3230,7 +3227,7 @@ fn two_byte_identical_edge_rows_refuse_the_same_way() {
     );
 }
 
-// ---- CLAUSE-LABEL-IS-AN-ADDRESS: the clause's compiled address ---------------
+// ---- The clause's compiled address ---------------
 //
 // A clause's label is its identity. Emit writes it once, off the row's own
 // identity columns; every finding and `explain` print it; and two rows reducing to

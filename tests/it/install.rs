@@ -1333,7 +1333,7 @@ fn write_document_harness(label: &str) -> (PathBuf, PathBuf) {
 /// groups — the whole gate, read the way Claude Code reads it: a `hooks.<Event>` matcher
 /// group whose handler carries the exact command `install` declares. The grain is asserted
 /// with it: exactly one group per event runs temper's command, carrying exactly one
-/// handler, which is what a gate `hook` member now authors (`gate_hook_fields`). `context`
+/// handler, which is what a gate `hook` member authors. `context`
 /// names the moment being asserted, since the same claim is made before and after a
 /// re-emit.
 fn assert_gate_hooks_wired(root: &Path, context: &str) {
@@ -5104,7 +5104,7 @@ fn convert_to_crlf(path: &Path) {
     fs::write(path, crlf).unwrap();
 }
 
-/// Recursively convert all markdown and TypeScript files to CRLF line endings,
+/// Recursively convert all markdown and JSON files to CRLF line endings,
 /// but skip the `.temper` directory (which may be scaffolded after conversion).
 fn convert_tree_to_crlf(root: &Path) {
     for entry in walkdir::WalkDir::new(root)

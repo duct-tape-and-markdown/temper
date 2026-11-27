@@ -2179,7 +2179,7 @@ pub fn assemble_by_kind<'a>(
 /// Edge fields take no part in the decision: a kind row carries none — an edge is an
 /// assembly `edge` row keyed by its `from` kind — so a relocation that adds one diverges
 /// on no fact this predicate examines and is admitted like any other
-/// (`tests/graph.rs`).
+/// (`tests/it/graph.rs`).
 fn row_relocates_builtin(
     row: &drift::KindFactRow,
     builtin: &CustomKind,

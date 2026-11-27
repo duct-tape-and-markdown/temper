@@ -5,7 +5,7 @@
 //! `kind:name` address — never mined by re-parsing the host's rendered TOML fence
 //! (0018, "the projection is not the database"). `builtin_kind::features` is the
 //! **sole choke point** every custom/built-in member's `Features` builds through, so
-//! these proofs drive it directly rather than the retired `CustomKind::fold_members`.
+//! these proofs drive it directly.
 
 use std::collections::BTreeMap;
 
@@ -197,7 +197,7 @@ fn a_member_with_no_matching_row_carries_no_nested_members_no_error() {
 
 #[test]
 fn a_body_fence_naming_a_declared_child_kind_is_never_re_read_for_facts() {
-    // The body carries a `member.decision` fence a pre-0018 fold would have parsed —
+    // The body carries a `member.decision` fence a body-mining read would parse —
     // but with no matching lock row, nothing surfaces. The read side never looks at
     // the body at all for this fact.
     let body = "# Decision\n\n```member.decision surface-authority\nchosen = \"x\"\n```\n";
@@ -525,7 +525,7 @@ mod literal_template_segments_are_locus {
 
 #[test]
 fn a_declared_file_child_template_round_trips_off_the_lock_with_its_path_pattern() {
-    // TEMPLATE-FILE-CHILD-FACT: a kind's nesting template is a declared kind-side fact —
+    // A kind's nesting template is a declared kind-side fact —
     // the child kind, plus the path pattern relative to the parent's unit when the
     // children are files (`specs/model/representation.md`, "kind"). A file child is
     // never admitted over a host: admission is over an embedded body, so the lock's
@@ -1091,7 +1091,7 @@ mod host_qualified_addresses {
 
     /// `explain <target>` over a by-kind corpus alone — every strand this module's reads
     /// exercise resolves off it, so the remaining inputs (custom members, roster,
-    /// contracts, registrations, tap log) are the empty ones `main.rs` would thread.
+    /// contracts, registrations, tap log) are the empty ones.
     fn explain(by_kind: &BTreeMap<&str, &[Features]>, target: &str) -> String {
         read::explain(
             &[],

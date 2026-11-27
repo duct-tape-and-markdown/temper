@@ -14,7 +14,7 @@
 //! The kind is the suite's own `knob` at `.claude/local/*.toml`, never the shipped `dial`
 //! that declares this format: these cases drive the face's `read` directly, so the kind is
 //! only what a fixture needs to name, and the walk that reaches a real document is
-//! `tests/local_locus.rs`'s.
+//! `tests/it/local_locus.rs`'s.
 
 use std::fs;
 use std::path::{Path, PathBuf};

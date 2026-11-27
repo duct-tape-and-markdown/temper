@@ -4,4 +4,4 @@ description: ""
 ---
 # Frontmatter valid
 
-The description is present but blank, tripping skill.frontmatter-valid.
+The description is present but blank, tripping skill.min-len.description.

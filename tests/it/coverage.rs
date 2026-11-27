@@ -212,9 +212,7 @@ fn a_non_required_unfilled_requirement_does_not_block() {
 
 #[test]
 fn a_kind_blind_required_requirement_with_no_satisfier_still_fires_unfilled() {
-    // Custom kinds retire with the KIND.md file format, and
-    // there is no longer any manifest to register one from at all (the manifest
-    // retires entirely) — so a kind-blind `required` requirement contributes no
+    // No manifest registers a custom kind, so a kind-blind `required` requirement contributes no
     // fabricated coverage; it still fires UNFILLED absent a real satisfier.
     let root = common::tmpdir("custom-unfilled");
     common::write_requirements(&root, vec![common::requirement("domain-model", true, None)]);
@@ -285,10 +283,8 @@ fn a_kind_name_colliding_with_a_built_in_fires_an_admissibility_diagnostic() {
     // shape (`unit_shape: directory`, where the built-in `rule` is `file`) is neither
     // an admissible relocation of the built-in's `governs` locus (the one legitimate
     // reason a row reuses a built-in's name) nor a distinct custom kind of its own —
-    // the bare-name namespace has one home per name
-    // (KIND-NAME-COLLISION-ADMISSIBILITY). Before this fix the row was silently
-    // dropped (a bare `continue` on the matching name) with no diagnostic and its
-    // members lost from every corpus.
+    // the bare-name namespace has one home per name. Dropping the row silently would
+    // lose its members from every corpus with no diagnostic.
     let root = common::tmpdir("kind-collision");
     let policies = root.join("policies");
     fs::create_dir_all(&policies).unwrap();
@@ -334,7 +330,7 @@ fn a_kind_row_relocating_a_built_ins_governs_fires_no_collision_diagnostic() {
     // `check_walks_the_locks_declared_governs_locus_not_the_kinds_embedded_default`):
     // a row named exactly like a built-in, declaring only a relocated `governs` and no
     // diverging `format`/`unit_shape`/`registration`, is a relocation — not a
-    // collision — so it must never trip KIND-NAME-COLLISION-ADMISSIBILITY.
+    // collision — so it must never trip the kind-name collision diagnostic.
     let root = common::tmpdir("kind-relocation");
     let rules = root.join("custom-locus").join("rules");
     fs::create_dir_all(&rules).unwrap();
@@ -358,11 +354,9 @@ fn a_kind_row_relocating_a_built_ins_governs_fires_no_collision_diagnostic() {
 
 #[test]
 fn a_kind_row_relocating_a_built_in_with_declared_templates_fires_no_collision_diagnostic() {
-    // TEMPLATES-RELOCATION-COLLISION-REGRESSION: a built-in's own `templates` is always
-    // empty (nothing populates it outside `from_kind_fact_row`), so the old equality
-    // check `declared.templates.is_empty() || declared.templates == builtin.templates`
-    // reduced to "declared templates must be empty" — hard-failing the legitimate
-    // pattern of a row extending a built-in host with a declared child template
+    // A built-in's own `templates` is always empty (nothing populates it outside
+    // `from_kind_fact_row`), so an equality check against it reduces to "declared
+    // templates must be empty" — hard-failing the legitimate pattern of a row extending a built-in host with a declared child template
     // (e.g. `rule` gaining a `directive` template by the corpus admitting `directive`
     // over the `rule` host).
     // A relocation that additionally declares `templates` must stay admissible.
@@ -400,10 +394,9 @@ fn a_kind_row_relocating_a_built_in_with_declared_templates_fires_no_collision_d
 
 #[test]
 fn two_custom_kinds_sharing_a_locus_glob_fire_the_locus_collision_diagnostic() {
-    // KIND-GLOB-COLLISION-REFUSE: a document's kind is its position alone, so two kinds
-    // resolving to one `governs` locus would double-route every matching document into
-    // both member sets — silently, before this fix (per-kind discovery walks each locus
-    // independently). Two custom kinds declaring the identical `docs/*.md` locus refuse
+    // A document's kind is its position alone, so two kinds resolving to one `governs`
+    // locus would silently double-route every matching document into both member sets
+    // (per-kind discovery walks each locus independently). Two custom kinds declaring the identical `docs/*.md` locus refuse
     // loud, the finding naming both kinds and the shared glob.
     let root = common::tmpdir("locus-collision");
     let docs = root.join("docs");

@@ -6,7 +6,7 @@
 //! registration collection addresses. The engine's container machinery is already
 //! generic (`src/drift.rs`'s manifest build, `src/coverage_note.rs`'s whole-file
 //! governance); these cases pin it to the shipped kind, driven over the real SDK the
-//! way `tests/emit.rs` drives the seam — `node` running the built
+//! way `tests/it/emit.rs` drives the seam — `node` running the built
 //! `@dtmd/temper/claude-code` against a fixture program, since the kind ships there.
 //!
 //! What 0050 buys is one fact stated several ways below: the file is a whole projection,

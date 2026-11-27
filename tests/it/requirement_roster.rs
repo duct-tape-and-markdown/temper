@@ -9,24 +9,21 @@
 //! eradicated — opt-in `satisfies` is the sole fill — so a satisfier set is the
 //! artifacts of a requirement's `kind` whose `satisfies` names it.
 //!
-//! The cases mirror the entry's acceptance:
+//! The cases:
 //! - the `count` cardinality bound quantifies over the satisfier set;
 //! - the `unique` predicate quantifies over the satisfier set;
 //! - the `membership` predicate draws its allowed set from a *second* satisfier set,
 //!   and reads a list-valued field per element on both sides of it;
-//! - a `match = {…}` key, and the retired `[role.*]` surface, are inert — a
-//!   the retired manifest is never read at all, so a stray one carrying either changes
-//!   nothing;
+//! - a `match = {…}` key and a `[role.*]` table are inert — the manifest is never
+//!   read at all, so a stray one carrying either changes nothing;
 //! - the roster is itself checked (admissibility);
-//! - a stray retired manifest declaring no roster leaves the floor outcome unchanged;
+//! - a stray manifest declaring no roster leaves the floor outcome unchanged;
 //! - a member-grain clause (`required`) bound by opt-in reaches a judge too — the
 //!   quantifier is the clause's grain, not the selector's — and a kind's own
-//!   member-grain clause still reports exactly once
-//!   (REQUIREMENT-CLAUSES-REACH-THE-MEMBER-JUDGE);
+//!   member-grain clause still reports exactly once;
 //! - every embedded built-in kind reaches the same satisfier corpus, not only
 //!   `skill`/`rule` — a `memory` member's `satisfies` row counts toward cardinality,
-//!   roster admissibility, and a `degree` bound exactly as a skill's does
-//!   (MEMORY-ENTERS-REQUIREMENT-CORPUS).
+//!   roster admissibility, and a `degree` bound exactly as a skill's does.
 
 use std::fs;
 use std::path::Path;
@@ -88,7 +85,7 @@ fn a_lock_declared_clause_row_is_the_kinds_whole_contract_a_temper_toml_only_one
     );
 
     // The identical clause, written only in a retired-manifest `[kind.skill]`
-    // layer, is inert — the manifest is never read at all any more (`TEMPER-TOML-ZERO`),
+    // layer, is inert — the manifest is never read at all any more,
     // so a stray one carrying a clause change nothing.
     common::write_retired_manifest(
         &root,
@@ -273,8 +270,8 @@ fn a_kind_narrowing_an_unmodeled_kind_is_inadmissible() {
     let root = common::tmpdir("kind-unmodeled");
     // A floor-clean skill opts in (coverage is satisfied), but the requirement
     // narrows to `widget` — a kind `temper` does not model at all (every embedded
-    // built-in — `agent`/`command`/`skill`/`rule`/`memory` — now reaches `by_kind`,
-    // MEMORY-ENTERS-REQUIREMENT-CORPUS, so this must be a name no built-in or
+    // built-in — `agent`/`command`/`skill`/`rule`/`memory` — reaches `by_kind`, so
+    // this must be a name no built-in or
     // lock-declared custom kind carries) — so the each-grain clause it sources can
     // never hold for any satisfier: an admissibility finding, never a silent "can
     // never be filled" exclusion.
@@ -412,8 +409,7 @@ fn a_requirement_naming_an_unknown_kind_is_inadmissible() {
     let root = common::tmpdir("admit-unknown-kind");
     // A floor-clean skill opts into the requirement (so coverage is satisfied), but the
     // requirement is typed to `widget` — a kind `temper` does not model at all (every
-    // embedded built-in now reaches `by_kind`, MEMORY-ENTERS-REQUIREMENT-CORPUS, so
-    // this must be a name no built-in or lock-declared custom kind carries) — so a
+    // embedded built-in reaches `by_kind`, so this must be a name no built-in or lock-declared custom kind carries) — so a
     // required requirement over it can never be filled.
     common::write_skill(&root, "lint-rust", &common::clean_skill("lint-rust"));
     common::author_satisfies(&root, "skills", "lint-rust", &["releaser"]);
@@ -903,8 +899,7 @@ fn a_lock_declared_satisfies_row_fills_a_requirement_with_no_surface_overlay_aut
 #[test]
 fn a_lock_declared_satisfies_row_fills_a_custom_kind_member_in_explain_with_no_fabricated_rationale()
  {
-    // The custom-kind mirror of the sibling test just above (SATISFIES-CLAUSES-
-    // RATIONALE-FROM-LOCK): `policy` is a custom kind (not a built-in), its one member
+    // The custom-kind mirror of the sibling test just above: `policy` is a custom kind (not a built-in), its one member
     // written only at its real governed locus. The lock's
     // own `declarations.satisfies` row is the sole source naming it as a filler.
     let root = common::tmpdir("lock-satisfies-custom-explain");
@@ -960,7 +955,7 @@ fn a_lock_declared_satisfies_row_fills_a_custom_kind_member_in_explain_with_no_f
     );
 }
 
-// ---- SATISFIES-LABEL-QUALIFY: a shared member name binds only its own kind --------
+// ---- A shared member name binds only its own kind --------
 
 #[test]
 fn a_member_name_shared_across_kinds_binds_each_qualified_satisfies_row_to_its_own_kind() {
@@ -997,7 +992,7 @@ fn a_member_name_shared_across_kinds_binds_each_qualified_satisfies_row_to_its_o
     );
 }
 
-// ---- MEMORY-ENTERS-REQUIREMENT-CORPUS: every built-in kind, not just skill/rule ----
+// ---- Every built-in kind, not just skill/rule ----
 
 /// Write a repo-root `CLAUDE.md` — the `memory` built-in kind's sole governed locus
 /// (`root = "."`, `glob = "**/CLAUDE.md"`) — so its member id folds to the bare stem
@@ -1025,12 +1020,10 @@ fn a_memory_members_satisfies_row_fills_a_memory_narrowed_requirement() {
         },
     );
 
-    // Before MEMORY-ENTERS-REQUIREMENT-CORPUS, `assemble_by_kind` only ever carried
-    // `skill`/`rule`, so a `memory`-narrowed requirement's each-grain `kind` clause
-    // read as unfillable (`temper` "does not model" a kind it demonstrably does), and
-    // coverage's unioned satisfies never saw the memory member's row either —
-    // `memory-doc` read unfilled despite the lock's own satisfies row naming it. Both
-    // the two-step and one-shot gate must now agree it is filled.
+    // A `by_kind` carrying only `skill`/`rule` would read a `memory`-narrowed
+    // requirement's each-grain `kind` clause as unfillable and leave `memory-doc`
+    // unfilled despite the lock's own satisfies row naming it. Both the two-step and
+    // one-shot gate must agree it is filled.
     let run = common::check_in(&root, &[], None);
     assert!(
         run.ok,
@@ -1199,9 +1192,9 @@ fn a_requirements_required_clause_fires_over_a_satisfier_missing_the_field() {
 
     // The member grain of the same selection: `required` names a field no satisfier
     // carries, so it fires — once per satisfier, at the requirement's own address.
-    // Before REQUIREMENT-CLAUSES-REACH-THE-MEMBER-JUDGE this run was silent and green:
-    // `engine::judge` read the set predicates only, and `engine::validate` runs over
-    // kind contracts alone, so the clause reached no judge at all.
+    // A requirement's member-grain clause must reach a judge: `engine::validate` runs
+    // over kind contracts alone, so a judge reading only the set predicates leaves this
+    // run silent and green.
     common::write_requirements(
         &root,
         vec![missing_field_requirement(vec![

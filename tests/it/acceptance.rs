@@ -280,7 +280,7 @@ fn builtin_skill_out_of_vocabulary_row_is_a_load_error() {
 
 /// Author a custom kind's `lock.toml` declaration row pair through the real lock writer —
 /// a `KindFactRow` naming its `governs` root/glob, a `ClauseRow` binding an advisory
-/// `extent` budget to it — the live authoring surface (`tests/session_start.rs`'s
+/// `extent` budget to it — the live authoring surface (`tests/it/session_start.rs`'s
 /// `a_custom_kind_synthesized_from_the_lock_resolves_its_requirement_with_no_false_admissibility_finding`
 /// uses the identical shape). `extent` is the fixture's small 10-line budget so a
 /// short over-length body trips it without a real spec-sized corpus.

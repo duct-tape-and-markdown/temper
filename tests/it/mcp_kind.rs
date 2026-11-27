@@ -1,5 +1,5 @@
 //! The `mcp` built-in kind: the committed `.mcp.json` as a whole
-//! (`specs/builtins.md`, "The shipped kinds"; decision 0050).
+//! (`specs/builtins.md`, "The shipped kinds"; decision 0071).
 //!
 //! A `json-document` at the committed commitment class, singleton identity from its
 //! documented path, and — like `settings` — the **container** of a registration

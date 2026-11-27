@@ -1,6 +1,6 @@
 //! The memory kind's **File shape** round trip, end to end.
 //!
-//! The gate already *dispatches* memory members (`tests/memory_gate.rs` drives
+//! The gate already *dispatches* memory members (`tests/it/memory_gate.rs` drives
 //! `check --harness` and proves the `extent` advisory fires/stays-silent). What no
 //! test carried was the **adapter read/emit face over a File-shaped unit with no YAML
 //! frontmatter** — the retired `adapter_fidelity.rs` exercised the frontmatter faces

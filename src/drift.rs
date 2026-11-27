@@ -2021,7 +2021,7 @@ fn refuse_template_cycle(kind_facts: &BTreeMap<&str, &KindFactRow>) -> Result<()
 /// its host's unit instead, through that same rule and its host kind's declared template
 /// pattern ([`nested_file_path`]). The SDK's `projectionPath`
 /// (`sdk/src/emit.ts`) derives the same locus from the same facts, and
-/// `tests/projection_path_seam.rs` gates the two into agreement.
+/// `tests/it/projection_path_seam.rs` gates the two into agreement.
 ///
 /// Whichever branch derives it, the path round-trips: it is matched back through the very
 /// glob that has to find it ([`refuse_ungoverned`]) before it is returned, so placement and

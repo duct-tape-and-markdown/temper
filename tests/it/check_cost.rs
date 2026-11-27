@@ -288,9 +288,8 @@ fn emit_over_a_lockless_harness_reads_and_parses_once() {
 
     // The sibling pin above runs over a lock that exists, so it never exercises emit's
     // other state: the fresh adopter's harness, where `.temper/lock.toml` is absent. This
-    // fixture writes none — on the pre-fold tree emit's read of a missing lock counted
-    // neither read nor parse, so both deltas read 0 here and the once-per-run pin was
-    // blind on this path; the fold makes them 1/1.
+    // fixture writes none, and a missing lock still counts one read and one parse, so
+    // the once-per-run pin is not blind on this path.
     let harness = tmpdir("emit-lockless-lock-parse-cost");
     let into = harness.join(".temper");
     std::fs::create_dir_all(&into).unwrap();
@@ -346,10 +345,9 @@ fn emit_over_a_lockless_harness_reads_and_parses_once() {
 fn source_dep_faces_over_a_lockless_harness_read_and_parse_once() {
     use temper::drift;
 
-    // The source-dep faces hand-rolled their own read of the very file the counted door
-    // opens, and diverged from it on exactly one state: a missing lock returned early
-    // counting neither read nor parse, where the door counts one of each. This fixture
-    // writes no lock, so both deltas read 0/0 on the pre-fold tree and 1/1 with the fold.
+    // The source-dep faces read through the counted door, which counts one read and one
+    // parse even for a missing lock. This fixture writes no lock, so both deltas read 1/1;
+    // a hand-rolled read returning early would read 0/0.
     let harness = tmpdir("source-dep-lockless-lock-parse-cost");
     let into = harness.join(".temper");
     fs::create_dir_all(&into).unwrap();
@@ -594,7 +592,7 @@ fn coverage_note_scans_over_the_runs_effective_kind_set() {
 
     // The stray scan's exclusion comes from the one effective kind set the caller holds —
     // the family's `declared_kinds`, assembled off the caller's own read exactly as
-    // `gate` assembles it (COVERAGE-NOTE-LOCK-PARSE-HOIST keeps the lock parsed once).
+    // `gate` assembles it, keeping the lock parsed once.
     let committed = drift::read_declarations(&harness.join(".temper"))
         .expect("lock should parse and deserialize");
     assert!(
@@ -1369,11 +1367,9 @@ fn overlay_builtin_kind_count_increments_once_per_application() {
 /// kind row and lifts every custom one. So the cost doctrine binds it the way it binds the
 /// shared walk: derived once per run and shared, never once per consumer.
 ///
-/// Four derivations per `check` before the hoist: the assembly pass's own, the manifest
-/// cache's, and one apiece for the two locus-less built-ins (`supporting-doc` and
-/// `handler`, both `governs: None`) whose unit resolution rebuilt the whole map to find
-/// their hosts — plus one more per nested-file or embedded kind a consumer declares. One
-/// after it, off [`compose::LockFamily::declared_kinds`].
+/// One derivation per `check`, off [`compose::LockFamily::declared_kinds`] — never one
+/// apiece for the assembly pass, the manifest cache, and each locus-less built-in
+/// (`supporting-doc`, `handler`) resolving its host.
 #[test]
 fn declared_kind_set_is_derived_once_per_check_run() {
     use std::collections::BTreeMap;
@@ -1395,7 +1391,7 @@ fn declared_kind_set_is_derived_once_per_check_run() {
 
     // The vacuity pin rides the count: a derivation that collapsed to an empty map would read as a hoisted
     // one, so the set the run published is asserted populated — and asserted to carry the
-    // locus-less kind whose per-kind rebuild is half of what the pre-fix count counted.
+    // locus-less kind a per-kind rebuild would re-derive the set for.
     // Assembled here off the same unadopted harness `gate` just read, after the delta is
     // taken, so this assembly's own derivation is outside the measured window.
     let disc = import::Discovery::new(&harness);
@@ -1675,7 +1671,7 @@ fn guard_at_the_shell_edge_builds_one_tree_index_per_run_whatever_its_locus_coun
 /// them — so each member's document is read exactly once there, off the text the unit
 /// resolution already loaded. Two members, so the delta is exactly 2: the derivation
 /// handing a `source_path` back to disk after the unit already carried the bytes doubles it
-/// to 4, which is what this pass cost before the hoist. The count is per-thread and both
+/// to 4. The count is per-thread and both
 /// reads single-threaded on their caller's thread, so the delta is this pass's alone
 /// whatever else runs concurrently.
 ///
@@ -1740,7 +1736,7 @@ fn a_local_layout_members_document_is_read_once_per_assembly_pass() {
 /// the span splits. One parse per member per pass, its field half filling the unit and its
 /// member/prose/`satisfies` half lowering into the derived rows, is what this counts: the
 /// unit adapter keeping only the fields and the row derivation re-reading the identical
-/// text doubles it to 4, which is what this pass cost before the fold.
+/// text doubles it to 4.
 ///
 /// Paired with the read pin above on the same fixture, the way `LOCK_READS`/`LOCK_PARSES`
 /// pair: a fold that hoisted the read alone still leaves this one red.

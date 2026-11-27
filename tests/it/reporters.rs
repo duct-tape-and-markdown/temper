@@ -8,7 +8,7 @@
 //! severity mapped `required`->`error` / `advisory`->`warning` and the rule as `ruleId`.
 //! Both derive purely from the diagnostic set — they re-judge nothing.
 //!
-//! Second, a CLI-level assertion (over the real process boundary, as `tests/cli.rs`
+//! Second, a CLI-level assertion (over the real process boundary, as `tests/it/cli.rs`
 //! does) pins the verdict invariant: `check --reporter sarif` on a *failing*
 //! surface prints SARIF and *still exits non-zero* — a reporter reshapes
 //! presentation, never the gate's exit code.
@@ -349,11 +349,11 @@ fn a_run_judged_by_the_committed_harness_alone_announces_nothing() {
     );
 }
 
-// ---- CLAUSE-LABEL-IS-AN-ADDRESS: one identity, printed on both faces ---------
+// ---- One identity, printed on both faces ---------
 
 /// The `temper` binary, located by Cargo at compile time — `explain` has no
 /// library-level driver here, so this suite reaches it over the process boundary the
-/// way `tests/cli.rs` does.
+/// way `tests/it/cli.rs` does.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
 
 #[test]

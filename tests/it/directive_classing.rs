@@ -11,8 +11,8 @@
 //!
 //! Relative targets resolve against the importing file's directory; absolute targets
 //! resolve as authored. This drives the library classer over constructed members, the
-//! way `tests/graph.rs`'s `reachability` module drives `graph::reachable` — the check
-//! wiring (`src/main.rs`) reuses this exact function over the imported corpus.
+//! way `tests/it/graph.rs`'s `reachability` module drives `graph::reachable` — the check
+//! wiring (`src/gate.rs`) reuses this exact function over the imported corpus.
 //!
 //! The classing's edges are no longer dropped at the gate: they are the **import
 //! relation** `graph::acyclic` is scoped to (`specs/model/contract.md`,

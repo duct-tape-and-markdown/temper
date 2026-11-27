@@ -7,7 +7,7 @@
 //! (per-machine, uncommitted, read in place and gated, never emitted). Its identity is the
 //! fixed singleton stem `settings.local` (the `file` unit shape — every machine's overlay is
 //! the one file at this path, so no declared key names it). The generic local-locus
-//! machinery is `tests/local_locus.rs`'s; these cases own the shipped kind's own face:
+//! machinery is `tests/it/local_locus.rs`'s; these cases own the shipped kind's own face:
 //! discovery under the ignore override, the documented-key clauses firing while the
 //! unschematized residue stays opaque, and the active member announced.
 //!

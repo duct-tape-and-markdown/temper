@@ -23,8 +23,8 @@
 //! outside it is written and locked yet ungoverned, the kind counted `(0)` with no
 //! finding to name it.
 //!
-//! Driven on the pattern `tests/builtin_lock_frozen.rs` sets: a real `node` subprocess
-//! running the built SDK through `drift::emit_program`, exactly as `tests/emit.rs`
+//! Driven on the pattern `tests/it/builtin_lock_frozen.rs` sets: a real `node` subprocess
+//! running the built SDK through `drift::emit_program`, exactly as `tests/it/emit.rs`
 //! drives the seam.
 
 use std::collections::BTreeMap;

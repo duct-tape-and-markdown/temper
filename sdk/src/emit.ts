@@ -338,7 +338,7 @@ function nestedFilePath(member: Member): string {
  * finding to name it. The engine holds the round trip with the glob engine it already has
  * (`UngovernedProjection`); this side has no matcher, so what it holds is the half a
  * matcher is not needed for — a member name carrying the `/` a path is placed with
- * ({@link refuseSegmentedName}) — and `tests/projection_path_seam.rs` gates the property
+ * ({@link refuseSegmentedName}) — and `tests/it/projection_path_seam.rs` gates the property
  * itself, per unit shape, over what emit actually wrote.
  *
  * # Throws
