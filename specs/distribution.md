@@ -142,7 +142,12 @@ speaks the kernel nouns exactly — a synonym forks the reader's mental model.
 **Fail-loud invariant:** a placement that cannot run the engine errors,
 never silently skips. So the SDK pins its engine; a missing platform binary
 is an install error, not a runtime shrug — if it cannot check, it fails
-loud. The emit payload — the compiled program the SDK pipes to its pinned
+loud. For a gate hook, loud is the runtime's blocking exit: a hook that
+cannot reach the engine (a missing binary, a missing platform package)
+exits 2 with the install instructions on stderr, since Claude Code treats
+every other non-zero exit, a shell's 127 included, as a non-blocking error
+and lets the action through (code.claude.com/docs/en/hooks, "Exit code
+output", retrieved 2026-11-27). The emit payload — the compiled program the SDK pipes to its pinned
 engine — is internal, versioned in lockstep, never a public format; the
 committed interface is artifacts plus the lock.
 
