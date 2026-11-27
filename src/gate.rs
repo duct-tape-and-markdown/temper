@@ -1278,9 +1278,13 @@ pub fn gate(
     // the gate decides whether to walk, off the same `selections` list and the same
     // `root_clause` door the judge itself opens, leaving the judge a pure function of
     // what it is handed.
+    let registrations = registrations_by_kind(&overlaid_builtin_kinds, &custom_units_and_features);
     let repo_files = if engine::root_clause(&selections, &contract::Predicate::Reachable).is_some()
     {
-        compose::repo_file_set(harness_root)
+        compose::repo_file_set(
+            harness_root,
+            &graph::registration_globs(&registrations, &by_kind),
+        )
     } else {
         Vec::new()
     };
@@ -1296,7 +1300,7 @@ pub fn gate(
     // propagates along an `@import` the target format executes.
     diagnostics.extend(graph::reachable(
         &selections,
-        &registrations_by_kind(&overlaid_builtin_kinds, &custom_units_and_features),
+        &registrations,
         &by_kind,
         &repo_files,
         &absence_gated(
