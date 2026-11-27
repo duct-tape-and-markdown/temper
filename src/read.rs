@@ -46,7 +46,7 @@
 use std::cell::Cell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use serde_json::Value as JsonValue;
 
@@ -2919,17 +2919,16 @@ fn narrate_gate(state: &AbsenceGateState) -> String {
     }
 }
 
-/// Assemble the corpus for the explain verb and dispatch to [`explain`] with the target:
-/// read the workspace, discover all features, build contracts, rosters, and edge sets
+/// Assemble the corpus for the explain verb over the harness at `harness_root` and
+/// dispatch to [`explain`] with the target: read the workspace, discover all features, build contracts, rosters, and edge sets
 /// exactly as `gate` does, so a read cannot disagree with the gate.
 /// A read, never a gate — the caller prints the result and exits zero on every input.
 ///
 /// # Errors
 ///
 /// Propagates filesystem and corpus-assembly errors.
-pub fn explain_target(target: &str) -> miette::Result<String> {
-    let workspace = PathBuf::from(crate::default_workspace());
-    let harness_root = Path::new(".");
+pub fn explain_target(harness_root: &Path, target: &str) -> miette::Result<String> {
+    let workspace = harness_root.join(crate::WORKSPACE_DIR);
     // One ignore-honoring walk per flavor, shared across every kind and nested host this
     // read discovers ([`crate::import::Discovery`]).
     let discovery = crate::import::Discovery::new(harness_root);
@@ -2938,8 +2937,7 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
     // kind's governs locus off *this*.
     // No layers: `explain` narrates what this corpus declares. A policy layer is the
     // invocation's own, and the invocation here is a read.
-    // Parse the lock document once for reuse across source-dependency checks, hoisting
-    // the read/parse operation per the cost doctrine (engineering.md, "Cost scale is hoisted").
+    // The one parsed lock every strand below reads, never the disk.
     let lock_doc = drift::read_lock_document(&workspace)?;
     // Empty cache for early assembly; will build a proper cache after lock_family returns.
     let empty_cache: compose::ManifestCache = BTreeMap::new();
@@ -3077,16 +3075,16 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
 
     // The whole file-set stays: `graph::reachability_orphaned` below reads it entire,
     // through `live_members`, and the read verb binds no clause to gate the walk behind.
-    let repo_files = compose::repo_file_set(Path::new("."));
+    let repo_files = compose::repo_file_set(harness_root);
     let gate_states = crate::gate::absence_gate_states(
-        Path::new("."),
+        harness_root,
         &overlaid_builtin_kinds,
         &builtin_units_and_features,
         &custom_units_and_features,
     );
     let gated = crate::gate::shut_gates(&gate_states, &overlaid_builtin_kinds);
     let homes = crate::gate::read_beneath_homes(
-        Path::new("."),
+        harness_root,
         &overlaid_builtin_kinds,
         &builtin_units_and_features,
         &custom_units_and_features,
@@ -3102,7 +3100,7 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
     );
     let directive_edges = crate::graph::classify_directives(
         &directive_members,
-        &compose::backed_on_disk(Path::new(".")),
+        &compose::backed_on_disk(harness_root),
     )
     .edges;
 
@@ -3117,7 +3115,7 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
 
     // Build the path-to-id map from the lock's emit-owned entries, used to normalize
     // InstructionsLoaded record identities from paths to member IDs.
-    let path_to_id: BTreeMap<String, String> = drift::emit_owned_targets(&workspace)
+    let path_to_id: BTreeMap<String, String> = drift::emit_owned_targets_from_doc(&lock_doc)
         .into_iter()
         .map(|entry| (entry.path.to_string(), entry.name))
         .collect();

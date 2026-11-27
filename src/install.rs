@@ -1599,6 +1599,256 @@ pub fn guard_edge(payload: &JsonValue) -> GuardEdge {
     }
 }
 
+/// Judge one decoded `temper guard` hook `payload` over the harness at `harness_root`,
+/// answering the edge it fired at and the decision that edge reached.
+///
+/// The verb's one owner of the lock: it is parsed once here and every binding at either
+/// edge — the committed declarations, the emit-owned targets, the shell edge's judges and
+/// the layout half — reads that document, never the disk. An unrepresented harness (no
+/// lock) reads an empty document, so its declarations carry the default `warn` mode and
+/// the pending-write edge binds no declared target set.
+///
+/// The shell edge is taken before anything only the pending-write edge needs is
+/// assembled: after a shell tool no payload field names what it wrote, so the subject is
+/// the tree the call left ([`shell_edge_findings`]). A represented manifest no container
+/// member projects is co-owned, so [`manifest_write_findings`] is consulted first and its
+/// verdict is authoritative; a playbook area is judged beside the other guards, never in
+/// place of them ([`with_area`]).
+///
+/// # Errors
+///
+/// Propagates the lock read/parse error a corrupt lock raises, and the row-lift and
+/// clause-row errors a malformed declaration raises — refused loud at either edge.
+pub fn run_guard(
+    harness_root: &Path,
+    payload: &JsonValue,
+) -> miette::Result<(GuardEdge, GuardDecision)> {
+    let workspace_dir = harness_root.join(crate::WORKSPACE_DIR);
+    let doc = drift::read_lock_document(&workspace_dir)?;
+    let declarations = crate::compose::committed_declarations_from_doc(&doc)?.0;
+    let modes = crate::compose::modes_from_declarations(&declarations)?;
+    // A pure row scan, empty where the root contract binds no `locus-declared` clause —
+    // the locus binding's whole opt-in at either edge.
+    let loci = guarded_loci(&declarations)?;
+
+    if guard_edge(payload) == GuardEdge::PostToolUse {
+        let decision = shell_edge_findings(&workspace_dir, &doc, &declarations, &loci, &modes)?;
+        return Ok((GuardEdge::PostToolUse, decision));
+    }
+
+    let lock_present = workspace_dir.join(crate::LOCK_FILENAME).is_file();
+    let targets = drift::emit_owned_targets_from_doc(&doc);
+    let manifests = guarded_manifests(&declarations)?;
+    let layout = LayoutGuard::read(&workspace_dir, &doc, &declarations)?;
+    let decision = match manifest_write_findings(payload, harness_root, &manifests, &modes) {
+        Some(decision) => decision,
+        None => guard(
+            payload,
+            &modes,
+            harness_root,
+            lock_present.then_some(targets.as_slice()),
+            &loci,
+            &layout,
+        ),
+    };
+    let decision = with_area(
+        decision,
+        area_decision(payload, harness_root, &declarations.areas, &targets),
+    );
+    Ok((GuardEdge::PreToolUse, decision))
+}
+
+/// Extract the member keys declared in the lock for a given manifest kind: its
+/// registrations in the manifest its locus names.
+fn extract_expected_keys(declarations: &drift::Declarations, kind: &CustomKind) -> Vec<String> {
+    declarations
+        .registrations
+        .iter()
+        .filter(|reg| reg.kind == kind.name && Some(reg.manifest.as_str()) == kind.manifest())
+        .map(|reg| reg.key.clone())
+        .collect()
+}
+
+/// Every represented manifest the `PreToolUse` guard checks a pending write against — one
+/// [`GuardedManifest`] per manifest kind, whether an embedded built-in
+/// ([`builtin_kind::definitions`]) or a lock-declared custom kind. A manifest kind is one
+/// carrying a `collection_address`; its contract is resolved exactly as [`crate::gate::gate`] resolves it
+/// (lock clauses, else the embedded default), so the guard and the gate judge a member's
+/// contract identically.
+///
+/// # Errors
+///
+/// Propagates the clause-lift errors [`crate::gate::gate`]'s own contract resolution raises.
+fn guarded_manifests(declarations: &drift::Declarations) -> miette::Result<Vec<GuardedManifest>> {
+    let builtin_defs = builtin_kind::definitions();
+    let containers = container_kinds(declarations)?;
+
+    let mut manifests = Vec::new();
+    for kind in builtin_defs.values() {
+        let kind = crate::compose::overlay_builtin_kind(kind, declarations)?;
+        let (Some(address), Some(path)) = (kind.collection_address.clone(), manifest_path(&kind))
+        else {
+            continue;
+        };
+        let contract = crate::compose::builtin_contract(
+            &declarations.clauses,
+            &declarations.kinds,
+            &declarations.assembly,
+            &kind.name,
+        )?;
+        let expected_keys = extract_expected_keys(declarations, &kind);
+        manifests.push(GuardedManifest {
+            container: containers.get(&path).cloned(),
+            path,
+            kind,
+            contract,
+            address,
+            expected_keys,
+        });
+    }
+
+    let (custom_rows, _collisions) =
+        crate::compose::partition_kind_rows(declarations, &builtin_defs)?;
+    for row in custom_rows {
+        let kind = CustomKind::from_kind_fact_row(row)?;
+        let (Some(address), Some(path)) = (kind.collection_address.clone(), manifest_path(&kind))
+        else {
+            continue;
+        };
+        let contract = crate::compose::default_contract_from_rows(
+            &declarations.clauses,
+            &declarations.kinds,
+            &row.name,
+        )?;
+        let expected_keys = extract_expected_keys(declarations, &kind);
+        manifests.push(GuardedManifest {
+            container: containers.get(&path).cloned(),
+            path,
+            kind,
+            contract,
+            address,
+            expected_keys,
+        });
+    }
+    Ok(manifests)
+}
+
+/// Every manifest path a **container member** projects whole, mapped to the kind whose
+/// member owns it — [`GuardedManifest::container`]'s source.
+///
+/// The discriminator is the structural one `emit` reads: a manifest is a whole projection
+/// when a member projects *to the manifest's own path*, and the lock names that member's
+/// kind by a declared locus equal to that path and no `collection_address` of its own (a
+/// registration kind addresses a collection inside the manifest; it never projects the file).
+/// A kind row exists only for a kind the program actually uses — the same fact
+/// [`guarded_loci`] reads — so the row is evidence such a member is declared. A
+/// `local`-commitment kind is excluded: `emit` writes nothing at its path, so its document is
+/// the author's own and no projection refusal is owed there.
+///
+/// # Errors
+///
+/// Propagates the lock-row lift errors [`CustomKind::from_kind_fact_row`] raises.
+fn container_kinds(
+    declarations: &drift::Declarations,
+) -> miette::Result<BTreeMap<HarnessRelativePath, String>> {
+    let mut containers = BTreeMap::new();
+    for row in &declarations.kinds {
+        let kind = CustomKind::from_kind_fact_row(row)?;
+        if kind.collection_address.is_some()
+            || kind.commitment == Some(crate::kind::Commitment::Local)
+        {
+            continue;
+        }
+        if let Some(path) = manifest_path(&kind) {
+            containers.insert(path, kind.name);
+        }
+    }
+    Ok(containers)
+}
+
+/// Every governed locus `temper guard` binds — one [`GuardedLocus`] per kind whose
+/// members `check` asks the lock's provenance rows about, whether an embedded built-in
+/// ([`builtin_kind::definitions`], overlaid with the lock's relocations), a lock-declared
+/// custom kind, or a subkind, whose locus its base cedes.
+///
+/// The guard is `check` at a narrower trigger, so it keeps no kind filter of its own: a
+/// kind is a locus exactly where [`crate::gate::site_class`] — the classification `check`'s
+/// site walk admits members by — answers [`crate::gate::SiteClass::File`]. That one answer drops
+/// a `local`-commitment kind, a host-composed nested-file kind, a registration kind, and
+/// a **layout** kind, whose declared members carry a declaration row and never a
+/// provenance row — so binding its locus would call every declared layout document
+/// undeclared.
+///
+/// Sourced from the effective kind set ([`crate::compose::effective_kinds`]), the embedded kind
+/// data overlaid, rather than the lock's `[[declaration.kind]]` rows alone: a kind row exists only for a kind the program actually *uses*, and `check`
+/// walks every overlaid built-in, so a row-sourced set would leave `.claude/agents/`
+/// unbound where `check` judges it. Pure embedded data: no disk read and no walk.
+///
+/// Gated on the **contract** before any kind fact is read: the whole set is empty unless
+/// the root member's own `locus-declared` clause binds, located off the declarations
+/// already in hand ([`crate::compose::root_contract`], rows-or-default). The undeclared-document
+/// fact is opt-in at `check`, so the guard asks the same question before it binds; the
+/// dial moves a clause's severity only, never its binding, so this scan cannot disagree
+/// with the dialed selection `check` reads.
+///
+/// # Errors
+///
+/// Propagates the errors [`crate::compose::effective_kinds`] raises, and the
+/// [`crate::compose::ClauseRowError`] a clause row outside the closed vocabulary raises — a
+/// corrupt lock, refused loud here as everywhere.
+fn guarded_loci(declarations: &drift::Declarations) -> miette::Result<Vec<GuardedLocus>> {
+    let root = crate::compose::root_contract(&declarations.clauses, &declarations.assembly)?;
+    if !root
+        .clauses
+        .iter()
+        .any(|clause| clause.predicate == crate::contract::Predicate::LocusDeclared)
+    {
+        return Ok(Vec::new());
+    }
+
+    // The one effective kind set `check` reads, subkinds bound and each base ceding its
+    // subkinds' loci, so a write there matches the subkind alone. A built-in's commitment
+    // is not the author's to respell, so a kind of a built-in's name is tagged apart from
+    // a custom one — the one fact the locus finding's `local` remedy turns on, exactly as
+    // `gate::committed_member_sites` tags the same split for `check`.
+    let builtin_defs = builtin_kind::definitions();
+    let loci = crate::compose::effective_kinds(declarations)?
+        .into_values()
+        .filter(|kind| crate::gate::site_class(kind) == Some(crate::gate::SiteClass::File))
+        .filter_map(|kind| Some((kind.governs.clone()?, kind)))
+        // One guarded locus per template: a several-template kind guards each.
+        .flat_map(|(governs, kind)| {
+            let custom = !builtin_defs.contains_key(&kind.name);
+            governs
+                .patterns()
+                .into_iter()
+                .map(move |pattern| GuardedLocus {
+                    root: governs.root.clone(),
+                    pattern,
+                    custom,
+                    kind: kind.name.clone(),
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    Ok(loci)
+}
+
+/// The path a manifest `kind` governs — its `governs` locus, the path the guard compares a
+/// pending write's `file_path` against (tolerant of the file_path arriving absolute, the
+/// same equality compare the projection binding runs). [`None`] for a kind governing no
+/// locus, which has no host file for the guard to watch.
+///
+/// The guard's read of [`kind::locus_path`], the one join-and-spell — the door where a
+/// `governs` pair enters the harness-relative vocabulary is that function, for the guard
+/// no less than for emit's manifest target and `bundle`'s written member. A concrete
+/// *path*, never a pattern: a locus spelled as a glob is [`kind::locus_pattern`]'s, and
+/// the two concepts stay apart.
+fn manifest_path(kind: &CustomKind) -> Option<HarnessRelativePath> {
+    let governs = kind.governs.as_ref()?;
+    Some(kind::locus_path(&governs.root, governs.sole_glob()?))
+}
+
 /// The finding `temper guard` surfaces at the **post** edge over the harness whose
 /// surface workspace is `workspace_dir` — each half the judge `check` already runs over
 /// that same fact:
@@ -1628,9 +1878,8 @@ pub fn guard_edge(payload: &JsonValue) -> GuardEdge {
 /// not what decides here: the *enforcement mode* does, exactly as it does for the
 /// pending-write edge.
 ///
-/// **One lock read.** Every judge takes the parsed document, read once here through
-/// [`drift::read_lock_document`], so a post-edge call parses one lock however many halves
-/// speak.
+/// **No lock read.** Every judge takes `doc`, the lock the caller parsed once, so a
+/// post-edge call parses one lock however many halves speak.
 ///
 /// The locus half is gated on the lock's **presence**, exactly as the pending-write edge
 /// gates its own locus binding on having a declared target set: on an unrepresented
@@ -1644,6 +1893,7 @@ pub fn guard_edge(payload: &JsonValue) -> GuardEdge {
 /// here as everywhere.
 pub fn shell_edge_findings(
     workspace_dir: &Path,
+    doc: &DocumentMut,
     declarations: &drift::Declarations,
     loci: &[GuardedLocus],
     modes: &EnforcementModes,
@@ -1656,7 +1906,6 @@ pub fn shell_edge_findings(
         return Ok(decide_by_mode(Vec::new(), render_shell_edge_report));
     }
 
-    let doc = drift::read_lock_document(workspace_dir)?;
     let harness_root = drift::harness_root_of(workspace_dir);
     // Each finding carries the half it reports under and the mode its own member — or,
     // for a stranger at a file locus, its kind — resolves to.
@@ -1675,11 +1924,11 @@ pub fn shell_edge_findings(
     if let Some(clause) = fresh {
         push_members(
             ShellEdgeHalf::Projection,
-            drift::config_stale_members_from_doc(&doc, workspace_dir, clause),
+            drift::config_stale_members_from_doc(doc, workspace_dir, clause),
         );
         push_members(
             ShellEdgeHalf::Source,
-            drift::source_dependency_stale_members_from_doc(&doc, &harness_root, clause)?,
+            drift::source_dependency_stale_members_from_doc(doc, &harness_root, clause)?,
         );
     }
     let lock_present = workspace_dir.join(crate::LOCK_FILENAME).is_file();
@@ -1690,7 +1939,7 @@ pub fn shell_edge_findings(
         let layout_sites = layout_member_sites(&harness_root, &layout_loci);
         push_members(
             ShellEdgeHalf::Locus,
-            drift::undeclared_layout_member_findings_from_doc(&doc, &layout_sites, clause),
+            drift::undeclared_layout_member_findings_from_doc(doc, &layout_sites, clause),
         );
         let sites = locus_member_sites(&harness_root, loci, &layout_loci.kinds);
         // A stranger names no member, so its kind's mode is the most specific one; the
@@ -1698,7 +1947,7 @@ pub fn shell_edge_findings(
         for chunk in sites.chunk_by(|a, b| a.kind == b.kind) {
             let mode = modes.for_kind(&chunk[0].kind);
             findings.extend(
-                drift::undeclared_locus_members_from_doc(&doc, chunk, clause)
+                drift::undeclared_locus_members_from_doc(doc, chunk, clause)
                     .findings
                     .into_iter()
                     .map(|finding| {
@@ -2093,24 +2342,28 @@ pub fn guarded_layout_loci(
 /// and — where the clause binds over a represented harness — the lock and the clause
 /// `check`'s judge reads, so a pending layout document is judged by
 /// [`drift::undeclared_layout_members_from_doc`] itself and speaks its words.
-pub struct LayoutGuard {
+pub struct LayoutGuard<'doc> {
     /// The layout loci a pending write is tested against.
     loci: GuardedLayoutLoci,
     /// The parsed lock and the root `locus-declared` clause; [`None`] where the clause
     /// binds nothing or no lock is on disk — an unrepresented harness declares no member
     /// anywhere, so naming every document undeclared would be noise.
-    judge: Option<(DocumentMut, crate::contract::Clause)>,
+    judge: Option<(&'doc DocumentMut, crate::contract::Clause)>,
 }
 
-impl LayoutGuard {
-    /// Assemble the layout half over the surface workspace `workspace_dir` and its
-    /// already-read `declarations`. No walk: the loci are a row scan, and the lock is read
-    /// only where a layout locus binds.
+impl<'doc> LayoutGuard<'doc> {
+    /// Assemble the layout half over the surface workspace `workspace_dir`, its parsed
+    /// lock `doc` and the `declarations` read off it. No walk and no read: the loci are a
+    /// row scan, and the judge borrows the lock the caller already holds.
     ///
     /// # Errors
     ///
-    /// As [`guarded_layout_loci`], plus the lock read/parse error a corrupt lock raises.
-    pub fn read(workspace_dir: &Path, declarations: &drift::Declarations) -> miette::Result<Self> {
+    /// As [`guarded_layout_loci`], plus the clause-row error a corrupt root clause raises.
+    pub fn read(
+        workspace_dir: &Path,
+        doc: &'doc DocumentMut,
+        declarations: &drift::Declarations,
+    ) -> miette::Result<Self> {
         let loci = guarded_layout_loci(declarations)?;
         let judge = if loci.is_empty() || !workspace_dir.join(crate::LOCK_FILENAME).is_file() {
             None
@@ -2120,8 +2373,7 @@ impl LayoutGuard {
             root.clauses
                 .into_iter()
                 .find(|c| c.predicate == crate::contract::Predicate::LocusDeclared)
-                .map(|clause| drift::read_lock_document(workspace_dir).map(|doc| (doc, clause)))
-                .transpose()?
+                .map(|clause| (doc, clause))
         };
         Ok(Self { loci, judge })
     }
@@ -2238,7 +2490,7 @@ pub fn guard(
     root: &Path,
     targets: Option<&[drift::EmitOwnedEntry]>,
     loci: &[GuardedLocus],
-    layout: &LayoutGuard,
+    layout: &LayoutGuard<'_>,
 ) -> GuardDecision {
     let allow = || GuardDecision {
         verdict: GuardVerdict::Allow,

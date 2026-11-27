@@ -5722,9 +5722,11 @@ fn the_guard_names_an_undeclared_nested_layout_child_at_the_post_edge() {
 
     fs::write(harness.join(NESTED_STRAY), NESTED_SPEC_DOC).unwrap();
     let before = temper::import::walk_count();
+    let doc = drift::read_lock_document(&harness.join(".temper")).unwrap();
     let declarations = drift::read_declarations(&harness.join(".temper")).unwrap();
     let report = install::shell_edge_findings(
         &harness.join(".temper"),
+        &doc,
         &declarations,
         &[],
         &temper::compose::modes_from_declarations(&declarations).unwrap(),

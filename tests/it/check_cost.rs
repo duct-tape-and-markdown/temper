@@ -1639,7 +1639,9 @@ fn a_guard_shell_edge_walks_each_declared_locus_root_once() {
 
     let before = install::locus_member_site_walk_count();
     let modes = temper::compose::modes_from_declarations(&declarations).unwrap();
-    let report = install::shell_edge_findings(&workspace, &declarations, &loci, &modes).unwrap();
+    let doc = drift::read_lock_document(&workspace).unwrap();
+    let report =
+        install::shell_edge_findings(&workspace, &doc, &declarations, &loci, &modes).unwrap();
     let walks = install::locus_member_site_walk_count() - before;
 
     // Non-vacuity (engineering.md, "A green verdict is proven non-vacuous"): a call whose
@@ -1979,5 +1981,104 @@ fn explain_builds_the_member_index_only_for_a_telemetry_verified_requirement() {
         after_script + 1,
         "a `Telemetry`-verified requirement builds the member index exactly once for the \
          whole narration, never once per satisfier",
+    );
+}
+
+/// A represented harness whose root contract binds `fresh` and `locus-declared`, carrying
+/// one stray rule at a governed locus no lock row declares — a subject both guard edges
+/// speak about, so a lock-parse count over either is taken over a call that did the work.
+fn guard_lock_parse_harness(label: &str) -> std::path::PathBuf {
+    let harness = tmpdir(label);
+    common::write_lock(
+        &harness,
+        Declarations {
+            clauses: vec![
+                common::clause("fresh", "required"),
+                common::clause("locus-declared", "required"),
+            ],
+            ..Declarations::default()
+        },
+    );
+    let rules = harness.join(".claude").join("rules");
+    fs::create_dir_all(&rules).unwrap();
+    fs::write(rules.join("rust.md"), "# Rust\n").unwrap();
+    harness
+}
+
+/// Count the lock parses one in-process `temper guard` judgment pays over `payload`.
+fn guard_lock_parses(harness: &Path, payload: &str) -> (temper::install::GuardDecision, usize) {
+    let payload: serde_json::Value = serde_json::from_str(payload).unwrap();
+    let before = drift::lock_parse_count();
+    let (_, decision) = temper::install::run_guard(harness, &payload).unwrap();
+    (decision, drift::lock_parse_count() - before)
+}
+
+#[test]
+fn guard_at_the_pre_write_edge_parses_the_lock_once() {
+    let harness = guard_lock_parse_harness("guard-pre-lock-parse");
+    let (decision, parses) = guard_lock_parses(
+        &harness,
+        &common::guard_write_payload(".claude/rules/rust.md"),
+    );
+    assert_ne!(
+        decision.verdict,
+        temper::install::GuardVerdict::Allow,
+        "a pending write to an undeclared document at a governed locus must report",
+    );
+    assert_eq!(
+        parses, 1,
+        "the pending-write edge holds one parsed lock across its declarations, targets \
+         and layout half: {parses} parses",
+    );
+}
+
+#[test]
+fn guard_at_the_shell_edge_parses_the_lock_once() {
+    let harness = guard_lock_parse_harness("guard-post-lock-parse");
+    let shell_call = "{\"session_id\":\"s\",\"hook_event_name\":\"PostToolUse\",\
+         \"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"true\"},\
+         \"tool_response\":{\"stdout\":\"\",\"stderr\":\"\",\"interrupted\":false}}";
+    let (decision, parses) = guard_lock_parses(&harness, shell_call);
+    assert!(
+        decision.message.contains(".claude/rules/rust.md"),
+        "the shell edge must name the stray rule, got: {}",
+        decision.message,
+    );
+    assert_eq!(
+        parses, 1,
+        "the shell edge holds one parsed lock across its declarations and every judge: \
+         {parses} parses",
+    );
+}
+
+#[test]
+fn explain_parses_the_lock_once() {
+    let harness = tmpdir("explain-lock-parse");
+    let skill = harness.join(".claude").join("skills").join("coordinate");
+    fs::create_dir_all(&skill).unwrap();
+    fs::write(
+        skill.join("SKILL.md"),
+        "---\nname: coordinate\ndescription: Drive a task across a team of agents.\n---\n# Coordinate\n",
+    )
+    .unwrap();
+    common::write_lock(
+        &harness,
+        Declarations {
+            kinds: vec![common::skill_kind_facts(None, &[])],
+            ..Declarations::default()
+        },
+    );
+
+    let before = drift::lock_parse_count();
+    let narration = temper::read::explain_target(&harness, "kind:skill").unwrap();
+    let parses = drift::lock_parse_count() - before;
+
+    assert!(
+        !narration.trim().is_empty(),
+        "explain must narrate the kind it was asked about",
+    );
+    assert_eq!(
+        parses, 1,
+        "explain holds one parsed lock across every strand it narrates: {parses} parses",
     );
 }

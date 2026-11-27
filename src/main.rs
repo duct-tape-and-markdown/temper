@@ -7,7 +7,6 @@
 
 #![deny(rustdoc::broken_intra_doc_links)]
 
-use std::collections::BTreeMap;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -19,12 +18,10 @@ use temper::builtin_kind;
 use temper::bundle;
 use temper::check::{self, Severity};
 use temper::compose;
-use temper::contract;
 use temper::drift;
 use temper::gate;
 use temper::install;
-use temper::kind::{self, Commitment, CustomKind, Format};
-use temper::path;
+use temper::kind::Format;
 use temper::read;
 use temper::reporter;
 use temper::schema;
@@ -397,9 +394,6 @@ fn main() -> miette::Result<ExitCode> {
             // harness (no lock) reads the default `warn`, matching
             // `compose::EnforcementMode`'s own default, and falls back to binding any
             // `.claude/` write since there is no declared set to consult.
-            let workspace_dir = path.join(temper::WORKSPACE_DIR);
-            let declarations = compose::read_committed_declarations(&workspace_dir)?;
-            let modes = compose::modes_from_declarations(&declarations)?;
             let mut stdin_payload = String::new();
             io::Read::read_to_string(&mut io::stdin(), &mut stdin_payload).into_diagnostic()?;
 
@@ -421,24 +415,11 @@ fn main() -> miette::Result<ExitCode> {
                     )
                 })?;
 
-            // The governed loci, assembled once for both edges: the pending-write edge
-            // tests its payload's one `file_path` against them, the shell edge enumerates
-            // them. A pure row scan off the declarations already in hand — no disk read
-            // and no walk — so taking it ahead of the branch costs the shell edge nothing,
-            // and it is empty where the root contract binds no `locus-declared` clause,
-            // which is the locus binding's whole opt-in at either edge.
-            let loci = guarded_loci(&declarations)?;
-
-            // The shell edge, taken before anything else the pending-write edge needs is
-            // assembled: after a shell tool no payload field names what it wrote, so the
-            // subject is the tree the call left and the judges are `check`'s own over that
-            // tree — the projection half of the root `fresh` clause and both halves (file
-            // locus and layout) of its `locus-declared` one. `block` cannot deny a write already made, so it
-            // refuses the call's *result* in-band and names the restore, which is why this
-            // arm exits zero at every mode: the refusal is the payload, not the exit code.
-            if install::guard_edge(&payload) == install::GuardEdge::PostToolUse {
-                let decision =
-                    install::shell_edge_findings(&workspace_dir, &declarations, &loci, &modes)?;
+            // The shell edge cannot deny a write already made, so `block` refuses the
+            // call's *result* in-band and names the restore: that arm exits zero at every
+            // mode, the refusal being the payload rather than the exit code.
+            let (edge, decision) = install::run_guard(&path, &payload)?;
+            if edge == install::GuardEdge::PostToolUse {
                 match decision.verdict {
                     install::GuardVerdict::Allow | install::GuardVerdict::Note => {}
                     install::GuardVerdict::Warn => println!(
@@ -451,41 +432,6 @@ fn main() -> miette::Result<ExitCode> {
                 }
                 return Ok(ExitCode::SUCCESS);
             }
-
-            let lock_present = workspace_dir.join(temper::LOCK_FILENAME).is_file();
-            let targets = drift::emit_owned_targets(&workspace_dir);
-            let manifests = guarded_manifests(&declarations)?;
-            // The layout half of `locus-declared` at this edge: the committed layout loci
-            // and the lock `check`'s judge reads, so a pending layout document is judged
-            // by that judge and speaks its words.
-            let layout = install::LayoutGuard::read(&workspace_dir, &declarations)?;
-
-            // A represented manifest **no container member projects** is co-owned — a write
-            // touching only opaque residue is legitimate — so its binding is a contract check
-            // of the pending members, not the blanket projection-drift the `.claude/` binding
-            // runs. It is consulted first: when the write targets such a manifest, its verdict
-            // is authoritative. A manifest a container member owns whole is a projection like
-            // any other — it carries no residue to co-own — so the manifest binding declines it
-            // and the projection binding below decides. Both act at each finding's own
-            // member's enforcement mode.
-            let decision =
-                match install::manifest_write_findings(&payload, &path, &manifests, &modes) {
-                    Some(decision) => decision,
-                    None => install::guard(
-                        &payload,
-                        &modes,
-                        &path,
-                        lock_present.then_some(targets.as_slice()),
-                        &loci,
-                        &layout,
-                    ),
-                };
-            // A playbook area is judged beside the other guards, never in place of them:
-            // an edit outside every area leaves their decision as it stood.
-            let decision = install::with_area(
-                decision,
-                install::area_decision(&payload, &path, &declarations.areas, &targets),
-            );
             Ok(match decision.verdict {
                 install::GuardVerdict::Allow | install::GuardVerdict::Note => ExitCode::SUCCESS,
                 install::GuardVerdict::Warn => {
@@ -589,200 +535,10 @@ fn main() -> miette::Result<ExitCode> {
             Ok(ExitCode::SUCCESS)
         }
         Command::Explain { target } => {
-            print!("{}", read::explain_target(&target)?);
+            print!("{}", read::explain_target(Path::new("."), &target)?);
             Ok(ExitCode::SUCCESS)
         }
     }
-}
-
-/// Extract the member keys declared in the lock for a given manifest kind: its
-/// registrations in the manifest its locus names.
-fn extract_expected_keys(declarations: &drift::Declarations, kind: &CustomKind) -> Vec<String> {
-    declarations
-        .registrations
-        .iter()
-        .filter(|reg| reg.kind == kind.name && Some(reg.manifest.as_str()) == kind.manifest())
-        .map(|reg| reg.key.clone())
-        .collect()
-}
-
-/// Every represented manifest the `PreToolUse` guard checks a pending write against — one
-/// [`install::GuardedManifest`] per manifest kind, whether an embedded built-in
-/// ([`builtin_kind::definitions`]) or a lock-declared custom kind. A manifest kind is one
-/// carrying a `collection_address`; its contract is resolved exactly as [`gate`] resolves it
-/// (lock clauses, else the embedded default), so the guard and the gate judge a member's
-/// contract identically.
-///
-/// # Errors
-///
-/// Propagates the clause-lift errors [`gate`]'s own contract resolution raises.
-fn guarded_manifests(
-    declarations: &drift::Declarations,
-) -> miette::Result<Vec<install::GuardedManifest>> {
-    let builtin_defs = builtin_kind::definitions();
-    let containers = container_kinds(declarations)?;
-
-    let mut manifests = Vec::new();
-    for kind in builtin_defs.values() {
-        let kind = compose::overlay_builtin_kind(kind, declarations)?;
-        let (Some(address), Some(path)) = (kind.collection_address.clone(), manifest_path(&kind))
-        else {
-            continue;
-        };
-        let contract = compose::builtin_contract(
-            &declarations.clauses,
-            &declarations.kinds,
-            &declarations.assembly,
-            &kind.name,
-        )?;
-        let expected_keys = extract_expected_keys(declarations, &kind);
-        manifests.push(install::GuardedManifest {
-            container: containers.get(&path).cloned(),
-            path,
-            kind,
-            contract,
-            address,
-            expected_keys,
-        });
-    }
-
-    let (custom_rows, _collisions) = compose::partition_kind_rows(declarations, &builtin_defs)?;
-    for row in custom_rows {
-        let kind = CustomKind::from_kind_fact_row(row)?;
-        let (Some(address), Some(path)) = (kind.collection_address.clone(), manifest_path(&kind))
-        else {
-            continue;
-        };
-        let contract = compose::default_contract_from_rows(
-            &declarations.clauses,
-            &declarations.kinds,
-            &row.name,
-        )?;
-        let expected_keys = extract_expected_keys(declarations, &kind);
-        manifests.push(install::GuardedManifest {
-            container: containers.get(&path).cloned(),
-            path,
-            kind,
-            contract,
-            address,
-            expected_keys,
-        });
-    }
-    Ok(manifests)
-}
-
-/// Every manifest path a **container member** projects whole, mapped to the kind whose
-/// member owns it — [`install::GuardedManifest::container`]'s source.
-///
-/// The discriminator is the structural one `emit` reads: a manifest is a whole projection
-/// when a member projects *to the manifest's own path*, and the lock names that member's
-/// kind by a declared locus equal to that path and no `collection_address` of its own (a
-/// registration kind addresses a collection inside the manifest; it never projects the file).
-/// A kind row exists only for a kind the program actually uses — the same fact
-/// [`guarded_loci`] reads — so the row is evidence such a member is declared. A
-/// `local`-commitment kind is excluded: `emit` writes nothing at its path, so its document is
-/// the author's own and no projection refusal is owed there.
-///
-/// # Errors
-///
-/// Propagates the lock-row lift errors [`CustomKind::from_kind_fact_row`] raises.
-fn container_kinds(
-    declarations: &drift::Declarations,
-) -> miette::Result<BTreeMap<path::HarnessRelativePath, String>> {
-    let mut containers = BTreeMap::new();
-    for row in &declarations.kinds {
-        let kind = CustomKind::from_kind_fact_row(row)?;
-        if kind.collection_address.is_some() || kind.commitment == Some(Commitment::Local) {
-            continue;
-        }
-        if let Some(path) = manifest_path(&kind) {
-            containers.insert(path, kind.name);
-        }
-    }
-    Ok(containers)
-}
-
-/// Every governed locus `temper guard` binds — one [`install::GuardedLocus`] per kind whose
-/// members `check` asks the lock's provenance rows about, whether an embedded built-in
-/// ([`builtin_kind::definitions`], overlaid with the lock's relocations), a lock-declared
-/// custom kind, or a subkind, whose locus its base cedes.
-///
-/// The guard is `check` at a narrower trigger, so it keeps no kind filter of its own: a
-/// kind is a locus exactly where [`gate::site_class`] — the classification `check`'s
-/// site walk admits members by — answers [`gate::SiteClass::File`]. That one answer drops
-/// a `local`-commitment kind, a host-composed nested-file kind, a registration kind, and
-/// a **layout** kind, whose declared members carry a declaration row and never a
-/// provenance row — so binding its locus would call every declared layout document
-/// undeclared.
-///
-/// Sourced from the effective kind set ([`compose::effective_kinds`]), the embedded kind
-/// data overlaid, rather than the lock's `[[declaration.kind]]` rows alone: a kind row exists only for a kind the program actually *uses*, and `check`
-/// walks every overlaid built-in, so a row-sourced set would leave `.claude/agents/`
-/// unbound where `check` judges it. Pure embedded data: no disk read and no walk.
-///
-/// Gated on the **contract** before any kind fact is read: the whole set is empty unless
-/// the root member's own `locus-declared` clause binds, located off the declarations
-/// already in hand ([`compose::root_contract`], rows-or-default). The undeclared-document
-/// fact is opt-in at `check`, so the guard asks the same question before it binds; the
-/// dial moves a clause's severity only, never its binding, so this scan cannot disagree
-/// with the dialed selection `check` reads.
-///
-/// # Errors
-///
-/// Propagates the errors [`compose::effective_kinds`] raises, and the
-/// [`compose::ClauseRowError`] a clause row outside the closed vocabulary raises — a
-/// corrupt lock, refused loud here as everywhere.
-fn guarded_loci(declarations: &drift::Declarations) -> miette::Result<Vec<install::GuardedLocus>> {
-    let root = compose::root_contract(&declarations.clauses, &declarations.assembly)?;
-    if !root
-        .clauses
-        .iter()
-        .any(|clause| clause.predicate == contract::Predicate::LocusDeclared)
-    {
-        return Ok(Vec::new());
-    }
-
-    // The one effective kind set `check` reads, subkinds bound and each base ceding its
-    // subkinds' loci, so a write there matches the subkind alone. A built-in's commitment
-    // is not the author's to respell, so a kind of a built-in's name is tagged apart from
-    // a custom one — the one fact the locus finding's `local` remedy turns on, exactly as
-    // `gate::committed_member_sites` tags the same split for `check`.
-    let builtin_defs = builtin_kind::definitions();
-    let loci = compose::effective_kinds(declarations)?
-        .into_values()
-        .filter(|kind| gate::site_class(kind) == Some(gate::SiteClass::File))
-        .filter_map(|kind| Some((kind.governs.clone()?, kind)))
-        // One guarded locus per template: a several-template kind guards each.
-        .flat_map(|(governs, kind)| {
-            let custom = !builtin_defs.contains_key(&kind.name);
-            governs
-                .patterns()
-                .into_iter()
-                .map(move |pattern| install::GuardedLocus {
-                    root: governs.root.clone(),
-                    pattern,
-                    custom,
-                    kind: kind.name.clone(),
-                })
-                .collect::<Vec<_>>()
-        })
-        .collect();
-    Ok(loci)
-}
-
-/// The path a manifest `kind` governs — its `governs` locus, the path the guard compares a
-/// pending write's `file_path` against (tolerant of the file_path arriving absolute, the
-/// same equality compare the projection binding runs). [`None`] for a kind governing no
-/// locus, which has no host file for the guard to watch.
-///
-/// The guard's read of [`kind::locus_path`], the one join-and-spell — the door where a
-/// `governs` pair enters the harness-relative vocabulary is that function, for the guard
-/// no less than for emit's manifest target and `bundle`'s written member. A concrete
-/// *path*, never a pattern: a locus spelled as a glob is [`kind::locus_pattern`]'s, and
-/// the two concepts stay apart.
-fn manifest_path(kind: &CustomKind) -> Option<path::HarnessRelativePath> {
-    let governs = kind.governs.as_ref()?;
-    Some(kind::locus_path(&governs.root, governs.sole_glob()?))
 }
 
 /// Ask `install`'s one question interactively: read a line from stdin, `y`/`yes` (case-insensitive)
