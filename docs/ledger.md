@@ -33,6 +33,19 @@ hard.
   Notes: `CHANGELOG.md`, `docs/MIGRATING-0.0.26.md`. #52 and #62 closed; #44
   open for a heading shifted with no sub-headings (needs a ruling); Cascade
   told. The session gate runs the released engine again and is green.
+- **The gap John named (11-27): engineering posture is harness, not spec.**
+  Spec carries intent; the harness carries how to operate; the loop derives.
+  `specs/process/engineering.md` and `architecture.md` are harness knowledge
+  filed under `specs/`, so they reach build only through an entry's cite,
+  never at write time. Plan files shape late: 62 of 366 entries are
+  "One job, one home" cleanups, and 8 carry an `interface`. Flume's own repo
+  keeps posture in `.claude/rules/`. First step landed: the run-owner
+  invariant in the rust rule, which the sweep now applies as a posture page.
+  Blocking the move: flume refuses a `per` cite outside `specLocus`
+  (`citeResolver.js:144`), so posture pages outside `specs/` must become
+  citable upstream first. The sweep's filing bar is open on the same point
+  (flume `docs/INTENT.md`, "quality lenses"): shape findings wait for three
+  notings. Also to decide: whether `spec-system.md` is spec or harness.
 - **First focus: a consolidation pass.** +14.5k net in a day and a half is
   more growth than its features explain. Weigh it against `engineering.md`
   before new surface lands.
