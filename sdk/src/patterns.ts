@@ -13,9 +13,12 @@
  * - {@link reference} — the emitted harness reference, its description hydratable and its
  *   topics derived from what is declared.
  *
+ * And the central pattern, {@link playbook}: one area of guidance as a path rule, a routing
+ * skill and its topic files.
+ *
  * The SDK counsel rule is not a shape here: `emit` synthesizes it over every program,
  * patterns or not, so there is nothing to compose. {@link defaultPatterns} composes every shape
- * with its defaults into the parts `harness()` takes. It carries no taste — no memory
+ * with its defaults, and the playbooks it is given, into the parts `harness()` takes. It carries no taste — no memory
  * content, no conventions — and declares no telemetry: a tap is opt-in, the consumer's
  * own `require` entry with a `telemetry` verifier.
  */
@@ -23,11 +26,25 @@
 import type { Typecheck } from "./assembly.js";
 import { gateHook, tool as toolMember } from "./builtins.js";
 import type { Input, Member } from "./kind.js";
+import type { Playbook } from "./playbook.js";
 import { reference } from "./reference.js";
 import type { ReferenceInit } from "./reference.js";
 
 export type { ReferenceInit } from "./reference.js";
 export { reference } from "./reference.js";
+export type {
+  PathsTrigger,
+  Playbook,
+  PlaybookExecution,
+  PlaybookInit,
+  PlaybookInvocation,
+  PlaybookRenderer,
+  PlaybookTopic,
+  PlaybookTrigger,
+  PointerView,
+  RouterView,
+} from "./playbook.js";
+export { playbook } from "./playbook.js";
 
 /**
  * The tool-name matcher the guard's `PreToolUse` edge binds — Claude Code's own
@@ -109,6 +126,8 @@ export interface DefaultPatternsOptions {
   readonly gates?: GateHooksInit;
   /** The {@link reference}'s description and domains; absent, its defaults. */
   readonly reference?: ReferenceInit;
+  /** The {@link playbook}s the harness declares — the consumer's own areas; absent, none. */
+  readonly playbooks?: readonly Playbook[];
 }
 
 /**
@@ -117,7 +136,7 @@ export interface DefaultPatternsOptions {
  * (`harness({ ...base, members: [...base.members, ...mine] })`).
  */
 export interface DefaultPatterns {
-  /** Every tool the shapes run, then the gate hooks, then the reference. */
+  /** Every tool the shapes run, then the gate hooks, the reference, and each playbook's members. */
   readonly members: readonly Member[];
   /** The program's typecheck, its tool among {@link members}. */
   readonly typecheck: Typecheck;
@@ -125,14 +144,19 @@ export interface DefaultPatterns {
 
 /**
  * Compose every mechanics shape with its defaults: the typecheck and its compiler, the
- * three gate hooks and any tool they run, and the harness reference. A tool two shapes
- * share is composed once.
+ * three gate hooks and any tool they run, the harness reference, then every playbook given.
+ * A tool two shapes share is composed once.
  */
 export function defaultPatterns(options: DefaultPatternsOptions): DefaultPatterns {
   const checked = typecheck(options.typecheck);
   const tools = [...new Set([checked.tool, ...(options.gates?.tool === undefined ? [] : [options.gates.tool])])];
   return {
-    members: [...tools, ...gateHooks(options.gates), reference(options.reference)],
+    members: [
+      ...tools,
+      ...gateHooks(options.gates),
+      reference(options.reference),
+      ...(options.playbooks ?? []).flatMap((playbook) => playbook.members),
+    ],
     typecheck: checked,
   };
 }

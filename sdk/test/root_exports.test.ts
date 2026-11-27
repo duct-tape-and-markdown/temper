@@ -105,7 +105,7 @@ test("every type a patterns-exported declaration names is exported by the patter
   const { checker, symbol } = rootModule(PATTERNS_DTS);
   const exported = checker.getExportsOfModule(symbol);
   const names = new Set(exported.map((e) => e.getName()));
-  for (const shape of ["defaultPatterns", "gateHooks", "typecheck", "reference", "DefaultPatterns", "DefaultPatternsOptions"]) {
+  for (const shape of ["defaultPatterns", "gateHooks", "typecheck", "reference", "playbook", "DefaultPatterns", "DefaultPatternsOptions", "Playbook", "PlaybookInit"]) {
     assert.ok(names.has(shape), `the patterns subpath exports \`${shape}\``);
   }
 

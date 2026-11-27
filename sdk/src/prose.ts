@@ -505,3 +505,50 @@ export function resolveEmbeddedLeaves(value: EmbeddedMemberValue, scope: Mention
   }
   return { leaves, collections };
 }
+
+/**
+ * Rendered prose still carrying its links: literal chunks with one mention between each
+ * pair, so a link to a topic is a typed edge to its doc — never a hand-typed path the
+ * gate cannot see — while the rendered bytes stay the path the doc lands at.
+ */
+export interface Linked {
+  readonly chunks: readonly string[];
+  readonly targets: readonly Mentionable[];
+}
+
+/**
+ * A {@link Linked} from a template — `` linked`read [x.md](${link("x")})` ``: a string
+ * interpolation is literal text, a {@link Mentionable} one a link.
+ */
+export function linked(strings: TemplateStringsArray, ...values: (string | Mentionable)[]): Linked {
+  const chunks = [strings[0]];
+  const targets: Mentionable[] = [];
+  values.forEach((value, i) => {
+    if (typeof value === "string") {
+      chunks[chunks.length - 1] += value + strings[i + 1];
+    } else {
+      targets.push(value);
+      chunks.push(strings[i + 1]);
+    }
+  });
+  return { chunks, targets };
+}
+
+/** Join pieces with `separator`, as `Array.join` would, keeping every piece's links. */
+export function joined(pieces: readonly (string | Linked)[], separator = "\n\n"): Linked {
+  const chunks: string[] = [""];
+  const targets: Mentionable[] = [];
+  pieces.forEach((piece, i) => {
+    const part = typeof piece === "string" ? { chunks: [piece], targets: [] } : piece;
+    chunks[chunks.length - 1] += (i === 0 ? "" : separator) + part.chunks[0];
+    chunks.push(...part.chunks.slice(1));
+    targets.push(...part.targets);
+  });
+  return { chunks, targets };
+}
+
+/** The prose a {@link Linked} composes to: the same bytes, each link a mention. */
+export function linkedText(value: Linked): Text {
+  const strings = Object.assign([...value.chunks], { raw: [...value.chunks] });
+  return text(strings, ...value.targets);
+}

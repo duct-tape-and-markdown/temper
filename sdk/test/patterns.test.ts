@@ -9,10 +9,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 
-import { harness, input, requirement, tool } from "../src/index.js";
+import { harness, input, requirement, span, text, tool } from "../src/index.js";
 import { emit } from "../src/emit.js";
 import { rule } from "../src/claude-code.js";
-import { defaultPatterns, gateHooks, reference, typecheck } from "../src/patterns.js";
+import { defaultPatterns, gateHooks, playbook, reference, typecheck } from "../src/patterns.js";
 
 const project = input(import.meta.url, "./tsconfig.json");
 
@@ -111,6 +111,22 @@ test("defaultPatterns() options override each shape's defaults", () => {
   assert.equal(result.declarations.typecheck?.tool, "root/tool/compiler");
   assert.ok(result.declarations.runs.some((row) => row.tool === "root/tool/gate"));
   assert.equal(referenceDescription(result), "Use when changing this repo's harness.");
+});
+
+test("defaultPatterns() composes the playbooks it is given after its own shapes", () => {
+  const area = playbook({
+    name: "releasing",
+    description: "Cut a release: bump the versions, tag, push. Use when asked to release.",
+    facts: text`A release is a tag push.`,
+    topics: [{ name: "cutting", when: "cutting a release", prose: span("# Cutting\n") }],
+    invocation: "user",
+  });
+  const base = defaultPatterns({ typecheck: { project }, playbooks: [area] });
+  assert.deepEqual(base.members.slice(-3), [...area.members]);
+  const result = emitInProgram(harness(base));
+  assert.ok(result.members.some((m) => m.kind === "rule" && m.name === "releasing"));
+  assert.ok(result.members.some((m) => m.kind === "skill" && m.name === "releasing"));
+  assert.ok(result.members.some((m) => m.kind === "supporting-doc" && m.name === "cutting"));
 });
 
 test("a tool the typecheck and the gates share is composed once", () => {

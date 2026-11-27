@@ -32,8 +32,8 @@ import {
 import type { ContractedRequirement, EdgeIntent } from "./declarations.js";
 import { readLockfile } from "./lockfile.js";
 import { memberAddress, nestedAddress } from "./member-address.js";
-import { span, text } from "./prose.js";
-import type { Mentionable, Text } from "./prose.js";
+import { joined, linked, linkedText, span } from "./prose.js";
+import type { Linked, Mentionable, Text } from "./prose.js";
 
 /** The reference's skill name — its member lands at `.claude/skills/temper/SKILL.md`. */
 export const REFERENCE_NAME = "temper";
@@ -354,55 +354,8 @@ interface Topic {
   readonly body: Text;
 }
 
-/**
- * Rendered prose still carrying its links: literal chunks with one mention between each
- * pair, so a link to a topic is a typed edge to its doc — never a hand-typed path the
- * gate cannot see — while the rendered bytes stay the path the doc lands at.
- */
-interface Linked {
-  readonly chunks: readonly string[];
-  readonly targets: readonly Mentionable[];
-}
-
 /** The mention a link to the named topic renders: its doc's path from the linking file. */
 type TopicLink = (topic: string) => Mentionable;
-
-/**
- * A {@link Linked} from a template — `` linked`read [x.md](${link("x")})` ``: a string
- * interpolation is literal text, a {@link Mentionable} one a link.
- */
-function linked(strings: TemplateStringsArray, ...values: (string | Mentionable)[]): Linked {
-  const chunks = [strings[0]];
-  const targets: Mentionable[] = [];
-  values.forEach((value, i) => {
-    if (typeof value === "string") {
-      chunks[chunks.length - 1] += value + strings[i + 1];
-    } else {
-      targets.push(value);
-      chunks.push(strings[i + 1]);
-    }
-  });
-  return { chunks, targets };
-}
-
-/** Join pieces with `separator`, as `Array.join` would, keeping every piece's links. */
-function joined(pieces: readonly (string | Linked)[], separator = "\n\n"): Linked {
-  const chunks: string[] = [""];
-  const targets: Mentionable[] = [];
-  pieces.forEach((piece, i) => {
-    const part = typeof piece === "string" ? { chunks: [piece], targets: [] } : piece;
-    chunks[chunks.length - 1] += (i === 0 ? "" : separator) + part.chunks[0];
-    chunks.push(...part.chunks.slice(1));
-    targets.push(...part.targets);
-  });
-  return { chunks, targets };
-}
-
-/** The prose a {@link Linked} composes to: the same bytes, each link a mention. */
-function prose(value: Linked): Text {
-  const strings = Object.assign([...value.chunks], { raw: [...value.chunks] });
-  return text(strings, ...value.targets);
-}
 
 /**
  * The rendered reference over `harness`: its description — `trigger`, then the contracted
@@ -441,15 +394,15 @@ export function renderReference(
     domains.length === 0 ? trigger : `${trigger} Its contracted requirements: ${named}.`;
   return {
     description,
-    body: prose(joined([MECHANICS, index, ""], "\n")),
+    body: linkedText(joined([MECHANICS, index, ""], "\n")),
     topics: [
       ...kinds.map((facts) => ({
         name: kindTopicName(facts.name),
-        body: prose(joined([kindTopic(facts, view, inPlay, requirements, link), ""], "\n")),
+        body: linkedText(joined([kindTopic(facts, view, inPlay, requirements, link), ""], "\n")),
       })),
       ...requirements.map((requirement) => ({
         name: domainTopicName(requirement.name),
-        body: prose(joined([domainTopic(requirement), ""], "\n")),
+        body: linkedText(joined([domainTopic(requirement), ""], "\n")),
       })),
     ],
   };
