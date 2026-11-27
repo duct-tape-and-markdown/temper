@@ -744,8 +744,14 @@ fn charset_from_row(row: &CharsetRow) -> Option<Charset> {
 /// cite are each call site's own assembly, not this function's job. `pub`
 /// (not `pub(crate)`) so the `main` binary's lift of a requirement's own
 /// clause rows reuses the identical decoder, never a second copy.
+///
+/// A key spelled snake_case (`min_len`) is the pre-kebab spelling of the same
+/// predicate an older engine wrote, so it decodes as its kebab name; the
+/// committed file is never patched, and the next emit rewrites it canonical. A
+/// snake name whose kebab form this engine never named (the retired
+/// `max_lines`) still falls through to the closed vocabulary's reject.
 pub fn predicate_from_row(row: &ClauseRow) -> Option<Predicate> {
-    Some(match row.predicate.as_str() {
+    Some(match row.predicate.replace('_', "-").as_str() {
         "required" => Predicate::Required {
             field: row.field.clone()?,
         },

@@ -1595,6 +1595,97 @@ fn a_locks_legacy_bare_string_templates_read_as_kinds_and_re_emit_canonically() 
     );
 }
 
+/// A committed lock an older engine wrote, naming a predicate in its pre-kebab snake_case
+/// spelling, reads as the kebab-case predicate and gates as it: the read never patches
+/// the committed file, and the next emit rewrites the row canonically.
+#[test]
+fn a_lock_naming_a_predicate_in_its_snake_case_spelling_reads_as_the_kebab_case_predicate() {
+    let mut declarations = rich_declarations();
+    declarations.clauses.push(ClauseRow {
+        unit: None,
+        id: None,
+        kind: Some("skill".to_string()),
+        field: Some("description".to_string()),
+        bound: Some(BoundRow {
+            min: Some(20),
+            max: None,
+            entry: None,
+        }),
+        ..common::clause("min-len", "required")
+    });
+    let payload = golden_payload(declarations);
+    let (_harness, into) = emitted("snake-case-predicate", &payload);
+    let lock = into.join("lock.toml");
+    let canonical = fs::read_to_string(&lock).unwrap();
+    assert_eq!(
+        canonical.matches(r#"predicate = "min-len""#).count(),
+        1,
+        "today's emit writes the kebab spelling, got:\n{canonical}"
+    );
+
+    let legacy = canonical.replace(r#"predicate = "min-len""#, r#"predicate = "min_len""#);
+    fs::write(&lock, &legacy).unwrap();
+
+    let read_back = drift::read_declarations(&into).unwrap();
+    let row = read_back
+        .clauses
+        .iter()
+        .find(|row| row.predicate == "min_len")
+        .expect("the snake-spelled row reads back");
+    let clause = compose::clause_from_row(row).expect("a renamed spelling is no load fault");
+    assert_eq!(
+        clause.predicate,
+        Predicate::MinLen {
+            field: "description".to_string(),
+            min: 20,
+        }
+    );
+
+    // It gates as the kebab predicate: a short description fires, a long one passes.
+    let contract = Contract {
+        name: "skill".to_string(),
+        guidance: None,
+        clauses: vec![clause],
+    };
+    let extraction = Extraction::new(vec![Primitive::Field {
+        key: "description".to_string(),
+    }]);
+    let features = |description: &str| -> Features {
+        let unit = common::raw_unit(
+            "coordinate",
+            BTreeMap::from([("description".to_string(), serde_json::json!(description))]),
+            "# Coordinate\n",
+            ".claude/skills/coordinate/SKILL.md",
+        );
+        extraction.extract(&unit)
+    };
+    assert_eq!(
+        engine::validate(&contract, &[features("too short")]).len(),
+        1,
+        "a description under the bound fires"
+    );
+    assert!(
+        engine::validate(
+            &contract,
+            &[features("Use when coordinating agents across axes.")]
+        )
+        .is_empty(),
+        "a description over the bound passes"
+    );
+
+    assert_eq!(
+        fs::read_to_string(&lock).unwrap(),
+        legacy,
+        "the read normalizes the spelling; the committed file is never patched in place"
+    );
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(
+        fs::read_to_string(&lock).unwrap(),
+        canonical,
+        "the next emit rewrites the snake spelling canonically"
+    );
+}
+
 /// The refusal that survives the legacy read: an element that is neither the canonical
 /// inline table nor the legacy string is a row no SDK version could have emitted — a
 /// corrupt lock, rejected loud rather than shrugged off as a dropped row.
