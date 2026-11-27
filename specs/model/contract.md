@@ -71,13 +71,14 @@ change, and the corpus does not enumerate it.
 
 A clause's **id**, its compiled label in the lock (`pipeline.md`, "The
 lock"), is deterministic, human-legible, printed by every finding and by
-`explain`, and never opaque to the author; every surface that names a clause
-keys it `clause`. The shipped **dial** kind consumes it: a temper-owned,
-local-locus TOML document (`.temper/dial.toml`) naming a clause by its id
-and declaring this machine's read severity. The dial's schema is the
-envelope — severity is its only verb, deletion is unspellable, a dialed
-clause still reports; dial semantics and the block-mode bound live in
-`authoring.md`, "Layers".
+`explain`, and never opaque to the author; a clause's own entry or row names
+it `id`, and every other surface naming a clause keys it `clause`, so a dial
+entry reads `[[clause]] id = …` and a finding carries `clause = …`. The
+shipped **dial** kind consumes it: a temper-owned, local-locus TOML document
+(`.temper/dial.toml`) naming a clause by its id and declaring this machine's
+read severity. The dial's schema is the envelope — severity is its only
+verb, deletion is unspellable, a dialed clause still reports; dial semantics
+and the block-mode bound live in `authoring.md`, "Layers".
 
 A clause binds to a **selection** and evaluates at one of two grains:
 

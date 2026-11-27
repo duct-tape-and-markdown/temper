@@ -23,6 +23,10 @@
       {
         "path": "sdk/src/reference.ts",
         "description": ":43,:50,:441 'domain'"
+      },
+      {
+        "path": "examples/base-harness/.claude/skills/temper/SKILL.md",
+        "description": "re-emitted: the reference description says requirements"
       }
     ],
     "retire": []
@@ -32,11 +36,11 @@
     "path": "specs/model/authoring.md",
     "section": "The SDK"
   },
-  "acceptance": "prose.ts states three constructors; package.json names no unnamed six-noun model; assembly.ts header matches harness()'s keys; reference.ts says requirement; pnpm --dir sdk test green",
+  "acceptance": "prose.ts states three constructors; package.json names no unnamed six-noun model; assembly.ts header matches harness()'s keys; reference.ts says requirement; pnpm --dir sdk test and cargo test green",
   "tests": [],
   "pins": [],
   "laneTests": [],
-  "notes": "0114 case 5 and the counts rule. Comment-and-metadata only.",
+  "notes": "0114 case 5 and the counts rule. Comment-and-metadata only. reference.ts text reaches emitted bytes: re-emit every committed projection carrying it (examples/base-harness), or cargo test drifts.",
   "observedFiles": [
     ".flume/plan/notes/DOC-COUNTS-AND-REQUIREMENT-WORD.md",
     "sdk/package.json",
