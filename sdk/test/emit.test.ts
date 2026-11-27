@@ -2956,6 +2956,46 @@ test("a relocation declaring no guidance projects none of its built-in's shipped
   assert.deepEqual(guidanceRuleMembers(result), []);
 });
 
+test("a relocation adding exclusions to a built-in replaces it beside a member built from the built-in", () => {
+  const scopedRule = relocate<Rule>(rule, { exclude: [".claude/rules/fixtures"] });
+  // Either arrival order: the member names the built-in, the binding the relocation.
+  for (const program of [
+    harness({
+      members: [rule({ name: "style", prose: text`# Style` })],
+      expect: [{ kind: scopedRule, clauses: [] }],
+    }),
+    harness({
+      members: [scopedRule({ name: "style", prose: text`# Style` })],
+      expect: [{ kind: rule, clauses: [] }],
+    }),
+  ]) {
+    const result = emit(program);
+    assert.deepEqual(
+      authoredMembers(result.members).map((member) => [member.kind, member.name]),
+      [["rule", "style"]],
+    );
+    // The one `rule` row is the relocation's: its exclusion governs the member.
+    const rows = result.declarations.kinds.filter((row) => row.name === "rule");
+    assert.equal(rows.length, 1);
+    assert.deepEqual(rows[0]!.exclude, [".claude/rules/fixtures"]);
+  }
+});
+
+test("two relocations of one built-in excluding different paths still refuse", () => {
+  const fixturesRule = relocate<Rule>(rule, { exclude: [".claude/rules/fixtures"] });
+  const vendorRule = relocate<Rule>(rule, { exclude: [".claude/rules/vendor"] });
+  assert.throws(
+    () =>
+      emit(
+        harness({
+          members: [fixturesRule({ name: "style", prose: text`# Style` })],
+          expect: [{ kind: vendorRule, clauses: [] }],
+        }),
+      ),
+    /two relocations of kind `rule` are in play/,
+  );
+});
+
 test("an embedded guided kind's rule scopes over the loci of the hosts that admit it, stated once", () => {
   const counsel = "A decision states its rationale, not just its verdict.";
   const guidedDecision = kind<Record<never, never>>({

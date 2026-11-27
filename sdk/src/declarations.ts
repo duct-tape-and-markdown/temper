@@ -499,8 +499,8 @@ function locusLabel(facts: KindFacts): string {
 
 /**
  * A kind's facts with the faces a relocation may diverge from its base on erased: the
- * `relocates` marker, the appended `edgeFields`, an `at` locus's moved root and glob, and
- * the replaced counsel (`kind.ts`'s `KindRelocation`). Two values agreeing here are one kind up to a
+ * `relocates` marker, the appended `edgeFields`, an `at` locus's moved root and glob and
+ * its added exclusions, and the replaced counsel (`kind.ts`'s `KindRelocation`). Two values agreeing here are one kind up to a
  * relocation delta; the delta's own faces are checked on their own terms.
  */
 function relocationInvariants(facts: KindFacts): Record<string, unknown> {
@@ -511,7 +511,10 @@ function relocationInvariants(facts: KindFacts): Record<string, unknown> {
   delete bare.fieldGuidance;
   delete bare.cite;
   delete bare.mode;
-  if (facts.locus.kind === "at") bare.locus = { ...facts.locus, root: "", glob: "" };
+  if (facts.locus.kind === "at") {
+    const { exclude: _added, ...locus } = facts.locus;
+    bare.locus = { ...locus, root: "", glob: "" };
+  }
   return bare;
 }
 
@@ -533,8 +536,21 @@ function isRelocationOf(relocation: KindFacts, base: KindFacts): boolean {
   return (
     declared.length >= inherited.length &&
     isDeepStrictEqual(declared.slice(0, inherited.length), inherited) &&
+    keepsExclusionsOf(relocation, base) &&
     isDeepStrictEqual(relocationInvariants(relocation), relocationInvariants(base))
   );
+}
+
+/**
+ * Whether `relocation` still excludes every path `base` does — the half of the erased
+ * `exclude` face a relocation may not change. `relocate` only *appends* exclusions, so
+ * the base's are a subset of a relocation's; a value of the name excluding less than its
+ * base claims paths the base never governed, and is a third kind, not a relocation.
+ */
+function keepsExclusionsOf(relocation: KindFacts, base: KindFacts): boolean {
+  if (base.locus.kind !== "at") return true;
+  const kept = relocation.locus.kind === "at" ? (relocation.locus.exclude ?? []) : [];
+  return (base.locus.exclude ?? []).every((path) => kept.includes(path));
 }
 
 /**
