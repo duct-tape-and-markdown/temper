@@ -40,3 +40,13 @@ It also fixes mechanical naming:
 ## Consequences
 
 These are breaking renames, made at 0.0.x, and each one owes a migration note. They should land before the playbook ships its options, so those options are named once.
+
+## Amendment (2026-11-27)
+
+The SDK subpath that ships temper's reusable harness shapes is `patterns`,
+and the function composing their defaults is `defaultPatterns()`. "Starter"
+named scaffolding to outgrow, while these shapes stay in the harness and
+improve across upgrades, with the content staying the consumer's. The
+retired glob spelling "pattern" leaves the word free. Rejected: `kit`
+(says less), `presets` (reads as settings), and `shapes` (already three
+concepts). Ruled by John.
