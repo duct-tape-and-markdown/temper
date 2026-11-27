@@ -43,8 +43,24 @@ export interface PathsTrigger {
   readonly listing?: "always" | "on-touch";
 }
 
-/** What a playbook loads on — a {@link PathsTrigger}; absent, its rule loads at launch. */
-export type PlaybookTrigger = PathsTrigger;
+/**
+ * A playbook nested in a subdirectory: its rule lands in `<dir>/.claude/rules/` and its
+ * skill in `<dir>/.claude/skills/`, both loaded on demand once Claude works in that
+ * directory (code.claude.com/docs/en/memory, "Organize rules with `.claude/rules/`";
+ * code.claude.com/docs/en/skills, "Load skills in monorepos and subdirectories";
+ * retrieved 2026-11-24/25). Both members are named by the directory's segments joined
+ * with `:` ahead of the playbook's name — `apps/web` and `deploy` are `apps:web:deploy`.
+ */
+export interface NestedTrigger {
+  /** The subdirectory, relative to the harness root — `apps/web`. */
+  readonly nested: string;
+}
+
+/**
+ * What a playbook loads on — a {@link PathsTrigger} or a {@link NestedTrigger}; absent,
+ * its rule loads at launch.
+ */
+export type PlaybookTrigger = PathsTrigger | NestedTrigger;
 
 /**
  * How the skill runs once invoked — inline in the session, or forked to an agent whose
@@ -141,9 +157,11 @@ function defaultRouter(view: RouterView): Text {
  * user to run it rather than sending Claude to a skill it cannot load.
  */
 function defaultPointer(view: PointerView): Text {
+  // A nested skill's mention already renders its invocation, slash and all (`/apps/web:x`).
+  const slash = view.skill.display.startsWith("/") ? "" : "/";
   const line =
     view.invocation === "user"
-      ? linked`This area's procedures run only when the user invokes them: when one is needed, ask the user to run \`/${view.skill}\`.`
+      ? linked`This area's procedures run only when the user invokes them: when one is needed, ask the user to run \`${slash}${view.skill}\`.`
       : linked`For a procedure in this area, use the \`${view.skill}\` skill: it routes to one topic per procedure.`;
   return linkedText(line);
 }
@@ -168,12 +186,47 @@ function invocationFields(invocation: PlaybookInvocation): Record<string, boolea
   }
 }
 
+/** Where a playbook's members land: their identity prefix and declared locations. */
+interface Placement {
+  readonly prefix: string;
+  readonly rule?: string;
+  readonly skill?: string;
+}
+
+/**
+ * The placement a trigger gives the playbook named `name`: a nested trigger prefixes both
+ * members with its directory's segments and declares where each lands under it.
+ *
+ * # Throws
+ * If the nested directory is no plain relative path, or names a `.claude` folder.
+ */
+function placementOf(name: string, trigger: PlaybookTrigger | undefined): Placement {
+  if (trigger === undefined || !("nested" in trigger)) return { prefix: "" };
+  const segments = trigger.nested.split("/");
+  const plain = segments.every(
+    (segment) => segment !== "" && segment !== "." && segment !== ".." && segment !== ".claude" && !/[\\:*?]/.test(segment),
+  );
+  if (!plain) {
+    throw new Error(
+      `playbook \`${name}\`: nested directory \`${trigger.nested}\` is no plain relative path — ` +
+        "name the subdirectory from the harness root, `/`-joined, with no `.`, `..`, `.claude`, `:` or glob segment.",
+    );
+  }
+  const dir = segments.join("/");
+  return {
+    prefix: `${segments.join(":")}:`,
+    rule: `${dir}/.claude/rules/${name}.md`,
+    skill: `${dir}/.claude/skills/${name}/SKILL.md`,
+  };
+}
+
 /**
  * Declare a playbook: its rule, its routing skill and its topics.
  *
  * # Throws
  * If `execution` or `preloadedBy` is set (not yet offered), if `description` is blank, if
- * there is no topic, or if two topics share a name.
+ * there is no topic, if two topics share a name, or if a nested directory is no plain
+ * relative path.
  */
 export function playbook(init: PlaybookInit): Playbook {
   const { name } = init;
@@ -196,11 +249,21 @@ export function playbook(init: PlaybookInit): Playbook {
   const invocation = init.invocation ?? "model-and-user";
   const router = init.render?.router ?? defaultRouter;
   const pointer = init.render?.pointer ?? defaultPointer;
-  const paths = init.trigger === undefined ? undefined : [...init.trigger.paths];
-  const gated = paths !== undefined && init.trigger?.listing === "on-touch";
+  const trigger = init.trigger;
+  const byPaths = trigger !== undefined && "paths" in trigger ? trigger : undefined;
+  const paths = byPaths === undefined ? undefined : [...byPaths.paths];
+  const gated = paths !== undefined && byPaths?.listing === "on-touch";
+  const placement = placementOf(name, trigger);
+  const id = `${placement.prefix}${name}`;
 
-  const fields = { description: init.description, ...invocationFields(invocation), ...(gated ? { paths } : {}) };
-  const draft = skill({ name, ...fields });
+  const fields = {
+    name: id,
+    description: init.description,
+    ...invocationFields(invocation),
+    ...(gated ? { paths } : {}),
+    ...(placement.skill === undefined ? {} : { location: placement.skill }),
+  };
+  const draft = skill(fields);
   const host = memberAddress(draft);
   const body = router({
     name,
@@ -210,11 +273,12 @@ export function playbook(init: PlaybookInit): Playbook {
       link: { address: nestedAddress(host, supportingDoc.key, topic.name), display: topic.name, form: "path" },
     })),
   });
-  const routing = skill({ name, ...fields, prose: body });
+  const routing = skill({ ...fields, prose: body });
   const topics = init.topics.map((topic) => supportingDoc({ name: topic.name, host: routing, prose: topic.prose }));
   const standing = rule({
-    name,
+    name: id,
     ...(paths === undefined ? {} : { paths }),
+    ...(placement.rule === undefined ? {} : { location: placement.rule }),
     prose: blocks(init.facts, pointer({ invocation, skill: mentionOf(routing) })),
   });
   return { rule: standing, skill: routing, topics, members: [standing, routing, ...topics] };

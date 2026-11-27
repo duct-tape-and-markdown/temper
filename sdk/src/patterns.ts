@@ -33,6 +33,7 @@ import type { ReferenceInit } from "./reference.js";
 export type { ReferenceInit } from "./reference.js";
 export { reference } from "./reference.js";
 export type {
+  NestedTrigger,
   PathsTrigger,
   Playbook,
   PlaybookExecution,

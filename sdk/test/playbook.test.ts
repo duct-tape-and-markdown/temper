@@ -58,6 +58,29 @@ test("a playbook with no trigger loads its rule at launch", () => {
   assert.equal(field(projected(result, "rule", "rust-code"), "paths"), undefined);
 });
 
+test("a nested playbook places its rule and skill under the subdirectory's own .claude folders", () => {
+  const result = emitted({ ...base, trigger: { nested: "apps/web" } });
+  const rule = projected(result, "rule", "apps:web:rust-code");
+  assert.equal(rule.location, "apps/web/.claude/rules/rust-code.md");
+  assert.equal(field(rule, "paths"), undefined);
+  const skill = projected(result, "skill", "apps:web:rust-code");
+  assert.equal(skill.location, "apps/web/.claude/skills/rust-code/SKILL.md");
+  assert.deepEqual(skill.fields[0], ["name", "rust-code"]);
+  assert.match(skill.body, /read \[adding-a-module\]\(adding-a-module\.md\)/);
+  assert.match(rule.body, /use the `\/apps\/web:rust-code` skill/);
+});
+
+test("a nested user-only playbook asks the user to run the skill by its nested invocation", () => {
+  const result = emitted({ ...base, trigger: { nested: "apps/web" }, invocation: "user" });
+  assert.match(projected(result, "rule", "apps:web:rust-code").body, /ask the user to run `\/apps\/web:rust-code`/);
+});
+
+test("a nested playbook refuses a directory that is no plain relative path", () => {
+  for (const nested of ["", "/apps", "apps/../web", "apps/.claude", "apps/*"]) {
+    assert.throws(() => playbook({ ...base, trigger: { nested } }), /nested directory .* is no plain relative path/);
+  }
+});
+
 test("the rule holds the area's facts, then points at the skill by a typed mention", () => {
   const book = playbook(base);
   const result = emit(harness({ members: [...book.members] }));
