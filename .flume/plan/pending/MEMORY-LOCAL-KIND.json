@@ -1,27 +1,66 @@
 {
   "tag": "MEMORY-LOCAL-KIND",
-  "gate": { "kind": "blockedBy", "tags": ["UNRELEASED-STAMP-CARRIES-BUILTIN-DIGEST"] },
+  "gate": {
+    "kind": "open"
+  },
+  "dependsOnForks": [],
   "kind": "work",
   "files": {
     "new": [
-      { "path": "tests/it/memory_local_kind.rs", "description": "CLAUDE.local.md as a read-side memory-local member" }
+      {
+        "path": "tests/it/memory_local_kind.rs",
+        "description": "CLAUDE.local.md as a read-side memory-local member"
+      }
     ],
     "edit": [
-      { "path": "sdk/src/builtins.ts", "description": "memory-local kind at the local commitment class, as settings-local" },
-      { "path": "sdk/src/claude-code.ts", "description": "memory-local's export, as settings-local's" },
-      { "path": "sdk/test/builtins.test.ts", "description": "twenty-one kinds" },
-      { "path": "src/builtin_kind.rs", "description": "memory-local kind" },
-      { "path": "src/builtin_lock.toml", "description": "re-derived; header counts" },
-      { "path": "src/read.rs", "description": "kind name matches beside settings-local, if any" },
-      { "path": "tests/it/main.rs", "description": "mod memory_local_kind" },
-      { "path": "tests/it/builtin_loci.rs", "description": "CLAUDE.local.md claimed by memory-local, not memory" },
-      { "path": "tests/it/snapshots/it__builtin_contract_matrix__builtin_contract_matrix.snap", "description": "the new kind's row" },
-      { "path": "examples/base-harness/.temper/lock.toml", "description": "re-emitted" }
+      {
+        "path": "sdk/src/builtins.ts",
+        "description": "memory-local kind at the local commitment class, as settings-local"
+      },
+      {
+        "path": "sdk/src/claude-code.ts",
+        "description": "memory-local's export, as settings-local's"
+      },
+      {
+        "path": "sdk/test/builtins.test.ts",
+        "description": "twenty-one kinds"
+      },
+      {
+        "path": "src/builtin_kind.rs",
+        "description": "memory-local kind"
+      },
+      {
+        "path": "src/builtin_lock.toml",
+        "description": "re-derived; header counts"
+      },
+      {
+        "path": "src/read.rs",
+        "description": "kind name matches beside settings-local, if any"
+      },
+      {
+        "path": "tests/it/main.rs",
+        "description": "mod memory_local_kind"
+      },
+      {
+        "path": "tests/it/builtin_loci.rs",
+        "description": "CLAUDE.local.md claimed by memory-local, not memory"
+      },
+      {
+        "path": "tests/it/snapshots/it__builtin_contract_matrix__builtin_contract_matrix.snap",
+        "description": "the new kind's row"
+      },
+      {
+        "path": "examples/base-harness/.temper/lock.toml",
+        "description": "re-emitted"
+      }
     ],
     "retire": []
   },
   "summary": "`CLAUDE.local.md` at any depth is the memory-local kind at the local commitment class: read in place and gated at check, never emitted or locked",
-  "per": { "path": "specs/builtins.md", "section": "The shipped kinds" },
+  "per": {
+    "path": "specs/builtins.md",
+    "section": "The shipped kinds"
+  },
   "acceptance": "check gates a root and a subdirectory CLAUDE.local.md as memory-local members read in place; emit neither projects nor locks one; cargo test green",
   "tests": [
     "a root CLAUDE.local.md is a memory local member read in place at check",

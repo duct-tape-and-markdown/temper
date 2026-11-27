@@ -1,10 +1,7 @@
 {
   "tag": "LOAD-MOMENT-IS-A-REGISTRATION-FACT",
   "gate": {
-    "kind": "blockedBy",
-    "tags": [
-      "UNRELEASED-STAMP-CARRIES-BUILTIN-DIGEST"
-    ]
+    "kind": "open"
   },
   "dependsOnForks": [],
   "kind": "work",
