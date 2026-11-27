@@ -40,5 +40,5 @@
     "a root memory past the per-file limit draws no size advisory"
   ],
   "laneTests": [],
-  "notes": "0115. CLAUDE.local.md and imported files wait on question non-member-files-the-runtime-cuts."
+  "notes": "0115. CLAUDE.local.md and unclaimed import targets (0116) ride SIZE-ADVISORY-AT-LOCAL-MEMORY-AND-UNCLAIMED-IMPORTS, which shares this seam."
 }

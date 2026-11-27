@@ -1,0 +1,27 @@
+{
+  "tag": "UNRELEASED-STAMP-CARRIES-BUILTIN-DIGEST",
+  "gate": { "kind": "open" },
+  "kind": "work",
+  "files": {
+    "new": [],
+    "edit": [
+      { "path": "build.rs", "description": "unreleased stamp gains the built-in-facts digest" },
+      { "path": "src/engine_stamp.rs", "description": "the stamp spelling with its digest" },
+      { "path": "Cargo.toml", "description": "build-dependency for the digest, if one is needed" },
+      { "path": "Cargo.lock", "description": "follows Cargo.toml" },
+      { "path": "tests/it/common/mod.rs", "description": "restamp helper for a bare-unreleased stamp" },
+      { "path": "tests/it/lock_declaration_rows.rs", "description": "a same-release unreleased lock with other built-in facts reads stale" },
+      { "path": "examples/base-harness/.temper/lock.toml", "description": "re-emitted under the new stamp" }
+    ],
+    "retire": []
+  },
+  "summary": "An unreleased build's engine stamp carries a digest of the embedded built-in facts, so a lock snapshotted before a built-in moved reads as another engine's",
+  "per": { "path": "specs/model/pipeline.md", "section": "The lock" },
+  "acceptance": "a lock stamped `<release>+unreleased` with a divergent built-in row reads that row as the embedded built-in with a re-emit finding; cargo test green",
+  "tests": [
+    "a lock stamped with the bare unreleased mark reads a divergent built-in row as stale"
+  ],
+  "pins": [],
+  "laneTests": [],
+  "notes": "0117 amendment; option 1 of LOAD-MOMENT's park note. Digest moves only when built-in facts do (src/builtin_lock.toml is the embedded snapshot), so committed locks stay byte-stable otherwise. Human half after ship: re-emit .temper/lock.toml (outside build's fence), as after c1a347cc."
+}

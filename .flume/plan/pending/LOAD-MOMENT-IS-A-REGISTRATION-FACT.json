@@ -1,8 +1,10 @@
 {
   "tag": "LOAD-MOMENT-IS-A-REGISTRATION-FACT",
   "gate": {
-    "kind": "parked",
-    "reason": "human lands the resolved diff with a .temper/lock.toml re-emit in one chore(harness)+build pair; a same-stamp stale lock is dogfood-only (releases stamp apart), so no src change answers it"
+    "kind": "blockedBy",
+    "tags": [
+      "UNRELEASED-STAMP-CARRIES-BUILTIN-DIGEST"
+    ]
   },
   "dependsOnForks": [],
   "kind": "work",
@@ -84,5 +86,5 @@
   ],
   "pins": [],
   "laneTests": [],
-  "notes": "0115 + 9194fcde probe (skill paths gate the listing, not the body). Seam change: kind.ts/declarations.ts, read.rs, builtin_lock.toml together; every channel match named per PROTOCOL rule 3. 0117's stale reading shipped; the residual wall is two unreleased engines sharing one stamp, which only this repo's lock meets. Prior diff: /tmp/load-moment-is-a-registration-fact.patch, if present."
+  "notes": "0115 + 9194fcde probe (skill paths gate the listing, not the body). Seam: kind.ts/declarations.ts, read.rs, builtin_lock.toml together; every channel match named per PROTOCOL rule 3. The same-stamp wall is answered by the 0117 amendment's digest stamp (park note option 1). Prior diff: /tmp/load-moment-is-a-registration-fact.patch, if present."
 }

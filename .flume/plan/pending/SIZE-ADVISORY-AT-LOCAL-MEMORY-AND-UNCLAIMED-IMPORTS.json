@@ -1,0 +1,25 @@
+{
+  "tag": "SIZE-ADVISORY-AT-LOCAL-MEMORY-AND-UNCLAIMED-IMPORTS",
+  "gate": { "kind": "blockedBy", "tags": ["SIZE-ADVISORY-AT-SUBDIRECTORY-MEMORY-AND-NESTED-RULES", "MEMORY-LOCAL-KIND"] },
+  "kind": "work",
+  "files": {
+    "new": [],
+    "edit": [
+      { "path": "sdk/src/builtins.ts", "description": "memory-local size clause; root-bound size clause over unclaimed import targets" },
+      { "path": "src/graph.rs", "description": "import targets reached from on-demand memory, sized" },
+      { "path": "src/builtin_lock.toml", "description": "re-derived" },
+      { "path": "tests/it/context_cost.rs", "description": "local memory and unclaimed import past the limit" }
+    ],
+    "retire": []
+  },
+  "summary": "A subdirectory `CLAUDE.local.md` and an unclaimed import target of on-demand memory past the per-file limit draw the size advisory, judged at the root",
+  "per": { "path": "specs/builtins.md", "section": "Default contracts" },
+  "acceptance": "an oversized apps/web/CLAUDE.local.md and an oversized unclaimed file imported by apps/web/CLAUDE.md each draw the size advisory; cargo test green",
+  "tests": [
+    "a subdirectory CLAUDE.local.md past the per-file limit draws the size advisory",
+    "an unclaimed import target of a subdirectory memory past the per-file limit draws the size advisory"
+  ],
+  "pins": [],
+  "laneTests": [],
+  "notes": "0116: an import target no kind claims is sized through the reference graph at the root. Residue of SIZE-ADVISORY-AT-SUBDIRECTORY-MEMORY-AND-NESTED-RULES, whose seam (builtins.ts size clauses, context_cost.rs) this shares."
+}
