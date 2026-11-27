@@ -70,7 +70,8 @@ and the test must fail there. Before filing a line, answer three questions:
    `pins[]` line. A fold has only pins.
 2. **Is it a cargo test?** The judge runs cargo alone. Behavior whose only
    test is an SDK one (`sdk/test/`) names no line, and the SDK gate holds
-   it.
+   it. The check is mechanical: if no path in the entry's `files` sits
+   under `src/` or `tests/`, its `tests[]` and `pins[]` are empty.
 3. **Does it live apart from the fix?** The test goes under `tests/it/`,
    never in the `src/` module it fixes: overlaying that module would carry
    the fix to the base, and the line would pass by construction. A unit

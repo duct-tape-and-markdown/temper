@@ -25,12 +25,10 @@
     "section": "The placements and their enforcement modes"
   },
   "acceptance": "A signal-killed engine (spawnSync status null) makes the launcher exit 2 with the signal on stderr; a status the engine returned still passes through",
-  "tests": [
-    "launcher exits 2 when the engine is killed by a signal"
-  ],
+  "tests": [],
   "pins": [],
   "laneTests": [],
-  "notes": "Fail-loud invariant: 'if it cannot check, it fails loud'; for a gate hook loud is exit 2. A signal-killed engine never finished checking, so `result.status ?? 1` fails open under a hook.",
+  "notes": "Fail-loud invariant: 'if it cannot check, it fails loud'; for a gate hook loud is exit 2. A signal-killed engine never finished checking, so `result.status ?? 1` fails open under a hook. Its test is an SDK test (sdk/test/launcher.test.ts), held by the SDK gate, so the entry names no tests[] line (PROTOCOL, Tests, question 2).",
   "observedFiles": [
     "sdk/bin/temper.js",
     "sdk/test/launcher.test.ts"
