@@ -58,21 +58,26 @@ uncommitted path; a local member is a check-side input, never a target.
 
 ## The lock
 
-The committed anchor: tool-written whole, never patched, and emit is its sole
-producer. The gate reads declarations from nowhere but the lock family — the
-committed lock, the read-time rows of local-locus members whose kinds it
-declares, and the locks the invocation joins; no verb compiles a committed
-declaration row anywhere else. Two row families: **provenance** — per member,
-source path plus content hash, the byte hash of each emitted artifact and
-of each registration entry emit renders into a manifest no member owns, and
-the hash of each module in the program's closure: the fingerprints drift
-compares — and **declaration rows** — the program's
-erased declarations and the rows emit derives from layout sources. The
-lock also names the engine version that wrote it, and a gate run by a
-different engine says so, at its clause's declared severity. In
-declaration rows, identity is a compiled label written once at emit; the
-engine treats labels as opaque and never resolves a collision — two rows
-wearing one label is a malformed lock, rejected at admissibility.
+The committed anchor: tool-written whole, never patched, and emit is its
+sole producer. The gate reads declarations from nowhere but the lock family
+— the committed lock, the read-time rows of local-locus members whose kinds
+it declares, and the locks the invocation joins; no verb compiles a
+committed declaration row anywhere else. Two row families: **provenance** —
+per member, source path plus content hash, the byte hash of each emitted
+artifact and of each registration entry emit renders into a manifest no
+member owns, and the hash of each module in the program's closure: the
+fingerprints drift compares — and **declaration rows** — the program's
+erased declarations and the rows emit derives from layout sources. The lock
+also names the engine version that wrote it, and a gate run by a different
+engine says so, at its clause's declared severity: the stamp tells an
+unreleased build from the release it follows, and an engine reads the stamp
+before any row, so a lock it cannot read is reported as written by another
+engine, never as a malformed row. A built-in's row snapshotted by another
+engine is stale, never a collision: the gate reads the embedded built-in and
+says the lock wants a re-emit. In declaration rows, identity is a compiled
+label written once at emit; the engine treats labels as opaque and never
+resolves a collision — two rows wearing one label is a malformed lock,
+rejected at admissibility.
 
 An upgraded engine owes a committed lock a robust read and a canonical
 rewrite: older spellings normalize at read time, the file itself is never
