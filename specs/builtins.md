@@ -311,9 +311,9 @@ an import target that no kind claims sized through the reference graph at
 the root; and a rule's globs against its skill's own `paths` where both
 trigger one area. `explain` states, per member, what loads it, when, and
 roughly what it costs. A load moment is a registration fact: a
-subdirectory's memory registers on a read beneath its directory, and a
-skill's own `paths` register its listing on a read of a match, so `explain`
-and the advisories read one fact.
+subdirectory's memory and its own rules register on a read beneath its
+directory, and a skill's own `paths` register its listing on a read of a
+match, so `explain` and the advisories read one fact.
 
 **A string the runtime matches against a target is judged only where a miss
 is decidable without the author's intent.** No default clause judges whether

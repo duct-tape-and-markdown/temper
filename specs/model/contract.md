@@ -87,12 +87,13 @@ A clause binds to a **selection** and evaluates at one of two grains:
   uniqueness, membership).
 
 A clause may carry a **guard**: one predicate from the scalar-decidable set
-over an addressable field, conditioning a body of ordinary clauses. The body
-binds where the guard holds and is silent where it does not, the guarded
-field's absence included (absence is `required`'s to indict). Guard and body
-share one address binding: each element the guard's path locates is judged
-independently, and a finding names the concrete address it fired at. Guards
-do not nest.
+over an addressable field, or over the member's load moment (at launch or on
+demand), which is a registration fact, conditioning a body of ordinary
+clauses. The body binds where the guard holds and is silent where it does
+not, the guarded field's absence included (absence is `required`'s to
+indict). Guard and body share one address binding: each element the guard's
+path locates is judged independently, and a finding names the concrete
+address it fired at. Guards do not nest.
 
 Some predicates need whole-graph context — a degree bound, a reachability
 test. That is cost, not a category: **reachability** and **drift** are
