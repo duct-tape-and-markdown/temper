@@ -24,9 +24,12 @@ placement needs a language runtime, which the launcher seemed to contradict.
 - **The hook names the platform engine's own path.**
   - Committed settings are shared across platforms, and the platform
     package differs on each one.
-  - pnpm links no bin for a transitive dependency (probed 2026-11-27: with
-    `make-dir@3.1.0` as the only dependency, pnpm 10.26.2 wrote an empty
-    `node_modules/.bin`, where npm 11.6.2 linked its dependency `semver`'s bin).
+  - Whether a transitive dependency's bin is linked depends on the
+    consumer's package manager and its settings, so the gate cannot name
+    one. Probed 2026-11-27 with `make-dir@3.1.0` as the only dependency:
+    pnpm 10.26.2 at its default isolated layout links none, while
+    `node-linker=hoisted`, `shamefully-hoist=true`, or npm 11.6.2 links
+    `semver`'s bin.
   - A missing path exits 127, which Claude Code treats as non-blocking.
   - The 30 ms saved is well under 1% of a turn dominated by model time.
 - **A shell wrapper that probes for the binary and falls back to the
