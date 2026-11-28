@@ -9,9 +9,6 @@
     "changelog": "node scripts/build-changelog.mjs",
     "typecheck:chain": "tsc -p tsconfig.json"
   },
-  "dependencies": {
-    "zod": "^4.0.0"
-  },
   "devDependencies": {
     "@dtmd/flume": "^0.24.0",
     "@types/node": "^22.0.0",
